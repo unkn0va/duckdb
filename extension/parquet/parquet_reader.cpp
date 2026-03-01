@@ -1,3 +1,4 @@
+// Big Boss: Start analyzing nested data optimization
 #include "parquet_reader.hpp"
 
 #include "duckdb/common/optional_ptr.hpp"
