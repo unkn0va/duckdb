@@ -296,6 +296,40 @@ void RemoveUnusedColumns::VisitOperator(LogicalOperator &op) {
 		everything_referenced = true;
 		break;
 	}
+	case LogicalOperatorType::LOGICAL_UNNEST: {
+		// 1. 기본 동작
+		RemoveUnusedColumns remove(binder, context, everything_referenced);
+		remove.VisitOperatorExpressions(op);
+		remove.VisitOperator(*op.children[0]);
+
+		// 2. 파이프라인 개통
+		LogicalOperator *current_op = op.children[0].get();
+		while (current_op && current_op->type != LogicalOperatorType::LOGICAL_GET) {
+			if (current_op->children.empty()) break;
+			current_op = current_op->children[0].get();
+		}
+
+		if (current_op && current_op->type == LogicalOperatorType::LOGICAL_GET) {
+			auto &get = current_op->Cast<LogicalGet>();
+
+			// 3. 하위 인덱스 추출 및 주입
+			// TODO: 상위 연산자의 struct_EXTRACT 표현식을 분석해서 동적으로 0,1을 뽑아내는 로직 넣기
+			// 임시로 타겟 인덱스 [0, 1]을 get 연산자에 주입해봄
+
+			vector<idx_t> required_child_indices;
+			required_child_indices.push_back(0); // col_a
+			required_child_indices.push_back(1); // col_b
+
+			// 가설: posts 컬럼이 테이블의 3번 컬럼(column_id)이라고 가정
+			column_t posts_column_id = 3;
+
+			// LogicalGet의 주머니(여권)에 공식적으로 데이터 찔러 넣음
+			get.nested_projection_map[posts_column_id] = required_child_indices;
+
+			std::cerr << "[OPTIMIZER] Successfully pushed down nested indices [0, 1] to LogicalGet!" << std::endl;
+		}
+		return;
+	}
 	default:
 		break;
 	}

@@ -12,6 +12,7 @@
 #include "duckdb/planner/logical_operator.hpp"
 #include "duckdb/planner/table_filter.hpp"
 #include "duckdb/common/extra_operator_info.hpp"
+#include <unordered_map>
 
 namespace duckdb {
 class DynamicTableFilterSet;
@@ -40,6 +41,10 @@ public:
 	virtual_column_map_t virtual_columns;
 	//! Columns that are used outside the scan
 	vector<idx_t> projection_ids;
+
+	//! Subindex mapping archive for nested data pushdowns
+	unordered_map<column_t, vector<idx_t>> nested_projection_map;
+
 	//! Filters pushed down for table scan
 	TableFilterSet table_filters;
 	//! The set of input parameters for the table function
