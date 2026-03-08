@@ -313,7 +313,7 @@ void RemoveUnusedColumns::VisitOperator(LogicalOperator &op) {
 			auto &get = current_op->Cast<LogicalGet>();
 
 			// 3. 하위 인덱스 추출 및 주입
-			// TODO: 상위 연산자의 struct_EXTRACT 표현식을 분석해서 동적으로 0,1을 뽑아내는 로직 넣기
+			// TODO: 상위 연산자의 struct_EXTRACT 표현식을 분석해서 동적으로 0,1을 뽑아내는 로직 넣기!
 			// 임시로 타겟 인덱스 [0, 1]을 get 연산자에 주입해봄
 
 			vector<idx_t> required_child_indices;
