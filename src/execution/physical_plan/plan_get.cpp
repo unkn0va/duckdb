@@ -12,6 +12,8 @@
 #include "duckdb/planner/expression/bound_conjunction_expression.hpp"
 #include "duckdb/execution/operator/filter/physical_filter.hpp"
 
+#include <iostream>
+
 namespace duckdb {
 
 unique_ptr<TableFilterSet> CreateTableFilterSet(TableFilterSet &table_filters, const vector<ColumnIndex> &column_ids) {
@@ -140,6 +142,7 @@ PhysicalOperator &PhysicalPlanGenerator::CreatePlan(LogicalGet &op) {
 	op.ResolveOperatorTypes();
 	// create the table scan node
 	if (!op.function.projection_pushdown) {
+		std::cerr << "\n>>> [DEBUG_PLAN] 경로 A 진입: 프로젝션 푸시다운 미지원!" << std::endl;
 		// function does not support projection pushdown
 		auto &table_scan = Make<PhysicalTableScan>(
 		    op.returned_types, op.function, std::move(op.bind_data), op.returned_types, column_ids, vector<column_t>(),
@@ -193,6 +196,21 @@ PhysicalOperator &PhysicalPlanGenerator::CreatePlan(LogicalGet &op) {
 	                            std::move(op.extra_info), std::move(op.parameters), std::move(op.virtual_columns));
 	auto &cast_table_scan = table_scan.Cast<PhysicalTableScan>();
 	cast_table_scan.dynamic_filters = op.dynamic_filters;
+
+	std::cerr <<  "\n>>> [DEBUG_PLAN] 경로 B 진입: 프로젝션 푸시다운 지원!" << std::endl;
+	if (!op.nested_projection_map.empty()) {
+		std::cerr << ">>> [DEBUG_PLAN] 화물(Map) 도착 확인! (경로 B)" << std::endl;
+		for (auto &kv : op.nested_projection_map) {
+			std::cerr << "	-Target Column ID: " << kv.first << " | 하위 인덱스 개수: " << kv.second.size() << std::endl;
+		}
+	}
+	else {
+		std::cerr << ">>> [DEBUG_PLAN] Omg... 화물이 비어있어! (상류에서 안 넘어옴)" << std::endl;
+	}
+
+	// 물리 연산자로 화물 복사하기
+	cast_table_scan.nested_projection_map = op.nested_projection_map;
+
 	if (filter) {
 		filter->children.push_back(table_scan);
 		return *filter;

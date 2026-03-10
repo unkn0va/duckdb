@@ -18,6 +18,8 @@
 #include "duckdb/common/column_index.hpp"
 #include "duckdb/execution/physical_table_scan_enum.hpp"
 
+#include <unordered_map>
+
 namespace duckdb {
 
 //! Represents a scan of a base table
@@ -43,6 +45,10 @@ public:
 	vector<ColumnIndex> column_ids;
 	//! The projected-out column ids
 	vector<idx_t> projection_ids;
+	
+	//! LogicalGet에서 전달받을 중첩 하위 인덱스 주머니
+	unordered_map<column_t, vector<idx_t>> nested_projection_map;
+
 	//! The names of the columns
 	vector<string> names;
 	//! The table filters
