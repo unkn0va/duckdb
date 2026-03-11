@@ -13,6 +13,8 @@
 #include "duckdb/common/multi_file/base_file_reader.hpp"
 #include "duckdb/common/multi_file/multi_file_list.hpp"
 
+#include <unordered_map>
+
 namespace duckdb {
 struct MultiFileReaderInterface;
 
@@ -77,6 +79,9 @@ struct MultiFileBindData : public TableFunctionData {
 	shared_ptr<BaseFileReader> initial_reader;
 	// The union readers are created (when the union_by_name option is on) during binding
 	vector<shared_ptr<BaseUnionData>> union_readers;
+
+	// 파케이 리더에게 전달될 공용 VIP 화물칸!
+	unordered_map<column_t, vector<idx_t>> nested_projection_map;
 
 	void Initialize(shared_ptr<BaseFileReader> reader) {
 		initial_reader = std::move(reader);

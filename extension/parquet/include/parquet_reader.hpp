@@ -28,6 +28,8 @@
 
 #include <exception>
 
+#include <unordered_map>
+
 namespace duckdb_parquet {
 namespace format {
 class FileMetaData;
@@ -143,6 +145,9 @@ struct ParquetUnionData : public BaseUnionData {
 
 class ParquetReader : public BaseFileReader {
 public:
+	// 파케이 리더 전용 VIP 호주머니!
+	unordered_map<column_t, vector<idx_t>> nested_projection_map;
+	
 	ParquetReader(ClientContext &context, OpenFileInfo file, ParquetOptions parquet_options,
 	              shared_ptr<ParquetFileMetadataCache> metadata = nullptr);
 	~ParquetReader() override;

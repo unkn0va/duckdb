@@ -28,6 +28,8 @@
 #include "duckdb/common/multi_file/multi_file_reader.hpp"
 #include "duckdb/common/types/geometry_crs.hpp"
 
+#include <iostream>
+
 namespace duckdb {
 
 using duckdb_parquet::ColumnChunk;
@@ -407,6 +409,12 @@ ParquetColumnSchema ParquetReader::ParseColumnSchema(const SchemaElement &s_ele,
 unique_ptr<ColumnReader> ParquetReader::CreateReaderRecursive(ClientContext &context,
                                                               const vector<ColumnIndex> &indexes,
                                                               const ParquetColumnSchema &schema) {
+	// [확인용 로그 1] 함수 진입하자마자 주머니 확인
+	//if (!nested_projection_map.empty()) {
+	//	std::cerr << ">>> [DEBUG_ENTRY] 공장장 함수 진입! 주머니에 든 화물 개수: "
+	//	<< nested_projection_map.size() << " | 현재 조사 중인 컬럼: " << schema.name << "\n";
+	//}
+
 	switch (schema.schema_type) {
 	case ParquetColumnSchemaType::FILE_ROW_NUMBER:
 		return make_uniq<RowNumberColumnReader>(*this, schema);
@@ -420,7 +428,35 @@ unique_ptr<ColumnReader> ParquetReader::CreateReaderRecursive(ClientContext &con
 		}
 		vector<unique_ptr<ColumnReader>> children;
 		children.resize(schema.children.size());
-		if (indexes.empty()) {
+
+		bool apply_custom_pruning = false;
+		vector<idx_t> custom_child_indices;
+
+		for (auto& kv : nested_projection_map) {
+			column_t target_col_id = kv.first;
+			if (target_col_id < root_schema->children.size()) {
+				// 천재적인 꼼수: 메모리 주소 비교로 타겟 스키마인지 100% 확실하게 확인!
+				if (&schema == &root_schema->children[target_col_id]) {
+					apply_custom_pruning = true;
+					custom_child_indices = kv.second;
+					std::cerr << "\n>>> [DEBUG_PRUNING] 파케이 공장장: Target Column ID "
+					<< target_col_id << "발견! 가지치기(Pruning) 실행!" << "\n";
+					break;
+				}
+			}
+		}
+
+		if (apply_custom_pruning) {
+			for (idx_t child_index : custom_child_indices) {
+				if (child_index < schema.children.size()) {
+					std::cerr << "\t- 살려둔 자식 스캐너 인덱스: " << child_index << "\n";
+					children[child_index] = CreateReaderRecursive(context, indexes, schema.children[child_index]);
+				}
+			}
+		}
+
+		// 여기부터 원래 코드 (if -> else if로 수정한거임)
+		else if (indexes.empty()) {
 			for (idx_t child_index = 0; child_index < schema.children.size(); child_index++) {
 				children[child_index] = CreateReaderRecursive(context, indexes, schema.children[child_index]);
 			}
