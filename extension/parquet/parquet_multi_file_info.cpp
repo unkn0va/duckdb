@@ -547,11 +547,11 @@ shared_ptr<BaseUnionData> ParquetReader::GetUnionData(idx_t file_idx) {
 unique_ptr<GlobalTableFunctionState> ParquetMultiFileInfo::InitializeGlobalState(ClientContext &, MultiFileBindData &bind_data,
                                                                                  MultiFileGlobalState &global_state) {
 	// 도착지 로그
-	std::cerr << "\n>>> [DEBUG_DELIVERY] 2. 파케이 앞마당(InitializeGlobalState)에 가방 도착 완료!" << "\n";
-	for (auto& kv : bind_data.nested_projection_map) {
-		std::cerr << "\t- 무사히 배달된 Target Column ID: " << kv.first
-		<< " | 하위 인덱스 개수: " << kv.second.size() << "\n";
-	}
+	//std::cerr << "\n>>> [DEBUG_DELIVERY] 2. 파케이 앞마당(InitializeGlobalState)에 가방 도착 완료!" << "\n";
+	//for (auto& kv : bind_data.nested_projection_map) {
+		//std::cerr << "\t- 무사히 배달된 Target Column ID: " << kv.first
+		//<< " | 하위 인덱스 개수: " << kv.second.size() << "\n";
+	//}
 
 	// 이미 대기 중인 리더(initial_reader 등)에게 화물 강제 주입!
 	for (auto &reader_data : global_state.readers) {
@@ -560,7 +560,7 @@ unique_ptr<GlobalTableFunctionState> ParquetMultiFileInfo::InitializeGlobalState
 			auto &parquet_reader = reader_data->reader->Cast<ParquetReader>();
 			parquet_reader.nested_projection_map = bind_data.nested_projection_map;
 
-			std::cerr <<">>> [DEBUG_SYNC] 기존 대기 중인 리더에게 화물 주입 완료!" << "\n";
+			//std::cerr <<">>> [DEBUG_SYNC] 기존 대기 중인 리더에게 화물 주입 완료!" << "\n";
 		}
 	}
 	return make_uniq<ParquetReadGlobalState>(global_state.op);

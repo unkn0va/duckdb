@@ -481,11 +481,11 @@ public:
 		bind_data.nested_projection_map = input.nested_projection_map;
 
 		// 발송지 로그
-		std::cerr << "\n>>> [DEBUG_DELIVERY] 1. 톨케이트(MultiFIleInitGlobal)에서 가방으로 화물 복사 완료!" << "\n";
-		for (auto& kv : bind_data.nested_projection_map) {
-			std::cerr <<"\t- 가방에 담긴 Target Column ID: " << kv.first
-			<< " | 하위 인덱스 개수: " << kv.second.size() << "\n";
-		}
+		//std::cerr << "\n>>> [DEBUG_DELIVERY] 1. 톨케이트(MultiFIleInitGlobal)에서 가방으로 화물 복사 완료!" << "\n";
+		//for (auto& kv : bind_data.nested_projection_map) {
+			//std::cerr <<"\t- 가방에 담긴 Target Column ID: " << kv.first
+			//<< " | 하위 인덱스 개수: " << kv.second.size() << "\n";
+		//}
 
 		unique_ptr<MultiFileGlobalState> result;
 

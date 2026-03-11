@@ -47,15 +47,15 @@ public:
 			// 글로벌 스캔 초기화 시 화물 상차
 			input.nested_projection_map = op.nested_projection_map;
 
-			std::cerr << "\n>>> [DEBUG_SCAN] GlobalSourceState 상차 완료! 파케이로 던지기 직전!" << std::endl;
-			if (!input.nested_projection_map.empty()) {
-				for (auto &kv : input.nested_projection_map) {
-					std::cerr << "	- [GLOBAL] Target Column ID: " << kv.first << " | 하위 인덱스 개수: " << kv.second.size() << std::endl;
-				}
-			}
-			else {
-				std::cerr << "	- [GLOBAL] Omg... 화물이 비어있어!" << std::endl;
-			}
+			//std::cerr << "\n>>> [DEBUG_SCAN] GlobalSourceState 상차 완료! 파케이로 던지기 직전!" << std::endl;
+			//if (!input.nested_projection_map.empty()) {
+				//for (auto &kv : input.nested_projection_map) {
+					//std::cerr << "	- [GLOBAL] Target Column ID: " << kv.first << " | 하위 인덱스 개수: " << kv.second.size() << std::endl;
+				//}
+			//}
+			//else {
+				//std::cerr << "	- [GLOBAL] Omg... 화물이 비어있어!" << std::endl;
+			//}
 
 			global_state = op.function.init_global(context, input);
 			if (global_state) {
@@ -105,15 +105,15 @@ public:
 			// 로컬 스캔 초기화 시 화물 상차
 			input.nested_projection_map = op.nested_projection_map;
 
-			std::cerr << "\n>>> [DEBUG_SCAN] LocalSourceState 상차 완료! 파케이로 던지기 직전!" << std::endl;
-			if (!input.nested_projection_map.empty()) {
-				for (auto &kv : input.nested_projection_map) {
-					std::cerr << "	- [LOCAL] Target Column ID: " << kv.first << " | 하위 인덱스 개수: " << kv.second.size() << std::endl;
-				}
-			}
-			else {
-				std::cerr << "	- [LOCAL] Omg... 화물이 비어있어!" << std::endl;
-			}
+			//std::cerr << "\n>>> [DEBUG_SCAN] LocalSourceState 상차 완료! 파케이로 던지기 직전!" << std::endl;
+			//if (!input.nested_projection_map.empty()) {
+				//for (auto &kv : input.nested_projection_map) {
+					//std::cerr << "	- [LOCAL] Target Column ID: " << kv.first << " | 하위 인덱스 개수: " << kv.second.size() << std::endl;
+				//}
+			//}
+			//else {
+				//std::cerr << "	- [LOCAL] Omg... 화물이 비어있어!" << std::endl;
+			//}
 
 			local_state = op.function.init_local(context, input, gstate.global_state.get());
 		}

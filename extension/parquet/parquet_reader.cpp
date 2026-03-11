@@ -418,7 +418,7 @@ unique_ptr<ColumnReader> ParquetReader::CreateReaderRecursive(ClientContext &con
 			if (target_col_id < root_schema->children.size() &&
 					&schema == &root_schema->children[target_col_id]) {
 				current_pruning = &sub_indices;
-				std::cerr << ">>> [ENTRY] 타겟 컬럼 입구 발견: " << schema.name << "\n";
+				//std::cerr << ">>> [ENTRY] 타겟 컬럼 입구 발견: " << schema.name << "\n";
 				break;
 			}
 		}
@@ -443,7 +443,7 @@ unique_ptr<ColumnReader> ParquetReader::CreateReaderRecursive(ClientContext &con
 
 			if (is_wrapper) {
 				// LIST/MAP은 껍질! 화물을 그대로 자식(0번)에게 대물림하며 파고든다.
-                std::cerr << ">>> [WRAPPER] " << schema.name << " 통과 중 (바통 터치)\n";
+                //std::cerr << ">>> [WRAPPER] " << schema.name << " 통과 중 (바통 터치)\n";
                 children[0] = CreateReaderRecursive(context, indexes, schema.children[0], current_pruning);
 			}
 			else if (schema.type.id() == LogicalTypeId::STRUCT) {
@@ -453,14 +453,14 @@ unique_ptr<ColumnReader> ParquetReader::CreateReaderRecursive(ClientContext &con
 					if (child_index < schema.children.size()) {
 						is_survived[child_index] = true;
 						children[child_index] = CreateReaderRecursive(context, indexes, schema.children[child_index]);
-						std::cerr << "\t-[KEEP] 인덱스: " << child_index
-						<< " | 이름: " << schema.children[child_index].name << "\n";
+						//std::cerr << "\t-[KEEP] 인덱스: " << child_index
+						//<< " | 이름: " << schema.children[child_index].name << "\n";
 					}
 				}
 
 				for (idx_t i = 0; i < schema.children.size(); i++) {
 					if (!is_survived[i]) {
-						std::cerr << "\t[DISCARD] 인덱스: " << i << " | 이름: " << schema.children[i].name << " (I/O 스킵됨)\n";
+						//std::cerr << "\t[DISCARD] 인덱스: " << i << " | 이름: " << schema.children[i].name << " (I/O 스킵됨)\n";
 					}
 				}
 				std::cerr << "------------------------------------------------------\n";
