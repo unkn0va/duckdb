@@ -408,12 +408,21 @@ ParquetColumnSchema ParquetReader::ParseColumnSchema(const SchemaElement &s_ele,
 
 unique_ptr<ColumnReader> ParquetReader::CreateReaderRecursive(ClientContext &context,
                                                               const vector<ColumnIndex> &indexes,
-                                                              const ParquetColumnSchema &schema) {
-	// [확인용 로그 1] 함수 진입하자마자 주머니 확인
-	//if (!nested_projection_map.empty()) {
-	//	std::cerr << ">>> [DEBUG_ENTRY] 공장장 함수 진입! 주머니에 든 화물 개수: "
-	//	<< nested_projection_map.size() << " | 현재 조사 중인 컬럼: " << schema.name << "\n";
-	//}
+                                                              const ParquetColumnSchema &schema,
+															  const vector<idx_t> *active_pruning) {
+	// 화물 확인: 부모가 넘겨준 바통이 있는지, 아니면 내가 직접 입구인지 확인
+	const vector<idx_t> *current_pruning = active_pruning;
+
+	if (!current_pruning) {
+		for (auto const& [target_col_id, sub_indices] : nested_projection_map) {
+			if (target_col_id < root_schema->children.size() &&
+					&schema == &root_schema->children[target_col_id]) {
+				current_pruning = &sub_indices;
+				std::cerr << ">>> [ENTRY] 타겟 컬럼 입구 발견: " << schema.name << "\n";
+				break;
+			}
+		}
+	}
 
 	switch (schema.schema_type) {
 	case ParquetColumnSchemaType::FILE_ROW_NUMBER:
@@ -429,29 +438,35 @@ unique_ptr<ColumnReader> ParquetReader::CreateReaderRecursive(ClientContext &con
 		vector<unique_ptr<ColumnReader>> children;
 		children.resize(schema.children.size());
 
-		bool apply_custom_pruning = false;
-		vector<idx_t> custom_child_indices;
+		if (current_pruning) {
+			bool is_wrapper = (schema.type.id() == LogicalTypeId::LIST || schema.type.id() == LogicalTypeId::MAP);
 
-		for (auto& kv : nested_projection_map) {
-			column_t target_col_id = kv.first;
-			if (target_col_id < root_schema->children.size()) {
-				// 천재적인 꼼수: 메모리 주소 비교로 타겟 스키마인지 100% 확실하게 확인!
-				if (&schema == &root_schema->children[target_col_id]) {
-					apply_custom_pruning = true;
-					custom_child_indices = kv.second;
-					std::cerr << "\n>>> [DEBUG_PRUNING] 파케이 공장장: Target Column ID "
-					<< target_col_id << "발견! 가지치기(Pruning) 실행!" << "\n";
-					break;
-				}
+			if (is_wrapper) {
+				// LIST/MAP은 껍질! 화물을 그대로 자식(0번)에게 대물림하며 파고든다.
+                std::cerr << ">>> [WRAPPER] " << schema.name << " 통과 중 (바통 터치)\n";
+                children[0] = CreateReaderRecursive(context, indexes, schema.children[0], current_pruning);
 			}
-		}
-
-		if (apply_custom_pruning) {
-			for (idx_t child_index : custom_child_indices) {
-				if (child_index < schema.children.size()) {
-					std::cerr << "\t- 살려둔 자식 스캐너 인덱스: " << child_index << "\n";
-					children[child_index] = CreateReaderRecursive(context, indexes, schema.children[child_index]);
+			else if (schema.type.id() == LogicalTypeId::STRUCT) {
+				std::cerr << ">>> [PRUNING_STRUCT] Target: " << schema.name << " (총 자식: " << schema.children.size() << ")\n";
+				vector<bool> is_survived(schema.children.size(), false);
+				for (idx_t child_index : *current_pruning) {
+					if (child_index < schema.children.size()) {
+						is_survived[child_index] = true;
+						children[child_index] = CreateReaderRecursive(context, indexes, schema.children[child_index]);
+						std::cerr << "\t-[KEEP] 인덱스: " << child_index
+						<< " | 이름: " << schema.children[child_index].name << "\n";
+					}
 				}
+
+				for (idx_t i = 0; i < schema.children.size(); i++) {
+					if (!is_survived[i]) {
+						std::cerr << "\t[DISCARD] 인덱스: " << i << " | 이름: " << schema.children[i].name << " (I/O 스킵됨)\n";
+					}
+				}
+				std::cerr << "------------------------------------------------------\n";
+			}
+			else {
+				return ColumnReader::CreateReader(*this, schema);
 			}
 		}
 
