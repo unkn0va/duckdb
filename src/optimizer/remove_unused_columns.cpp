@@ -27,6 +27,9 @@
 #include "duckdb/function/scalar/nested_functions.hpp"
 #include <utility>
 
+#include "duckdb/planner/operator/logical_unnest.hpp"
+#include "duckdb/planner/expression/bound_unnest_expression.hpp"
+
 namespace duckdb {
 
 idx_t BaseColumnPruner::ReplaceBinding(ColumnBinding current_binding, ColumnBinding new_binding) {
@@ -297,13 +300,9 @@ void RemoveUnusedColumns::VisitOperator(LogicalOperator &op) {
 		break;
 	}
 	case LogicalOperatorType::LOGICAL_UNNEST: {
+		auto &unnest = op.Cast<LogicalUnnest>();
 
-		/* 하드코딩 구현 부분
-		// 1. 기본 동작
-		RemoveUnusedColumns remove(binder, context, everything_referenced);
-		remove.VisitOperatorExpressions(op);
-		remove.VisitOperator(*op.children[0]);
-
+		// 1. 파이프라인 밑단의 LogicalGet 찾기 (순서를 맨 위로 올림: 물리적 ID 번역을 위해)
 		// 2. 파이프라인 개통
 		LogicalOperator *current_op = op.children[0].get();
 		while (current_op && current_op->type != LogicalOperatorType::LOGICAL_GET) {
@@ -311,13 +310,74 @@ void RemoveUnusedColumns::VisitOperator(LogicalOperator &op) {
 			current_op = current_op->children[0].get();
 		}
 
+		// 1. 동적 요구사항 수집 바구니 (원래 테이블의 column_index -> 필요한 하위 필드 인덱스 목록)
+		unordered_map<idx_t, vector<idx_t>> unnest_requirements;
+
+		// 하위 노드 탐색으로 인해 컬럼이 잘려나가기 '전'에 원본 ID 매핑표를 미리 가져옴
+		if (current_op && current_op->type == LogicalOperatorType::LOGICAL_GET) {
+			auto &get = current_op->Cast<LogicalGet>();
+			auto old_column_ids = get.GetColumnIds();
+
+			// UNNEST 연산자가 출력하는 표현식들을 순회
+			for (idx_t i = 0; i < unnest.expressions.size(); i++) {
+				auto &expr = unnest.expressions[i];
+
+				// 상위 노드(Projection)가 이 UNNEST 출력물의 특정 하위 필드를 사용하는지 장부(column_references)에서 확인
+				ColumnBinding unnest_output_binding(unnest.unnest_index, i);
+				auto entry = this->column_references.find(unnest_output_binding);
+
+				if (entry != this->column_references.end() && !entry->second.child_columns.empty()) {
+					// UNNEST 대상이 되는 원본 표현식 (예: posts 칼럼)
+					if (expr->GetExpressionClass() == ExpressionClass::BOUND_UNNEST) {
+						auto &bound_unnest = expr->Cast<BoundUnnestExpression>();
+
+						// 그 원본이 단순 컬럼 참조(BoundColumnRef)인지 학인
+						if (bound_unnest.child->GetExpressionClass() == ExpressionClass::BOUND_COLUMN_REF) {
+							auto &col_ref = bound_unnest.child->Cast<BoundColumnRefExpression>();
+							idx_t logical_idx = col_ref.binding.column_index; // 예: posts 컬럼의 ID (3)
+
+							idx_t physical_column_id = old_column_ids[logical_idx].GetPrimaryIndex();
+
+							// 상위 노드가 요구하는 하위 인덱스들을 원본 컬럼 ID에 매핑하여 저장
+							for (auto &child_path : entry->second.child_columns) {
+								unnest_requirements[physical_column_id].push_back(child_path.GetPrimaryIndex());
+							}
+						}
+					}
+				}
+			}
+		}
+
+		// 1. 기본 동작
+		RemoveUnusedColumns remove(binder, context, everything_referenced);
+		remove.VisitOperatorExpressions(op);
+		remove.VisitOperator(*op.children[0]);
+
 		if (current_op && current_op->type == LogicalOperatorType::LOGICAL_GET) {
 			auto &get = current_op->Cast<LogicalGet>();
 
 			// 3. 하위 인덱스 추출 및 주입
 			// TODO: 상위 연산자의 struct_EXTRACT 표현식을 분석해서 동적으로 0,1을 뽑아내는 로직 넣기!
-			// 임시로 타겟 인덱스 [0, 1]을 get 연산자에 주입해봄
+			
+			for (auto &req : unnest_requirements) {
+				idx_t base_column_id = req.first;
+				vector<idx_t> indices = req.second;
 
+				// 중복 제거 및 정렬
+				std::sort(indices.begin(), indices.end());
+				indices.erase(std::unique(indices.begin(), indices.end()), indices.end());
+
+				get.nested_projection_map[base_column_id] = indices;
+
+				// [동적 디버깅 로그]
+				std::cerr << "[OPTIMIZER] 동적 UNNEST 푸시다운 성공! Target Column: " << base_column_id << " | Indices: ";
+				for (auto idx : indices) std::cerr << idx << " ";
+				std::cerr << std::endl;
+			}
+			
+			
+			/*
+			// 임시로 타겟 인덱스 [0, 1]을 get 연산자에 주입해봄
 			vector<idx_t> required_child_indices;
 			required_child_indices.push_back(0); // col_a
 			required_child_indices.push_back(1); // col_b
@@ -329,8 +389,8 @@ void RemoveUnusedColumns::VisitOperator(LogicalOperator &op) {
 			get.nested_projection_map[posts_column_id] = required_child_indices;
 
 			std::cerr << "[OPTIMIZER] Successfully pushed down nested indices [0, 1] to LogicalGet!" << std::endl;
+			*/
 		}
-		*/
 		return;
 	}
 	default:
