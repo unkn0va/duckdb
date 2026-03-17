@@ -297,6 +297,8 @@ void RemoveUnusedColumns::VisitOperator(LogicalOperator &op) {
 		break;
 	}
 	case LogicalOperatorType::LOGICAL_UNNEST: {
+
+		/* 하드코딩 구현 부분
 		// 1. 기본 동작
 		RemoveUnusedColumns remove(binder, context, everything_referenced);
 		remove.VisitOperatorExpressions(op);
@@ -328,6 +330,7 @@ void RemoveUnusedColumns::VisitOperator(LogicalOperator &op) {
 
 			std::cerr << "[OPTIMIZER] Successfully pushed down nested indices [0, 1] to LogicalGet!" << std::endl;
 		}
+		*/
 		return;
 	}
 	default:

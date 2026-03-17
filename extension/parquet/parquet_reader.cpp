@@ -453,8 +453,8 @@ unique_ptr<ColumnReader> ParquetReader::CreateReaderRecursive(ClientContext &con
 					if (child_index < schema.children.size()) {
 						is_survived[child_index] = true;
 						children[child_index] = CreateReaderRecursive(context, indexes, schema.children[child_index]);
-						//std::cerr << "\t-[KEEP] 인덱스: " << child_index
-						//<< " | 이름: " << schema.children[child_index].name << "\n";
+						std::cerr << "\t-[KEEP] 인덱스: " << child_index
+						<< " | 이름: " << schema.children[child_index].name << "\n";
 					}
 				}
 
