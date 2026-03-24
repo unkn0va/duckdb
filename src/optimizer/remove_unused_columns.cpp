@@ -370,9 +370,9 @@ void RemoveUnusedColumns::VisitOperator(LogicalOperator &op) {
 				get.nested_projection_map[base_column_id] = indices;
 
 				// [동적 디버깅 로그]
-				std::cerr << "[OPTIMIZER] 동적 UNNEST 푸시다운 성공! Target Column: " << base_column_id << " | Indices: ";
-				for (auto idx : indices) std::cerr << idx << " ";
-				std::cerr << std::endl;
+				//std::cerr << "[OPTIMIZER] 동적 UNNEST 푸시다운 성공! Target Column: " << base_column_id << " | Indices: ";
+				//for (auto idx : indices) std::cerr << idx << " ";
+				//std::cerr << std::endl;
 			}
 			
 			

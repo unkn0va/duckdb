@@ -197,7 +197,7 @@ PhysicalOperator &PhysicalPlanGenerator::CreatePlan(LogicalGet &op) {
 	auto &cast_table_scan = table_scan.Cast<PhysicalTableScan>();
 	cast_table_scan.dynamic_filters = op.dynamic_filters;
 
-	std::cerr <<  "\n>>> [DEBUG_PLAN] 경로 B 진입: 프로젝션 푸시다운 지원!" << std::endl;
+	/*std::cerr <<  "\n>>> [DEBUG_PLAN] 경로 B 진입: 프로젝션 푸시다운 지원!" << std::endl;
 	if (!op.nested_projection_map.empty()) {
 		std::cerr << ">>> [DEBUG_PLAN] 화물(Map) 도착 확인! (경로 B)" << std::endl;
 		for (auto &kv : op.nested_projection_map) {
@@ -206,7 +206,7 @@ PhysicalOperator &PhysicalPlanGenerator::CreatePlan(LogicalGet &op) {
 	}
 	else {
 		std::cerr << ">>> [DEBUG_PLAN] Omg... 화물이 비어있어! (상류에서 안 넘어옴)" << std::endl;
-	}
+	}*/
 
 	// 물리 연산자로 화물 복사하기
 	cast_table_scan.nested_projection_map = op.nested_projection_map;

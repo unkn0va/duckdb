@@ -447,14 +447,14 @@ unique_ptr<ColumnReader> ParquetReader::CreateReaderRecursive(ClientContext &con
                 children[0] = CreateReaderRecursive(context, indexes, schema.children[0], current_pruning);
 			}
 			else if (schema.type.id() == LogicalTypeId::STRUCT) {
-				std::cerr << ">>> [PRUNING_STRUCT] Target: " << schema.name << " (총 자식: " << schema.children.size() << ")\n";
+				//std::cerr << ">>> [PRUNING_STRUCT] Target: " << schema.name << " (총 자식: " << schema.children.size() << ")\n";
 				vector<bool> is_survived(schema.children.size(), false);
 				for (idx_t child_index : *current_pruning) {
 					if (child_index < schema.children.size()) {
 						is_survived[child_index] = true;
 						children[child_index] = CreateReaderRecursive(context, indexes, schema.children[child_index]);
-						std::cerr << "\t-[KEEP] 인덱스: " << child_index
-						<< " | 이름: " << schema.children[child_index].name << "\n";
+						//std::cerr << "\t-[KEEP] 인덱스: " << child_index
+						//<< " | 이름: " << schema.children[child_index].name << "\n";
 					}
 				}
 
