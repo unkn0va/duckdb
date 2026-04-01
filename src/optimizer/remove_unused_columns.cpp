@@ -348,10 +348,9 @@ void RemoveUnusedColumns::VisitOperator(LogicalOperator &op) {
 			}
 		}
 
-		// 1. 기본 동작
-		RemoveUnusedColumns remove(binder, context, everything_referenced);
-		remove.VisitOperatorExpressions(op);
-		remove.VisitOperator(*op.children[0]);
+		// 기본 동작: 현재 인스턴스(this)를 사용하여 부모의 column_references를 보존
+		VisitOperatorExpressions(op);
+		VisitOperator(*op.children[0]);
 
 		if (current_op && current_op->type == LogicalOperatorType::LOGICAL_GET) {
 			auto &get = current_op->Cast<LogicalGet>();
