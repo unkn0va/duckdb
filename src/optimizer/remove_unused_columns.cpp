@@ -302,19 +302,28 @@ void RemoveUnusedColumns::VisitOperator(LogicalOperator &op) {
 	case LogicalOperatorType::LOGICAL_UNNEST: {
 		auto &unnest = op.Cast<LogicalUnnest>();
 
-		// 1. 파이프라인 밑단의 LogicalGet 찾기 (순서를 맨 위로 올림: 물리적 ID 번역을 위해)
-		// 2. 파이프라인 개통
+		// 파이프라인 밑단의 LogicalGet 찾기
+		// 중요: 도중에 다른 UNNEST를 만나면 중단 (2단계 이상 unnest에서 잘못된 LogicalGet에 접근하는 것을 방지)
 		LogicalOperator *current_op = op.children[0].get();
-		while (current_op && current_op->type != LogicalOperatorType::LOGICAL_GET) {
+		bool found_get = false;
+		while (current_op) {
+			if (current_op->type == LogicalOperatorType::LOGICAL_GET) {
+				found_get = true;
+				break;
+			}
+			// 다른 UNNEST를 만나면 탐색 중단 — 이 UNNEST는 직접 LogicalGet에 연결되지 않음
+			if (current_op->type == LogicalOperatorType::LOGICAL_UNNEST) {
+				break;
+			}
 			if (current_op->children.empty()) break;
 			current_op = current_op->children[0].get();
 		}
 
-		// 1. 동적 요구사항 수집 바구니 (원래 테이블의 column_index -> 필요한 하위 필드 인덱스 목록)
+		// 동적 요구사항 수집 바구니 (원래 테이블의 column_index -> 필요한 하위 필드 인덱스 목록)
 		unordered_map<idx_t, vector<idx_t>> unnest_requirements;
 
-		// 하위 노드 탐색으로 인해 컬럼이 잘려나가기 '전'에 원본 ID 매핑표를 미리 가져옴
-		if (current_op && current_op->type == LogicalOperatorType::LOGICAL_GET) {
+		// LogicalGet에 직접 연결된 UNNEST만 프루닝 적용
+		if (found_get && current_op && current_op->type == LogicalOperatorType::LOGICAL_GET) {
 			auto &get = current_op->Cast<LogicalGet>();
 			auto old_column_ids = get.GetColumnIds();
 
@@ -331,16 +340,18 @@ void RemoveUnusedColumns::VisitOperator(LogicalOperator &op) {
 					if (expr->GetExpressionClass() == ExpressionClass::BOUND_UNNEST) {
 						auto &bound_unnest = expr->Cast<BoundUnnestExpression>();
 
-						// 그 원본이 단순 컬럼 참조(BoundColumnRef)인지 학인
+						// 그 원본이 단순 컬럼 참조(BoundColumnRef)인지 확인
 						if (bound_unnest.child->GetExpressionClass() == ExpressionClass::BOUND_COLUMN_REF) {
 							auto &col_ref = bound_unnest.child->Cast<BoundColumnRefExpression>();
-							idx_t logical_idx = col_ref.binding.column_index; // 예: posts 컬럼의 ID (3)
+							idx_t logical_idx = col_ref.binding.column_index;
 
-							idx_t physical_column_id = old_column_ids[logical_idx].GetPrimaryIndex();
+							if (logical_idx < old_column_ids.size()) {
+								idx_t physical_column_id = old_column_ids[logical_idx].GetPrimaryIndex();
 
-							// 상위 노드가 요구하는 하위 인덱스들을 원본 컬럼 ID에 매핑하여 저장
-							for (auto &child_path : entry->second.child_columns) {
-								unnest_requirements[physical_column_id].push_back(child_path.GetPrimaryIndex());
+								// 상위 노드가 요구하는 하위 인덱스들을 원본 컬럼 ID에 매핑하여 저장
+								for (auto &child_path : entry->second.child_columns) {
+									unnest_requirements[physical_column_id].push_back(child_path.GetPrimaryIndex());
+								}
 							}
 						}
 					}
@@ -352,12 +363,9 @@ void RemoveUnusedColumns::VisitOperator(LogicalOperator &op) {
 		VisitOperatorExpressions(op);
 		VisitOperator(*op.children[0]);
 
-		if (current_op && current_op->type == LogicalOperatorType::LOGICAL_GET) {
+		if (found_get && current_op && current_op->type == LogicalOperatorType::LOGICAL_GET) {
 			auto &get = current_op->Cast<LogicalGet>();
 
-			// 3. 하위 인덱스 추출 및 주입
-			// TODO: 상위 연산자의 struct_EXTRACT 표현식을 분석해서 동적으로 0,1을 뽑아내는 로직 넣기!
-			
 			for (auto &req : unnest_requirements) {
 				idx_t base_column_id = req.first;
 				vector<idx_t> indices = req.second;
@@ -367,28 +375,7 @@ void RemoveUnusedColumns::VisitOperator(LogicalOperator &op) {
 				indices.erase(std::unique(indices.begin(), indices.end()), indices.end());
 
 				get.nested_projection_map[base_column_id] = indices;
-
-				// [동적 디버깅 로그]
-				//std::cerr << "[OPTIMIZER] 동적 UNNEST 푸시다운 성공! Target Column: " << base_column_id << " | Indices: ";
-				//for (auto idx : indices) std::cerr << idx << " ";
-				//std::cerr << std::endl;
 			}
-			
-			
-			/*
-			// 임시로 타겟 인덱스 [0, 1]을 get 연산자에 주입해봄
-			vector<idx_t> required_child_indices;
-			required_child_indices.push_back(0); // col_a
-			required_child_indices.push_back(1); // col_b
-
-			// 가설: posts 컬럼이 테이블의 3번 컬럼(column_id)이라고 가정
-			column_t posts_column_id = 3;
-
-			// LogicalGet의 주머니(여권)에 공식적으로 데이터 찔러 넣음
-			get.nested_projection_map[posts_column_id] = required_child_indices;
-
-			std::cerr << "[OPTIMIZER] Successfully pushed down nested indices [0, 1] to LogicalGet!" << std::endl;
-			*/
 		}
 		return;
 	}
