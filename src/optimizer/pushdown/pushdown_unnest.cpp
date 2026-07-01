@@ -138,7 +138,11 @@ static bool ReplaceUnnestRefWithLambdaParam(unique_ptr<Expression> &expr, idx_t 
 
 // Recursively scan `expr` for references to unnest output columns (table_index == unnest_index).
 // Records the first such column index in target_col; sets `multiple` if a different one is also found.
-static void FindUnnestColumn(Expression &expr, idx_t unnest_index, bool &found, bool &multiple, idx_t &target_col) {
+// Sets `foreign` if a column reference OUTSIDE this unnest is found: such a predicate correlates the
+// unnest element with an external (pass-through) column, which the zero-capture lambda synthesis below
+// cannot express (it would require a lambda capture), so the caller must bail.
+static void FindUnnestColumn(Expression &expr, idx_t unnest_index, bool &found, bool &multiple, bool &foreign,
+                             idx_t &target_col) {
 	if (expr.GetExpressionClass() == ExpressionClass::BOUND_COLUMN_REF) {
 		auto &col = expr.Cast<BoundColumnRefExpression>();
 		if (col.binding.table_index == unnest_index) {
@@ -148,11 +152,13 @@ static void FindUnnestColumn(Expression &expr, idx_t unnest_index, bool &found, 
 			} else if (col.binding.column_index != target_col) {
 				multiple = true;
 			}
+		} else {
+			foreign = true;
 		}
 		return;
 	}
 	ExpressionIterator::EnumerateChildren(expr, [&](Expression &child) {
-		FindUnnestColumn(child, unnest_index, found, multiple, target_col);
+		FindUnnestColumn(child, unnest_index, found, multiple, foreign, target_col);
 	});
 }
 
@@ -164,12 +170,22 @@ static void FindUnnestColumn(Expression &expr, idx_t unnest_index, bool &found, 
 // required core_functions are not loaded.
 static unique_ptr<Expression> TryBuildListFilterExists(ClientContext &context, LogicalUnnest &unnest,
                                                        Expression &filter) {
+	// A volatile predicate (e.g. random(), nextval()) must not be pushed down: the synthesized child
+	// filter would evaluate the volatile subexpression with draws independent of the retained filter
+	// above UNNEST, so a row that satisfies the original predicate could be dropped by the child before
+	// the exact filter ever sees it. Bail (correctness-safe no-op). Note IsVolatile() excludes
+	// consistent-within-query functions (now() etc.), which are safe to evaluate on both sides.
+	if (filter.IsVolatile()) {
+		return nullptr;
+	}
+
 	// find the single unnest output column referenced by the predicate
 	bool found = false;
 	bool multiple = false;
+	bool foreign = false;
 	idx_t target_col = 0;
-	FindUnnestColumn(filter, unnest.unnest_index, found, multiple, target_col);
-	if (!found || multiple) {
+	FindUnnestColumn(filter, unnest.unnest_index, found, multiple, foreign, target_col);
+	if (!found || multiple || foreign) {
 		return nullptr;
 	}
 	if (target_col >= unnest.expressions.size() ||

@@ -1,0 +1,125 @@
+# name: test/sql/optimizer/test_unnest_filter_pushdown.test
+# description: Filter pushdown of a weakened list-level exists condition through UNNEST (and its correctness boundaries)
+# group: [optimizer]
+
+# A filter on an UNNEST-produced value cannot be pushed below UNNEST directly, but a weakened
+# "at least one list element satisfies the predicate" necessary condition can be pushed into the
+# child (list_aggregate(list,'max'/'min') OP c for scalar monotonic predicates; len(list_filter(...))>0
+# otherwise). The original filter is retained above UNNEST for exact per-element filtering.
+#
+# This test locks both the positive synthesis AND the correctness boundaries where the weakening is
+# unsound and must degrade to a no-op (filter stays above UNNEST, nothing pushed to the child).
+
+statement ok
+CREATE TABLE t AS
+SELECT i AS user_id,
+       [{'col_a': (i%10), 'col_b': (i%7)},
+        {'col_a': (i%10)+1, 'col_b': (i%7)+2}] AS posts
+FROM range(1000) tbl(i);
+
+statement ok
+CREATE TABLE s AS SELECT i AS id, [i%10, (i%10)+1] AS vals FROM range(1000) tbl(i);
+
+statement ok
+pragma explain_output='optimized_only';
+
+# --------------------------------------------------------------------------------------------------
+# POSITIVE: the weakened condition is synthesized and reaches the scan
+# --------------------------------------------------------------------------------------------------
+
+# scalar list + monotonic comparison -> list_aggregate(vals,'max') pushed to the scan (sub-step 1)
+query II
+EXPLAIN SELECT * FROM (SELECT id, UNNEST(vals) AS v FROM s) WHERE v > 5;
+----
+logical_opt	<REGEX>:.*list_aggregate\(vals.*
+
+# struct-field access -> len(list_filter(posts, ...)) > 0 pushed to the scan (sub-step 2)
+query II
+EXPLAIN SELECT * FROM (SELECT user_id, UNNEST(posts) AS p FROM t) WHERE p.col_a > 5;
+----
+logical_opt	<REGEX>:.*list_filter\(posts.*
+
+query I
+SELECT count(*) FROM (SELECT user_id, UNNEST(posts) AS p FROM t) WHERE p.col_a > 5;
+----
+900
+
+# non-monotonic (=) still goes through the list_filter path
+query II
+EXPLAIN SELECT * FROM (SELECT user_id, UNNEST(posts) AS p FROM t) WHERE p.col_a = 3;
+----
+logical_opt	<REGEX>:.*list_filter\(posts.*
+
+query I
+SELECT count(*) FROM (SELECT user_id, UNNEST(posts) AS p FROM t) WHERE p.col_a = 3;
+----
+200
+
+# --------------------------------------------------------------------------------------------------
+# BOUNDARY 1 (SOUND): a predicate over two struct fields is split by AND into two independent
+# per-field exists conditions. Each is an independent necessary condition of the true predicate, so
+# pushing both is a sound over-approximation (an element satisfying one and a different element the
+# other yields a false positive, caught by the retained exact filter -- never a false negative).
+# Result must match a run with pushdown disabled.
+# --------------------------------------------------------------------------------------------------
+
+query I
+SELECT count(*) FROM (SELECT user_id, UNNEST(posts) AS p FROM t) sub WHERE p.col_a > 5 AND p.col_b < 3;
+----
+243
+
+statement ok
+PRAGMA disabled_optimizers='filter_pushdown';
+
+query I
+SELECT count(*) FROM (SELECT user_id, UNNEST(posts) AS p FROM t) sub WHERE p.col_a > 5 AND p.col_b < 3;
+----
+243
+
+statement ok
+PRAGMA disabled_optimizers='';
+
+# --------------------------------------------------------------------------------------------------
+# BOUNDARY 2 (UNSOUND -> must no-op): predicate correlates the unnest element with an external
+# pass-through column (p.col_a > user_id). The zero-capture lambda synthesis cannot express the
+# capture, so this must NOT be pushed down (previously crashed with "unknown expression type").
+# --------------------------------------------------------------------------------------------------
+
+query II
+EXPLAIN SELECT * FROM (SELECT user_id, UNNEST(posts) AS p FROM t) sub WHERE p.col_a > user_id;
+----
+logical_opt	<!REGEX>:.*(list_filter|list_aggregate).*
+
+query I
+SELECT count(*) FROM (SELECT user_id, UNNEST(posts) AS p FROM t) sub WHERE p.col_a > user_id;
+----
+10
+
+# --------------------------------------------------------------------------------------------------
+# BOUNDARY 3 (UNSOUND -> must no-op): a volatile predicate must not be pushed. The pushed child
+# filter would draw volatile values independently of the retained filter above UNNEST, so a row that
+# satisfies the original could be dropped by the child before the exact filter sees it (false
+# negative). A simple top-level volatile is blocked by the pushdown framework, but a volatile buried
+# in a CASE reaches this rule -- the IsVolatile() guard must reject it.
+# --------------------------------------------------------------------------------------------------
+
+query II
+EXPLAIN SELECT * FROM (SELECT user_id, UNNEST(posts) AS p FROM t) sub
+        WHERE p.col_a > CASE WHEN random() > 0.5 THEN 1 ELSE 9 END;
+----
+logical_opt	<!REGEX>:.*(list_filter|list_aggregate).*
+
+# executes without dropping rows unsoundly (no crash; result is whatever the exact filter alone yields)
+statement ok
+SELECT count(*) FROM (SELECT user_id, UNNEST(posts) AS p FROM t) sub
+WHERE p.col_a > CASE WHEN random() > 0.5 THEN 1 ELSE 9 END;
+
+# --------------------------------------------------------------------------------------------------
+# BOUNDARY 4 (guarded elsewhere): a predicate combining two DISTINCT unnest output columns cannot be
+# expressed by a single list_filter over one list; must no-op.
+# --------------------------------------------------------------------------------------------------
+
+query II
+EXPLAIN SELECT * FROM (SELECT UNNEST(vals) AS v, UNNEST([id]) AS w FROM s) sub WHERE v > w;
+----
+logical_opt	<!REGEX>:.*(list_filter|list_aggregate).*
