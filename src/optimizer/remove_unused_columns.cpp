@@ -12,6 +12,7 @@
 #include "duckdb/planner/expression/bound_constant_expression.hpp"
 #include "duckdb/planner/expression/bound_cast_expression.hpp"
 #include "duckdb/planner/expression/bound_function_expression.hpp"
+#include "duckdb/planner/expression/bound_unnest_expression.hpp"
 #include "duckdb/planner/expression_iterator.hpp"
 #include "duckdb/planner/operator/logical_aggregate.hpp"
 #include "duckdb/planner/operator/logical_comparison_join.hpp"
@@ -22,6 +23,7 @@
 #include "duckdb/planner/operator/logical_projection.hpp"
 #include "duckdb/planner/operator/logical_set_operation.hpp"
 #include "duckdb/planner/operator/logical_simple.hpp"
+#include "duckdb/planner/operator/logical_unnest.hpp"
 #include "duckdb/function/scalar/struct_utils.hpp"
 #include "duckdb/function/scalar/variant_utils.hpp"
 #include "duckdb/function/scalar/nested_functions.hpp"
@@ -295,6 +297,42 @@ void RemoveUnusedColumns::VisitOperator(LogicalOperator &op) {
 	case LogicalOperatorType::LOGICAL_PIVOT: {
 		everything_referenced = true;
 		break;
+	}
+	case LogicalOperatorType::LOGICAL_UNNEST: {
+		if (everything_referenced) {
+			break;
+		}
+		auto &unnest = op.Cast<LogicalUnnest>();
+		// Nested projection pushdown through UNNEST.
+		// For each UNNEST expression that unnests a plain column reference, check whether the
+		// parent only accesses specific sub-fields of the unnested element. If so, remap those
+		// sub-field requirements onto the underlying list column - wrapping them under the
+		// list-element level (child index 0) - so the native column pruner pushes a nested
+		// ColumnIndex into the scan and the reader only reads the needed leaf fields.
+		// (This mirrors DataFusion's remap_through_unnest.)
+		for (idx_t i = 0; i < unnest.expressions.size(); i++) {
+			auto &expr = unnest.expressions[i];
+			bool remapped = false;
+			if (expr->GetExpressionClass() == ExpressionClass::BOUND_UNNEST) {
+				auto &bound_unnest = expr->Cast<BoundUnnestExpression>();
+				if (bound_unnest.child->GetExpressionClass() == ExpressionClass::BOUND_COLUMN_REF) {
+					auto &child_ref = bound_unnest.child->Cast<BoundColumnRefExpression>();
+					auto out_entry = column_references.find(ColumnBinding(unnest.unnest_index, i));
+					if (out_entry != column_references.end() && !out_entry->second.child_columns.empty()) {
+						// wrap the element's sub-field requirements under the list-element level (index 0)
+						ColumnIndex element_index(0, out_entry->second.child_columns);
+						AddBinding(child_ref, std::move(element_index));
+						remapped = true;
+					}
+				}
+			}
+			if (!remapped) {
+				// whole element is needed (or not a plain column reference): reference it fully
+				VisitExpression(&expr);
+			}
+		}
+		LogicalOperatorVisitor::VisitOperatorChildren(op);
+		return;
 	}
 	default:
 		break;

@@ -297,6 +297,13 @@ void AddProjectionNames(const ColumnIndex &index, const string &name, const Logi
 				AddProjectionNames(child_index, name + "." + child_index.GetFieldName(), field_type, result);
 			}
 		}
+	} else if (type.id() == LogicalTypeId::LIST) {
+		auto &element_type = ListType::GetChildType(type);
+		for (auto &child_index : index.GetChildIndexes()) {
+			// a list has a single element child (index 0); recurse into the element type
+			// (the list level itself is omitted from the displayed path)
+			AddProjectionNames(child_index, name, element_type, result);
+		}
 	} else if (type.id() == LogicalTypeId::VARIANT) {
 		for (auto &child_index : index.GetChildIndexes()) {
 			D_ASSERT(!child_index.HasPrimaryIndex());
