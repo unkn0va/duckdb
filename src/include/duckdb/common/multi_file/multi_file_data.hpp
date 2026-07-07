@@ -67,6 +67,10 @@ public:
 			for (auto &child_entry : StructType::GetChildTypes(type)) {
 				result.children.push_back(CreateFromNameAndType(child_entry.first, child_entry.second));
 			}
+		} else if (type.id() == LogicalTypeId::LIST) {
+			// recursively create for the list element (enables nested sub-field projection through lists).
+			// the child is named "list" to match the parquet reader's list-element schema name.
+			result.children.push_back(CreateFromNameAndType("list", ListType::GetChildType(type)));
 		}
 		return result;
 	}

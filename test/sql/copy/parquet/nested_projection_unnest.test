@@ -1,0 +1,72 @@
+# name: test/sql/copy/parquet/nested_projection_unnest.test
+# description: Nested projection pushdown through (nested) UNNEST only reads referenced sub-fields
+# group: [parquet]
+
+require parquet
+
+statement ok
+COPY (
+    SELECT i AS id,
+        [{'a': i, 'b': i * 10, 'c': i * 100}] AS posts,
+        [{'title': 't' || i, 'comments': [{'author': 'au' || i, 'text': 'tx' || i}]}] AS docs
+    FROM range(3) t(i)
+) TO '__TEST_DIR__/nested_proj_unnest.parquet' (FORMAT parquet)
+
+# ---- correctness ----
+
+# single-level UNNEST, one sub-field
+query I
+SELECT UNNEST(posts).a AS a FROM '__TEST_DIR__/nested_proj_unnest.parquet' ORDER BY a
+----
+0
+1
+2
+
+# single-level UNNEST, two sub-fields
+query II
+SELECT UNNEST(posts).a AS a, UNNEST(posts).b AS b FROM '__TEST_DIR__/nested_proj_unnest.parquet' ORDER BY a
+----
+0	0
+1	10
+2	20
+
+# nested (two-level) UNNEST, deep sub-field
+query I
+SELECT UNNEST(comments).author AS author
+FROM (SELECT UNNEST(docs).comments AS comments FROM '__TEST_DIR__/nested_proj_unnest.parquet')
+ORDER BY author
+----
+au0
+au1
+au2
+
+# whole element used -> full result (no pruning), still correct
+query I
+SELECT (UNNEST(posts)).c AS c FROM '__TEST_DIR__/nested_proj_unnest.parquet' ORDER BY c
+----
+0
+100
+200
+
+# ---- projection pushdown into the parquet scan ----
+
+statement ok
+SET explain_output='physical_only'
+
+# single-level: only the posts.a sub-field is pushed into the scan
+query II
+EXPLAIN SELECT UNNEST(posts).a FROM '__TEST_DIR__/nested_proj_unnest.parquet'
+----
+physical_plan	<REGEX>:.*posts\.a.*
+
+# nested: the deep sub-field path docs.comments.author is pushed all the way to the scan
+query II
+EXPLAIN SELECT UNNEST(comments).author FROM (SELECT UNNEST(docs).comments AS comments FROM '__TEST_DIR__/nested_proj_unnest.parquet')
+----
+physical_plan	<REGEX>:.*docs\.comments\.author.*
+
+# whole element used -> no sub-field pruning (the full posts column is read, not posts.a)
+query II
+EXPLAIN SELECT UNNEST(posts) FROM '__TEST_DIR__/nested_proj_unnest.parquet'
+----
+physical_plan	<!REGEX>:.*posts\.a.*
