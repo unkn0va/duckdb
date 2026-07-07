@@ -15,6 +15,8 @@
 #include "duckdb/common/multi_file/multi_file_data.hpp"
 #include <numeric>
 
+#include <iostream>
+
 namespace duckdb {
 
 struct MultiFileReaderInterface {
@@ -474,6 +476,17 @@ public:
 	static unique_ptr<GlobalTableFunctionState> MultiFileInitGlobal(ClientContext &context,
 	                                                                TableFunctionInitInput &input) {
 		auto &bind_data = input.bind_data->CastNoConst<MultiFileBindData>();
+		
+		// 톨케이트에서 input 수레가 버려지기 전에 화물을 가로챔!
+		bind_data.nested_projection_map = input.nested_projection_map;
+
+		// 발송지 로그
+		//std::cerr << "\n>>> [DEBUG_DELIVERY] 1. 톨케이트(MultiFIleInitGlobal)에서 가방으로 화물 복사 완료!" << "\n";
+		//for (auto& kv : bind_data.nested_projection_map) {
+			//std::cerr <<"\t- 가방에 담긴 Target Column ID: " << kv.first
+			//<< " | 하위 인덱스 개수: " << kv.second.size() << "\n";
+		//}
+
 		unique_ptr<MultiFileGlobalState> result;
 
 		// before instantiating a scan trigger a dynamic filter pushdown if possible

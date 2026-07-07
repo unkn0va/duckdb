@@ -27,6 +27,9 @@
 #include "duckdb/function/scalar/nested_functions.hpp"
 #include <utility>
 
+#include "duckdb/planner/operator/logical_unnest.hpp"
+#include "duckdb/planner/expression/bound_unnest_expression.hpp"
+
 namespace duckdb {
 
 idx_t BaseColumnPruner::ReplaceBinding(ColumnBinding current_binding, ColumnBinding new_binding) {
@@ -295,6 +298,86 @@ void RemoveUnusedColumns::VisitOperator(LogicalOperator &op) {
 	case LogicalOperatorType::LOGICAL_PIVOT: {
 		everything_referenced = true;
 		break;
+	}
+	case LogicalOperatorType::LOGICAL_UNNEST: {
+		auto &unnest = op.Cast<LogicalUnnest>();
+
+		// 파이프라인 밑단의 LogicalGet 찾기
+		// 중요: 도중에 다른 UNNEST를 만나면 중단 (2단계 이상 unnest에서 잘못된 LogicalGet에 접근하는 것을 방지)
+		LogicalOperator *current_op = op.children[0].get();
+		bool found_get = false;
+		while (current_op) {
+			if (current_op->type == LogicalOperatorType::LOGICAL_GET) {
+				found_get = true;
+				break;
+			}
+			// 다른 UNNEST를 만나면 탐색 중단 — 이 UNNEST는 직접 LogicalGet에 연결되지 않음
+			if (current_op->type == LogicalOperatorType::LOGICAL_UNNEST) {
+				break;
+			}
+			if (current_op->children.empty()) break;
+			current_op = current_op->children[0].get();
+		}
+
+		// 동적 요구사항 수집 바구니 (원래 테이블의 column_index -> 필요한 하위 필드 인덱스 목록)
+		unordered_map<idx_t, vector<idx_t>> unnest_requirements;
+
+		// LogicalGet에 직접 연결된 UNNEST만 프루닝 적용
+		if (found_get && current_op && current_op->type == LogicalOperatorType::LOGICAL_GET) {
+			auto &get = current_op->Cast<LogicalGet>();
+			auto old_column_ids = get.GetColumnIds();
+
+			// UNNEST 연산자가 출력하는 표현식들을 순회
+			for (idx_t i = 0; i < unnest.expressions.size(); i++) {
+				auto &expr = unnest.expressions[i];
+
+				// 상위 노드(Projection)가 이 UNNEST 출력물의 특정 하위 필드를 사용하는지 장부(column_references)에서 확인
+				ColumnBinding unnest_output_binding(unnest.unnest_index, i);
+				auto entry = this->column_references.find(unnest_output_binding);
+
+				if (entry != this->column_references.end() && !entry->second.child_columns.empty()) {
+					// UNNEST 대상이 되는 원본 표현식 (예: posts 칼럼)
+					if (expr->GetExpressionClass() == ExpressionClass::BOUND_UNNEST) {
+						auto &bound_unnest = expr->Cast<BoundUnnestExpression>();
+
+						// 그 원본이 단순 컬럼 참조(BoundColumnRef)인지 확인
+						if (bound_unnest.child->GetExpressionClass() == ExpressionClass::BOUND_COLUMN_REF) {
+							auto &col_ref = bound_unnest.child->Cast<BoundColumnRefExpression>();
+							idx_t logical_idx = col_ref.binding.column_index;
+
+							if (logical_idx < old_column_ids.size()) {
+								idx_t physical_column_id = old_column_ids[logical_idx].GetPrimaryIndex();
+
+								// 상위 노드가 요구하는 하위 인덱스들을 원본 컬럼 ID에 매핑하여 저장
+								for (auto &child_path : entry->second.child_columns) {
+									unnest_requirements[physical_column_id].push_back(child_path.GetPrimaryIndex());
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+
+		// 기본 동작: 현재 인스턴스(this)를 사용하여 부모의 column_references를 보존
+		VisitOperatorExpressions(op);
+		VisitOperator(*op.children[0]);
+
+		if (found_get && current_op && current_op->type == LogicalOperatorType::LOGICAL_GET) {
+			auto &get = current_op->Cast<LogicalGet>();
+
+			for (auto &req : unnest_requirements) {
+				idx_t base_column_id = req.first;
+				vector<idx_t> indices = req.second;
+
+				// 중복 제거 및 정렬
+				std::sort(indices.begin(), indices.end());
+				indices.erase(std::unique(indices.begin(), indices.end()), indices.end());
+
+				get.nested_projection_map[base_column_id] = indices;
+			}
+		}
+		return;
 	}
 	default:
 		break;

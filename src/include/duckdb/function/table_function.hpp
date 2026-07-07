@@ -23,6 +23,8 @@
 #include "duckdb/common/exception/binder_exception.hpp"
 #include "duckdb/common/enums/order_preservation_type.hpp"
 
+#include <unordered_map>
+
 namespace duckdb {
 
 class BaseStatistics;
@@ -143,6 +145,9 @@ struct TableFunctionInitInput {
 	optional_ptr<TableFilterSet> filters;
 	optional_ptr<SampleOptions> sample_options;
 	optional_ptr<const PhysicalOperator> op;
+
+	// 파케이 리더로 넘겨줄 중첩 하위 인덱스 화물칸!
+	unordered_map<column_t, vector<idx_t>> nested_projection_map;
 
 	bool CanRemoveFilterColumns() const {
 		if (projection_ids.empty()) {

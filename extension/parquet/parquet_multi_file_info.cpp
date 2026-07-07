@@ -6,6 +6,8 @@
 #include "parquet_crypto.hpp"
 #include "duckdb/function/table_function.hpp"
 
+#include <iostream>
+
 namespace duckdb {
 
 struct ParquetReadBindData : public TableFunctionData {
@@ -503,7 +505,10 @@ shared_ptr<BaseFileReader> ParquetMultiFileInfo::CreateReader(ClientContext &con
                                                               BaseUnionData &union_data_p,
                                                               const MultiFileBindData &bind_data_p) {
 	auto &union_data = union_data_p.Cast<ParquetUnionData>();
-	return make_shared_ptr<ParquetReader>(context, union_data.file, union_data.options, union_data.metadata);
+	
+	auto reader = make_shared_ptr<ParquetReader>(context, union_data.file, union_data.options, union_data.metadata);
+	reader->nested_projection_map = bind_data_p.nested_projection_map;
+	return reader;
 }
 
 shared_ptr<BaseFileReader> ParquetMultiFileInfo::CreateReader(ClientContext &context, GlobalTableFunctionState &,
@@ -539,8 +544,25 @@ shared_ptr<BaseUnionData> ParquetReader::GetUnionData(idx_t file_idx) {
 	return std::move(result);
 }
 
-unique_ptr<GlobalTableFunctionState> ParquetMultiFileInfo::InitializeGlobalState(ClientContext &, MultiFileBindData &,
+unique_ptr<GlobalTableFunctionState> ParquetMultiFileInfo::InitializeGlobalState(ClientContext &, MultiFileBindData &bind_data,
                                                                                  MultiFileGlobalState &global_state) {
+	// 도착지 로그
+	//std::cerr << "\n>>> [DEBUG_DELIVERY] 2. 파케이 앞마당(InitializeGlobalState)에 가방 도착 완료!" << "\n";
+	//for (auto& kv : bind_data.nested_projection_map) {
+		//std::cerr << "\t- 무사히 배달된 Target Column ID: " << kv.first
+		//<< " | 하위 인덱스 개수: " << kv.second.size() << "\n";
+	//}
+
+	// 이미 대기 중인 리더(initial_reader 등)에게 화물 강제 주입!
+	for (auto &reader_data : global_state.readers) {
+		if (reader_data->reader) {
+			// BaseFileReader를 ParquetReader로 형변환해서 주머니를 채워줌
+			auto &parquet_reader = reader_data->reader->Cast<ParquetReader>();
+			parquet_reader.nested_projection_map = bind_data.nested_projection_map;
+
+			//std::cerr <<">>> [DEBUG_SYNC] 기존 대기 중인 리더에게 화물 주입 완료!" << "\n";
+		}
+	}
 	return make_uniq<ParquetReadGlobalState>(global_state.op);
 }
 

@@ -12,6 +12,8 @@
 
 #include <utility>
 
+#include <iostream>
+
 namespace duckdb {
 
 PhysicalTableScan::PhysicalTableScan(PhysicalPlan &physical_plan, vector<LogicalType> types, TableFunction function_p,
@@ -41,6 +43,19 @@ public:
 			auto filters = table_filters ? *table_filters : GetTableFilters(op);
 			TableFunctionInitInput input(op.bind_data.get(), op.column_ids, op.projection_ids, filters,
 			                             op.extra_info.sample_options, &op);
+			
+			// 글로벌 스캔 초기화 시 화물 상차
+			input.nested_projection_map = op.nested_projection_map;
+
+			//std::cerr << "\n>>> [DEBUG_SCAN] GlobalSourceState 상차 완료! 파케이로 던지기 직전!" << std::endl;
+			//if (!input.nested_projection_map.empty()) {
+				//for (auto &kv : input.nested_projection_map) {
+					//std::cerr << "	- [GLOBAL] Target Column ID: " << kv.first << " | 하위 인덱스 개수: " << kv.second.size() << std::endl;
+				//}
+			//}
+			//else {
+				//std::cerr << "	- [GLOBAL] Omg... 화물이 비어있어!" << std::endl;
+			//}
 
 			global_state = op.function.init_global(context, input);
 			if (global_state) {
@@ -86,6 +101,20 @@ public:
 		if (op.function.init_local) {
 			TableFunctionInitInput input(op.bind_data.get(), op.column_ids, op.projection_ids,
 			                             gstate.GetTableFilters(op), op.extra_info.sample_options, &op);
+
+			// 로컬 스캔 초기화 시 화물 상차
+			input.nested_projection_map = op.nested_projection_map;
+
+			//std::cerr << "\n>>> [DEBUG_SCAN] LocalSourceState 상차 완료! 파케이로 던지기 직전!" << std::endl;
+			//if (!input.nested_projection_map.empty()) {
+				//for (auto &kv : input.nested_projection_map) {
+					//std::cerr << "	- [LOCAL] Target Column ID: " << kv.first << " | 하위 인덱스 개수: " << kv.second.size() << std::endl;
+				//}
+			//}
+			//else {
+				//std::cerr << "	- [LOCAL] Omg... 화물이 비어있어!" << std::endl;
+			//}
+
 			local_state = op.function.init_local(context, input, gstate.global_state.get());
 		}
 	}

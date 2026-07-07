@@ -1,3 +1,4 @@
+// Big Boss: Start analyzing nested data optimization
 #include "parquet_reader.hpp"
 
 #include "duckdb/common/optional_ptr.hpp"
@@ -26,6 +27,8 @@
 #include "duckdb/planner/table_filter_state.hpp"
 #include "duckdb/common/multi_file/multi_file_reader.hpp"
 #include "duckdb/common/types/geometry_crs.hpp"
+
+#include <iostream>
 
 namespace duckdb {
 
@@ -405,7 +408,22 @@ ParquetColumnSchema ParquetReader::ParseColumnSchema(const SchemaElement &s_ele,
 
 unique_ptr<ColumnReader> ParquetReader::CreateReaderRecursive(ClientContext &context,
                                                               const vector<ColumnIndex> &indexes,
-                                                              const ParquetColumnSchema &schema) {
+                                                              const ParquetColumnSchema &schema,
+															  const vector<idx_t> *active_pruning) {
+	// 화물 확인: 부모가 넘겨준 바통이 있는지, 아니면 내가 직접 입구인지 확인
+	const vector<idx_t> *current_pruning = active_pruning;
+
+	if (!current_pruning) {
+		for (auto const& [target_col_id, sub_indices] : nested_projection_map) {
+			if (target_col_id < root_schema->children.size() &&
+					&schema == &root_schema->children[target_col_id]) {
+				current_pruning = &sub_indices;
+				//std::cerr << ">>> [ENTRY] 타겟 컬럼 입구 발견: " << schema.name << "\n";
+				break;
+			}
+		}
+	}
+
 	switch (schema.schema_type) {
 	case ParquetColumnSchemaType::FILE_ROW_NUMBER:
 		return make_uniq<RowNumberColumnReader>(*this, schema);
@@ -419,7 +437,41 @@ unique_ptr<ColumnReader> ParquetReader::CreateReaderRecursive(ClientContext &con
 		}
 		vector<unique_ptr<ColumnReader>> children;
 		children.resize(schema.children.size());
-		if (indexes.empty()) {
+
+		if (current_pruning) {
+			bool is_wrapper = (schema.type.id() == LogicalTypeId::LIST || schema.type.id() == LogicalTypeId::MAP);
+
+			if (is_wrapper) {
+				// LIST/MAP은 껍질! 화물을 그대로 자식(0번)에게 대물림하며 파고든다.
+                //std::cerr << ">>> [WRAPPER] " << schema.name << " 통과 중 (바통 터치)\n";
+                children[0] = CreateReaderRecursive(context, indexes, schema.children[0], current_pruning);
+			}
+			else if (schema.type.id() == LogicalTypeId::STRUCT) {
+				//std::cerr << ">>> [PRUNING_STRUCT] Target: " << schema.name << " (총 자식: " << schema.children.size() << ")\n";
+				vector<bool> is_survived(schema.children.size(), false);
+				for (idx_t child_index : *current_pruning) {
+					if (child_index < schema.children.size()) {
+						is_survived[child_index] = true;
+						children[child_index] = CreateReaderRecursive(context, indexes, schema.children[child_index]);
+						//std::cerr << "\t-[KEEP] 인덱스: " << child_index
+						//<< " | 이름: " << schema.children[child_index].name << "\n";
+					}
+				}
+
+				for (idx_t i = 0; i < schema.children.size(); i++) {
+					if (!is_survived[i]) {
+						//std::cerr << "\t[DISCARD] 인덱스: " << i << " | 이름: " << schema.children[i].name << " (I/O 스킵됨)\n";
+					}
+				}
+				std::cerr << "------------------------------------------------------\n";
+			}
+			else {
+				return ColumnReader::CreateReader(*this, schema);
+			}
+		}
+
+		// 여기부터 원래 코드 (if -> else if로 수정한거임)
+		else if (indexes.empty()) {
 			for (idx_t child_index = 0; child_index < schema.children.size(); child_index++) {
 				children[child_index] = CreateReaderRecursive(context, indexes, schema.children[child_index]);
 			}
