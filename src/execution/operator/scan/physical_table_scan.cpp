@@ -389,6 +389,42 @@ InsertionOrderPreservingMap<string> PhysicalTableScan::ParamsToString() const {
 		}
 		result["Projections"] = projections;
 	}
+	if (!nested_projection_map.empty()) {
+		// display which nested sub-fields are read for each column (nested projection pushdown)
+		string nested;
+		for (idx_t column_id = 0; column_id < names.size(); column_id++) {
+			auto entry = nested_projection_map.find(column_id);
+			if (entry == nested_projection_map.end()) {
+				continue;
+			}
+			// unwrap LIST wrappers to reach the element struct (e.g. LIST(STRUCT(...)) -> STRUCT(...))
+			LogicalType element_type = returned_types[column_id];
+			while (element_type.id() == LogicalTypeId::LIST) {
+				element_type = ListType::GetChildType(element_type);
+			}
+			if (!nested.empty()) {
+				nested += "\n";
+			}
+			nested += names[column_id] + ": [";
+			auto &sub_indexes = entry->second;
+			for (idx_t i = 0; i < sub_indexes.size(); i++) {
+				if (i > 0) {
+					nested += ", ";
+				}
+				auto sub_index = sub_indexes[i];
+				if (element_type.id() == LogicalTypeId::STRUCT &&
+				    sub_index < StructType::GetChildTypes(element_type).size()) {
+					nested += StructType::GetChildTypes(element_type)[sub_index].first;
+				} else {
+					nested += std::to_string(sub_index);
+				}
+			}
+			nested += "]";
+		}
+		if (!nested.empty()) {
+			result["Nested Projections"] = nested;
+		}
+	}
 	if (function.filter_pushdown && table_filters) {
 		result["Filters"] = GetFilterInfo(this, table_filters);
 	}
