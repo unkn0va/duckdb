@@ -2,6 +2,7 @@
 
 #include "duckdb/common/assert.hpp"
 #include "duckdb/common/pair.hpp"
+#include "duckdb/common/unordered_map.hpp"
 #include "duckdb/function/aggregate/distributive_functions.hpp"
 #include "duckdb/function/function_binder.hpp"
 #include "duckdb/parser/parsed_data/vacuum_info.hpp"
@@ -231,8 +232,19 @@ void RemoveUnusedColumns::VisitOperator(LogicalOperator &op) {
 		return;
 	}
 	case LogicalOperatorType::LOGICAL_PROJECTION: {
+		auto &proj = op.Cast<LogicalProjection>();
+		// Nested projection pushdown through UNNEST: capture the nested sub-field requirements of each
+		// projection output BEFORE pruning mangles indices (keyed by expression pointer, stable across
+		// compaction). These are attached at the leaf of get_field extract paths below so deep
+		// requirements (e.g. comments.element.author) propagate through the projection down to the input.
+		unordered_map<Expression *, vector<ColumnIndex>> deep_output_reqs;
 		if (!everything_referenced) {
-			auto &proj = op.Cast<LogicalProjection>();
+			for (idx_t i = 0; i < proj.expressions.size(); i++) {
+				auto entry = column_references.find(ColumnBinding(proj.table_index, i));
+				if (entry != column_references.end() && !entry->second.child_columns.empty()) {
+					deep_output_reqs[proj.expressions[i].get()] = entry->second.child_columns;
+				}
+			}
 			CheckPushdownExtract(op);
 			auto old_expression_count = proj.expressions.size();
 			ClearUnusedExpressions(proj.expressions, proj.table_index);
@@ -247,7 +259,13 @@ void RemoveUnusedColumns::VisitOperator(LogicalOperator &op) {
 		}
 		// then recurse into the children of this projection
 		RemoveUnusedColumns remove(binder, context);
-		remove.VisitOperatorExpressions(op);
+		for (auto &expr : proj.expressions) {
+			auto entry = deep_output_reqs.find(expr.get());
+			if (entry != deep_output_reqs.end() && remove.RecordExtractWithLeafReqs(&expr, entry->second)) {
+				continue;
+			}
+			remove.VisitExpression(&expr);
+		}
 		remove.VisitOperator(*op.children[0]);
 		return;
 	}
@@ -886,6 +904,26 @@ bool BaseColumnPruner::HandleExtractExpression(unique_ptr<Expression> *expressio
 	}
 
 	AddBinding(*colref, path.GetChildIndex(0), expressions);
+	return true;
+}
+
+bool BaseColumnPruner::RecordExtractWithLeafReqs(unique_ptr<Expression> *expression,
+                                                 const vector<ColumnIndex> &leaf_child_columns) {
+	optional_ptr<BoundColumnRefExpression> colref;
+	vector<ReferencedExtractComponent> expressions;
+	ColumnIndex path(0);
+	reference<ColumnIndex> path_ref(path);
+	if (!HandleExtractRecursive(*expression, colref, path_ref, expressions)) {
+		return false;
+	}
+	// attach the projection output's nested sub-field requirements at the leaf of the extract path,
+	// e.g. get_field(x, "comments") whose output needs {element->author} records x.comments.element.author
+	for (auto &req : leaf_child_columns) {
+		path_ref.get().AddChildIndex(req);
+	}
+	// record as a FULL_READ sub-field path: the 2-arg AddBinding does not record struct_extracts, so
+	// pushdown-extract stays disabled - safe for LIST-typed fields whose extract cannot be pushed down
+	AddBinding(*colref, path.GetChildIndex(0));
 	return true;
 }
 
