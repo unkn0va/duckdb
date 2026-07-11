@@ -1,0 +1,11 @@
+select
+    100.00 * sum(case when p.p_type like 'PROMO%'
+        then l.l_extendedprice * (1 - l.l_discount) else 0 end)
+    / sum(l.l_extendedprice * (1 - l.l_discount)) as promo_revenue
+from (
+    select unnest(o.o_lineitems) as l
+    from (select unnest(c_orders) as o from customer)
+) ls, part p
+where ls.l.l_partkey = p.p_partkey
+    and ls.l.l_shipdate >= '1995-02-01'
+    and ls.l.l_shipdate < '1995-03-01'
