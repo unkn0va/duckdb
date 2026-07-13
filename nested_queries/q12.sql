@@ -1,0 +1,15 @@
+select
+    l.l_shipmode,
+    sum(case when o_orderpriority = '1-URGENT' or o_orderpriority = '2-HIGH' then 1 else 0 end) as high_line_count,
+    sum(case when o_orderpriority <> '1-URGENT' and o_orderpriority <> '2-HIGH' then 1 else 0 end) as low_line_count
+from (
+    select o.o_orderpriority as o_orderpriority, unnest(o.o_lineitems) as l
+    from (select unnest(c_orders) as o from customer)
+)
+where l.l_shipmode in ('FOB', 'SHIP')
+    and l.l_commitdate < l.l_receiptdate
+    and l.l_shipdate < l.l_commitdate
+    and l.l_receiptdate >= '1995-01-01'
+    and l.l_receiptdate < '1996-01-01'
+group by l.l_shipmode
+order by l.l_shipmode
