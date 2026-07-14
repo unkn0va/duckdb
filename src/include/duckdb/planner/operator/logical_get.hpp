@@ -45,6 +45,10 @@ public:
 	//! Subindex mapping archive for nested data pushdowns
 	unordered_map<column_t, vector<idx_t>> nested_projection_map;
 
+	//! [Rey hybrid] For a multi-field flatten column, the set of leaf struct-field indices actually used
+	//! (so the collapse reader prunes the flattened struct's I/O to only those fields).
+	unordered_map<column_t, vector<idx_t>> flatten_leaf_cols;
+
 	//! [Rey hybrid] Columns that are single-node flatten candidates: a nested (LIST) column that is
 	//! UNNESTed directly above this scan and whose element is consumed only via leaf sub-fields.
 	//! For these, the nested reconstruct + UNNEST round-trip can be replaced by a flat leaf scan

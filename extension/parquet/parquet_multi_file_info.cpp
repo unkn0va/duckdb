@@ -509,6 +509,7 @@ shared_ptr<BaseFileReader> ParquetMultiFileInfo::CreateReader(ClientContext &con
 	auto reader = make_shared_ptr<ParquetReader>(context, union_data.file, union_data.options, union_data.metadata);
 	reader->nested_projection_map = bind_data_p.nested_projection_map;
 	reader->flatten_columns = bind_data_p.flatten_columns;
+	reader->flatten_leaf_cols = bind_data_p.flatten_leaf_cols;
 	return reader;
 }
 
@@ -561,6 +562,7 @@ unique_ptr<GlobalTableFunctionState> ParquetMultiFileInfo::InitializeGlobalState
 			auto &parquet_reader = reader_data->reader->Cast<ParquetReader>();
 			parquet_reader.nested_projection_map = bind_data.nested_projection_map;
 			parquet_reader.flatten_columns = bind_data.flatten_columns;
+			parquet_reader.flatten_leaf_cols = bind_data.flatten_leaf_cols;
 
 			//std::cerr <<">>> [DEBUG_SYNC] 기존 대기 중인 리더에게 화물 주입 완료!" << "\n";
 		}

@@ -45,6 +45,8 @@ private:
 	column_binding_map_t<vector<idx_t>> extract_uses;
 	//! Unnest output binding -> new leaf type; struct_extract on these bindings is rewritten in phase 2.
 	column_binding_map_t<LogicalType> flattened_outputs;
+	//! Whether any flatten rewrite was applied (so operator types must be re-resolved).
+	bool rewrote = false;
 };
 
 } // namespace duckdb

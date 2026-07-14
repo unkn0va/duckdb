@@ -151,6 +151,8 @@ struct TableFunctionInitInput {
 
 	//! [Rey hybrid] flatten (collapse-to-flat) target columns
 	vector<column_t> flatten_columns;
+	//! [Rey hybrid] used leaf field indices per multi-field flatten column (for struct I/O pruning)
+	unordered_map<column_t, vector<idx_t>> flatten_leaf_cols;
 
 	bool CanRemoveFilterColumns() const {
 		if (projection_ids.empty()) {

@@ -444,8 +444,15 @@ unique_ptr<ColumnReader> ParquetReader::CreateReaderRecursive(ClientContext &con
 						}
 						t = sc[path[i]].second;
 					}
-					if (ok && !t.IsNested()) {
-						return CreateFlattenListReader(context, schema, path);
+					// flatten if the path ends at a SCALAR leaf (single-column flatten) OR at a
+					// LIST<STRUCT> (multi-field: collapse the inner list's element structs to the top level).
+					bool target_ok = ok && (!t.IsNested() || (t.id() == LogicalTypeId::LIST &&
+					                                          ListType::GetChildType(t).id() == LogicalTypeId::STRUCT));
+					if (target_ok) {
+						auto lp = flatten_leaf_cols.find(flat_col);
+						optional_ptr<const vector<idx_t>> used =
+						    lp != flatten_leaf_cols.end() ? optional_ptr<const vector<idx_t>>(&lp->second) : nullptr;
+						return CreateFlattenListReader(context, schema, path, used);
 					}
 				}
 			}
@@ -610,7 +617,8 @@ private:
 
 unique_ptr<ColumnReader> ParquetReader::CreateFlattenListReader(ClientContext &context,
                                                                const ParquetColumnSchema &list_schema,
-                                                               const vector<idx_t> &path) {
+                                                               const vector<idx_t> &path,
+                                                               optional_ptr<const vector<idx_t>> used_leaves) {
 	// Navigate the schema along `path` to the deep scalar leaf, descending through each LIST<STRUCT> level:
 	// at each step the current schema is a LIST, its element (children[0]) is a STRUCT, and path[i] selects the
 	// next child (an intermediate LIST for non-final steps, the scalar leaf for the last).
@@ -626,20 +634,48 @@ unique_ptr<ColumnReader> ParquetReader::CreateFlattenListReader(ClientContext &c
 		}
 		cur = &element.children[path[i]];
 	}
-	auto &leaf = *cur;
+	// [Rey hybrid / approach C, option 1 - Dremel collapse] `cur` is the navigated target. Two shapes:
+	//  - SCALAR leaf (single-column flatten): the collapse child is the leaf read directly; output LIST<leaf>.
+	//  - LIST<STRUCT> (multi-field flatten): the collapse child is the inner list's element STRUCT read directly;
+	//    output LIST<STRUCT<...>> (all lineitem fields). Downstream struct_extract(l, l_*) stays valid.
+	// Either way we read the element directly (no intermediate STRUCT/LIST assembly of the levels above) and
+	// group into one list per TOP-LEVEL row via the collapse ListColumnReader (rep>0 append / rep==0 new list).
+	// Prototype: all-present case (TPC-H has no null/empty lists); null/empty def handling is TODO.
+	const ParquetColumnSchema *child_schema;
+	LogicalType out_list_type;
+	if (cur->type.id() == LogicalTypeId::LIST) {
+		if (cur->children.size() != 1) {
+			throw InternalException("[Rey hybrid] flatten target LIST must have exactly one child");
+		}
+		child_schema = &cur->children[0]; // the element (STRUCT)
+		out_list_type = cur->type;        // LIST<STRUCT<...>>
+	} else {
+		child_schema = cur;                          // scalar leaf
+		out_list_type = LogicalType::LIST(cur->type); // LIST<leaf>
+	}
 
-	// [Rey hybrid / approach C, option 1 - Dremel collapse] Read the LEAF column directly (no intermediate
-	// STRUCT/LIST assembly) and group its values into one list per TOP-LEVEL row via a collapse ListColumnReader
-	// (rep>0 -> append to current top-level list, rep==0 -> new list). This is the reconstruction-free path;
-	// prototype handles the all-present case (TPC-H has no null/empty lists), null/empty def handling is TODO.
-	auto leaf_reader = CreateReaderRecursive(context, {}, leaf);
+	// For a LIST<STRUCT> target, prune the struct's I/O to only the used leaf fields (keeping the full struct
+	// TYPE so downstream struct_extract indices stay valid; unused fields are simply not read). For a scalar
+	// leaf, or when no leaf set is known, read the element in full.
+	unique_ptr<ColumnReader> child_reader;
+	if (cur->type.id() == LogicalTypeId::LIST && used_leaves && !used_leaves->empty()) {
+		vector<ColumnIndex> pruned;
+		for (auto leaf_idx : *used_leaves) {
+			if (leaf_idx < child_schema->children.size()) {
+				pruned.emplace_back(leaf_idx);
+			}
+		}
+		child_reader = CreateReaderRecursive(context, pruned, *child_schema);
+	} else {
+		child_reader = CreateReaderRecursive(context, {}, *child_schema);
+	}
 
-	// Synthesize a LIST<leaf> schema using the LEAF's own define/repeat levels (the collapse reader's child is
-	// the leaf read directly, so its rep/def are at the leaf's levels). Persist it (ColumnReader holds by ref).
+	// Synthesize the output list schema using the CHILD element's define/repeat levels (the collapse child is
+	// the element read directly). Persist it (ColumnReader holds its schema by reference).
 	vector<ParquetColumnSchema> synth_children;
-	synth_children.emplace_back(leaf);
+	synth_children.emplace_back(*child_schema);
 	auto synth = make_uniq<ParquetColumnSchema>(ParquetColumnSchema::FromChildSchemas(
-	    list_schema.name, LogicalType::LIST(leaf.type), leaf.max_define, leaf.max_repeat,
+	    list_schema.name, out_list_type, child_schema->max_define, child_schema->max_repeat,
 	    list_schema.schema_index.IsValid() ? list_schema.schema_index.GetIndex() : list_schema.column_index,
 	    list_schema.column_index, std::move(synth_children), ParquetColumnSchemaType::COLUMN));
 	auto &schema_ref = *synth;
@@ -648,7 +684,7 @@ unique_ptr<ColumnReader> ParquetReader::CreateFlattenListReader(ClientContext &c
 		lock_guard<mutex> flatten_guard(flatten_schemas_lock);
 		flatten_schemas.push_back(std::move(synth));
 	}
-	auto list_reader = make_uniq<ListColumnReader>(*this, schema_ref, std::move(leaf_reader));
+	auto list_reader = make_uniq<ListColumnReader>(*this, schema_ref, std::move(child_reader));
 	list_reader->SetCollapseToTopLevel(true);
 	return std::move(list_reader);
 }

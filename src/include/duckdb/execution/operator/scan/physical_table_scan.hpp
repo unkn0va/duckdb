@@ -51,6 +51,8 @@ public:
 
 	//! [Rey hybrid] flatten (collapse-to-flat) target columns, threaded alongside nested_projection_map
 	vector<column_t> flatten_columns;
+	//! [Rey hybrid] used leaf field indices per multi-field flatten column (for struct I/O pruning)
+	unordered_map<column_t, vector<idx_t>> flatten_leaf_cols;
 
 	//! The names of the columns
 	vector<string> names;

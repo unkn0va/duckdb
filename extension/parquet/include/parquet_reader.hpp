@@ -151,6 +151,8 @@ public:
 
 	//! [Rey hybrid] flatten (collapse-to-flat) target columns
 	vector<column_t> flatten_columns;
+	//! [Rey hybrid] used leaf field indices per multi-field flatten column (for struct I/O pruning)
+	unordered_map<column_t, vector<idx_t>> flatten_leaf_cols;
 
 	//! [Rey hybrid / approach C] Synthesized LIST<leaf> schemas for flatten columns. ColumnReader holds its
 	//! schema by reference, so these must outlive the readers -> owned here on the (long-lived) ParquetReader.
@@ -250,7 +252,8 @@ private:
 	//! list element down to the scalar leaf, descending through any intermediate LIST<STRUCT> levels
 	//! (single element for single-level, e.g. [o_orderkey]; [o_lineitems, l_returnflag] for the 2-level case).
 	unique_ptr<ColumnReader> CreateFlattenListReader(ClientContext &context, const ParquetColumnSchema &list_schema,
-	                                                 const vector<idx_t> &path);
+	                                                 const vector<idx_t> &path,
+	                                                 optional_ptr<const vector<idx_t>> used_leaves = nullptr);
 	const duckdb_parquet::RowGroup &GetGroup(ParquetReaderScanState &state);
 	uint64_t GetGroupCompressedSize(ParquetReaderScanState &state);
 	idx_t GetGroupOffset(ParquetReaderScanState &state);

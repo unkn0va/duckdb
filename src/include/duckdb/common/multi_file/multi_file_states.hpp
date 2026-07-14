@@ -85,6 +85,8 @@ struct MultiFileBindData : public TableFunctionData {
 
 	//! [Rey hybrid] flatten (collapse-to-flat) target columns
 	vector<column_t> flatten_columns;
+	//! [Rey hybrid] used leaf field indices per multi-field flatten column (for struct I/O pruning)
+	unordered_map<column_t, vector<idx_t>> flatten_leaf_cols;
 
 	void Initialize(shared_ptr<BaseFileReader> reader) {
 		initial_reader = std::move(reader);

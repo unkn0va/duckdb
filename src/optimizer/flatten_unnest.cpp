@@ -122,15 +122,11 @@ bool FlattenUnnest::TryFlattenTwoLevel(LogicalUnnest &outer) {
 		if (inner_out_ref.binding.table_index != inner.unnest_index) {
 			continue; // the extracted column must be the inner unnest's output
 		}
-		// leaf field(s) used on the outer unnest output; prototype: exactly one (single-leaf)
-		auto uses = extract_uses.find(ColumnBinding(outer.unnest_index, i));
-		if (uses == extract_uses.end() || uses->second.size() != 1) {
-			continue;
-		}
-		idx_t leaf_field = uses->second[0];
-
-		// compute the leaf type: c_orders is LIST<STRUCT<order>>; .list_field is LIST<STRUCT<lineitem>>;
-		// .leaf_field is the scalar leaf.
+		// Multi-field flatten: collapse c_orders -> o_lineitems into ONE list of lineitem structs per top-level
+		// row. c_orders is LIST<STRUCT<order>>; the .list_field sub-field is o_lineitems = LIST<STRUCT<lineitem>>.
+		// We retype c_orders to o_lineitems's type (LIST<STRUCT<lineitem>>). Unnesting that yields STRUCT<lineitem>
+		// -- the SAME type the original outer UNNEST produced -- so all downstream struct_extract(l, l_*) stay
+		// valid (no rewrite/removal needed). The reader collapses the deep lineitem structs to the top level.
 		auto &c_orders_type = c_orders_ref.return_type;
 		if (c_orders_type.id() != LogicalTypeId::LIST) {
 			continue;
@@ -140,32 +136,33 @@ bool FlattenUnnest::TryFlattenTwoLevel(LogicalUnnest &outer) {
 		    list_field.GetIndex() >= StructType::GetChildTypes(order_struct).size()) {
 			continue;
 		}
-		auto &o_lineitems_type = StructType::GetChildTypes(order_struct)[list_field.GetIndex()].second;
-		if (o_lineitems_type.id() != LogicalTypeId::LIST) {
+		auto o_lineitems_type = StructType::GetChildTypes(order_struct)[list_field.GetIndex()].second;
+		if (o_lineitems_type.id() != LogicalTypeId::LIST ||
+		    ListType::GetChildType(o_lineitems_type).id() != LogicalTypeId::STRUCT) {
 			continue;
 		}
-		auto &lineitem_struct = ListType::GetChildType(o_lineitems_type);
-		if (lineitem_struct.id() != LogicalTypeId::STRUCT ||
-		    leaf_field >= StructType::GetChildTypes(lineitem_struct).size()) {
-			continue;
-		}
-		auto leaf_type = StructType::GetChildTypes(lineitem_struct)[leaf_field].second;
-		if (leaf_type.IsNested()) {
-			continue; // prototype: scalar leaf only
-		}
-		auto new_list_type = LogicalType::LIST(leaf_type);
+		auto element_type = ListType::GetChildType(o_lineitems_type); // STRUCT<lineitem>
 
-		// (1) scan produces LIST<leaf>; reader navigates the 2-step path [list_field, leaf_field]
-		col_ids[c_orders_logical].SetType(new_list_type);
-		get.nested_projection_map[phys] = {list_field.GetIndex(), leaf_field};
+		// (1) scan produces LIST<STRUCT<lineitem>>; reader navigates path [list_field] then collapses the
+		//     o_lineitems element structs to the top level.
+		col_ids[c_orders_logical].SetType(o_lineitems_type);
+		get.nested_projection_map[phys] = {list_field.GetIndex()};
+		// leaf pruning: read only the lineitem struct fields actually used downstream (struct_extract on the
+		// outer unnest output). Keeps the full struct TYPE (extract indices stay valid); prunes I/O.
+		auto uses = extract_uses.find(ColumnBinding(outer.unnest_index, i));
+		if (uses != extract_uses.end()) {
+			auto leaves = uses->second;
+			std::sort(leaves.begin(), leaves.end());
+			leaves.erase(std::unique(leaves.begin(), leaves.end()), leaves.end());
+			get.flatten_leaf_cols[phys] = std::move(leaves);
+		}
 		// (2) collapse the two UNNESTs into UNNEST_B directly over GET: splice the GET up, drop mid_proj + inner
 		outer.children[0] = std::move(inner.children[0]); // inner.children[0] is the GET
-		// (3) UNNEST_B now unnests the flattened c_orders column of the GET
-		bu_outer.child = make_uniq<BoundColumnRefExpression>(new_list_type,
+		// (3) UNNEST_B now unnests the flattened c_orders column; its output is STRUCT<lineitem> (unchanged)
+		bu_outer.child = make_uniq<BoundColumnRefExpression>(o_lineitems_type,
 		                                                     ColumnBinding(get.table_index, c_orders_logical));
-		bu_outer.return_type = leaf_type;
-		// (4) the outer unnest output is now the leaf scalar; drop struct_extract on it in phase 2
-		flattened_outputs[ColumnBinding(outer.unnest_index, i)] = leaf_type;
+		bu_outer.return_type = element_type;
+		rewrote = true;
 		return true;
 	}
 	return false;
@@ -258,6 +255,7 @@ void FlattenUnnest::RewriteUnnests(LogicalOperator &op) {
 		cref.return_type = new_list_type;
 		bu.return_type = leaf_type;
 		flattened_outputs[ColumnBinding(unnest.unnest_index, i)] = leaf_type;
+		rewrote = true;
 	}
 }
 
@@ -280,10 +278,12 @@ unique_ptr<LogicalOperator> FlattenUnnest::Optimize(unique_ptr<LogicalOperator> 
 	CollectOperator(*op);
 	// phase 1: detect + rewrite flatten patterns
 	RewriteUnnests(*op);
-	if (!flattened_outputs.empty()) {
-		// phase 2: drop struct_extract on the flattened unnest outputs
-		VisitOperator(*op);
-		// types of GET/UNNEST/projection changed: re-resolve the whole tree
+	if (rewrote) {
+		if (!flattened_outputs.empty()) {
+			// phase 2: drop struct_extract on flattened (scalar-leaf) unnest outputs
+			VisitOperator(*op);
+		}
+		// types changed (retype and/or plan splice): re-resolve the whole tree
 		op->ResolveOperatorTypes();
 	}
 	return op;

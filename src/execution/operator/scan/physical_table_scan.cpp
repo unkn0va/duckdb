@@ -47,6 +47,7 @@ public:
 			// 글로벌 스캔 초기화 시 화물 상차
 			input.nested_projection_map = op.nested_projection_map;
 			input.flatten_columns = op.flatten_columns;
+			input.flatten_leaf_cols = op.flatten_leaf_cols;
 
 			//std::cerr << "\n>>> [DEBUG_SCAN] GlobalSourceState 상차 완료! 파케이로 던지기 직전!" << std::endl;
 			//if (!input.nested_projection_map.empty()) {
@@ -106,6 +107,7 @@ public:
 			// 로컬 스캔 초기화 시 화물 상차
 			input.nested_projection_map = op.nested_projection_map;
 			input.flatten_columns = op.flatten_columns;
+			input.flatten_leaf_cols = op.flatten_leaf_cols;
 
 			//std::cerr << "\n>>> [DEBUG_SCAN] LocalSourceState 상차 완료! 파케이로 던지기 직전!" << std::endl;
 			//if (!input.nested_projection_map.empty()) {
