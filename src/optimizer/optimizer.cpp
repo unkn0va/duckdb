@@ -24,6 +24,7 @@
 #include "duckdb/optimizer/regex_range_filter.hpp"
 #include "duckdb/optimizer/remove_duplicate_groups.hpp"
 #include "duckdb/optimizer/remove_unused_columns.hpp"
+#include "duckdb/optimizer/flatten_unnest.hpp"
 #include "duckdb/optimizer/row_group_pruner.hpp"
 #include "duckdb/optimizer/rule/distinct_aggregate_optimizer.hpp"
 #include "duckdb/optimizer/rule/equal_or_null_simplification.hpp"
@@ -325,6 +326,15 @@ void Optimizer::RunBuiltInOptimizers() {
 	RunOptimizer(OptimizerType::JOIN_FILTER_PUSHDOWN, [&]() {
 		JoinFilterPushdownOptimizer join_filter_pushdown(*this);
 		join_filter_pushdown.VisitOperator(*plan);
+	});
+
+	// [Rey hybrid / approach C] flatten single-node UNNEST-over-scan into a LIST<leaf> scan.
+	// MUST run LAST: it sets ColumnIndex::SetType on the GET, which earlier passes (esp. COLUMN_LIFETIME,
+	// which runs twice and rebuilds column_ids) would otherwise reset -- leaving the GET typed LIST<STRUCT>
+	// while the UNNEST/projection expressions are retyped to the leaf, a mismatch that crashes at execution.
+	RunOptimizer(OptimizerType::UNUSED_COLUMNS, [&]() {
+		FlattenUnnest flatten;
+		plan = flatten.Optimize(std::move(plan));
 	});
 }
 

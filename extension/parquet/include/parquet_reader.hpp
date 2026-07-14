@@ -16,6 +16,7 @@
 #include "duckdb/common/encryption_state.hpp"
 #include "duckdb/common/exception.hpp"
 #include "duckdb/common/multi_file/base_file_reader.hpp"
+#include "duckdb/common/mutex.hpp"
 #include "duckdb/common/multi_file/multi_file_options.hpp"
 #include "duckdb/common/string_util.hpp"
 #include "duckdb/common/types/data_chunk.hpp"
@@ -148,6 +149,15 @@ public:
 	// 파케이 리더 전용 VIP 호주머니!
 	unordered_map<column_t, vector<idx_t>> nested_projection_map;
 
+	//! [Rey hybrid] flatten (collapse-to-flat) target columns
+	vector<column_t> flatten_columns;
+
+	//! [Rey hybrid / approach C] Synthesized LIST<leaf> schemas for flatten columns. ColumnReader holds its
+	//! schema by reference, so these must outlive the readers -> owned here on the (long-lived) ParquetReader.
+	//! CreateReader runs concurrently per scan state/thread, so appends are guarded by flatten_schemas_lock.
+	mutable vector<unique_ptr<ParquetColumnSchema>> flatten_schemas;
+	mutable mutex flatten_schemas_lock;
+
 	ParquetReader(ClientContext &context, OpenFileInfo file, ParquetOptions parquet_options,
 	              shared_ptr<ParquetFileMetadataCache> metadata = nullptr);
 	~ParquetReader() override;
@@ -233,6 +243,12 @@ private:
 	unique_ptr<ColumnReader> CreateReaderRecursive(ClientContext &context, const vector<ColumnIndex> &indexes,
 	                                               const ParquetColumnSchema &schema,
 												   const vector<idx_t> *active_pruning = nullptr);
+
+	//! [Rey hybrid / approach C] Build a reader that emits LIST<leaf> for a flatten column: reads the leaf
+	//! column directly (skipping intermediate STRUCT assembly) and groups it per top-level row. For a
+	//! single nesting level the plain ListColumnReader grouping (rep == list level) is already correct.
+	unique_ptr<ColumnReader> CreateFlattenListReader(ClientContext &context, const ParquetColumnSchema &list_schema,
+	                                                 idx_t leaf_idx);
 	const duckdb_parquet::RowGroup &GetGroup(ParquetReaderScanState &state);
 	uint64_t GetGroupCompressedSize(ParquetReaderScanState &state);
 	idx_t GetGroupOffset(ParquetReaderScanState &state);

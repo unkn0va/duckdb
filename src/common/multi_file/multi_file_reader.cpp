@@ -575,15 +575,63 @@ MultiFileReaderBindData MultiFileReader::BindReader(ClientContext &context, vect
 	}
 }
 
+// [Rey hybrid / approach C] Reshape a LIST<STRUCT<...>> column definition into LIST<leaf>, keeping the
+// matching struct-child definition (preserving its name/identifier) as the list element. This makes the
+// column definition agree with the collapse reader that emits LIST<leaf> directly (skipping STRUCT assembly),
+// so the column mapper maps it trivially (COPY_DIRECTLY) instead of trying to cast LIST<STRUCT> -> LIST<leaf>.
+static void ReshapeFlattenColumn(MultiFileColumnDefinition &def, const LogicalType &list_type,
+                                 const LogicalType &elem_type) {
+	// Set the column to LIST<leaf> and CLEAR its children. With empty children, MultiFileColumnMapper::MapColumn
+	// takes the "not a struct - map the column directly" path (children.empty()) and produces a plain column
+	// reference (COPY_DIRECTLY) instead of a remap_struct expression. local==global==LIST<leaf> keeps the name/
+	// identifier, so the mapper finds and maps it directly with no cast, matching the collapse reader's output.
+	(void)elem_type;
+	def.type = list_type;
+	def.children.clear();
+}
+
 ReaderInitializeType MultiFileReader::InitializeReader(MultiFileReaderData &reader_data,
                                                        const MultiFileBindData &bind_data,
                                                        const vector<MultiFileColumnDefinition> &global_columns,
                                                        const vector<ColumnIndex> &global_column_ids,
                                                        optional_ptr<TableFilterSet> table_filters,
                                                        ClientContext &context, MultiFileGlobalState &gstate) {
-	FinalizeBind(reader_data, bind_data.file_options, bind_data.reader_bind, global_columns, global_column_ids, context,
-	             gstate.multi_file_reader_state.get());
-	return CreateMapping(context, reader_data, global_columns, global_column_ids, table_filters, gstate.file_list,
+	// [Rey hybrid / approach C] If any requested column carries a flatten type (ColumnIndex::SetType set by
+	// FlattenUnnest = LIST<leaf>), reshape BOTH the reader's local column def and the global column def to
+	// LIST<leaf> so the mapper maps them trivially and the collapse reader's output flows through unchanged.
+	// NOTE (prototype): assumes local/global column indices are aligned (single file, same schema) and that
+	// the leaf is identified by type within its struct. Parquet-only until the collapse reader is gated.
+	vector<MultiFileColumnDefinition> flattened_global;
+	const vector<MultiFileColumnDefinition> *effective_global = &global_columns;
+	bool any_flatten = false;
+	for (auto &cid : global_column_ids) {
+		if (cid.HasType() && cid.GetScanType().id() == LogicalTypeId::LIST) {
+			any_flatten = true;
+			break;
+		}
+	}
+	if (any_flatten) {
+		flattened_global = global_columns;
+		auto &local_columns = reader_data.reader->columns;
+		for (auto &cid : global_column_ids) {
+			if (!cid.HasType() || cid.GetScanType().id() != LogicalTypeId::LIST) {
+				continue;
+			}
+			auto gidx = cid.GetPrimaryIndex();
+			auto list_type = cid.GetScanType();
+			auto &elem_type = ListType::GetChildType(list_type);
+			if (gidx < flattened_global.size()) {
+				ReshapeFlattenColumn(flattened_global[gidx], list_type, elem_type);
+			}
+			if (gidx < local_columns.size()) {
+				ReshapeFlattenColumn(local_columns[gidx], list_type, elem_type);
+			}
+		}
+		effective_global = &flattened_global;
+	}
+	FinalizeBind(reader_data, bind_data.file_options, bind_data.reader_bind, *effective_global, global_column_ids,
+	             context, gstate.multi_file_reader_state.get());
+	return CreateMapping(context, reader_data, *effective_global, global_column_ids, table_filters, gstate.file_list,
 	                     bind_data.reader_bind, bind_data.virtual_columns);
 }
 

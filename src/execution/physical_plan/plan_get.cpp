@@ -210,6 +210,7 @@ PhysicalOperator &PhysicalPlanGenerator::CreatePlan(LogicalGet &op) {
 
 	// 물리 연산자로 화물 복사하기
 	cast_table_scan.nested_projection_map = op.nested_projection_map;
+	cast_table_scan.flatten_columns = op.flatten_columns;
 
 	if (filter) {
 		filter->children.push_back(table_scan);

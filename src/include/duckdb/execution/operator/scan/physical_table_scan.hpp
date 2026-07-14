@@ -49,6 +49,9 @@ public:
 	//! LogicalGet에서 전달받을 중첩 하위 인덱스 주머니
 	unordered_map<column_t, vector<idx_t>> nested_projection_map;
 
+	//! [Rey hybrid] flatten (collapse-to-flat) target columns, threaded alongside nested_projection_map
+	vector<column_t> flatten_columns;
+
 	//! The names of the columns
 	vector<string> names;
 	//! The table filters

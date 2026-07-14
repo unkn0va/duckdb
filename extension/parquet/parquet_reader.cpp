@@ -27,6 +27,7 @@
 #include "duckdb/planner/table_filter_state.hpp"
 #include "duckdb/common/multi_file/multi_file_reader.hpp"
 #include "duckdb/common/types/geometry_crs.hpp"
+#include "duckdb/common/vector_operations/vector_operations.hpp"
 
 #include <iostream>
 
@@ -413,6 +414,30 @@ unique_ptr<ColumnReader> ParquetReader::CreateReaderRecursive(ClientContext &con
 	// 화물 확인: 부모가 넘겨준 바통이 있는지, 아니면 내가 직접 입구인지 확인
 	const vector<idx_t> *current_pruning = active_pruning;
 
+	// [Rey hybrid / approach C] If this schema is a top-level flatten column, emit LIST<leaf> directly
+	// (skip STRUCT assembly) instead of the normal LIST<STRUCT> reconstruction.
+	if (!active_pruning) {
+		for (auto flat_col : flatten_columns) {
+			if (flat_col < root_schema->children.size() && &schema == &root_schema->children[flat_col] &&
+			    schema.type.id() == LogicalTypeId::LIST) {
+				auto np = nested_projection_map.find(flat_col);
+				if (np != nested_projection_map.end() && np->second.size() == 1) {
+					// Prototype: single nesting level with a SCALAR leaf only. If the "leaf" is itself nested
+					// (e.g. c_orders.o_lineitems is a LIST), this is the multi-level case -> skip flatten so the
+					// normal reader runs (and the optimizer pass likewise declines to retype it).
+					auto &elem = ListType::GetChildType(schema.type);
+					if (elem.id() == LogicalTypeId::STRUCT) {
+						auto &sc = StructType::GetChildTypes(elem);
+						idx_t li = np->second[0];
+						if (li < sc.size() && !sc[li].second.IsNested()) {
+							return CreateFlattenListReader(context, schema, li);
+						}
+					}
+				}
+			}
+		}
+	}
+
 	if (!current_pruning) {
 		for (auto const& [target_col_id, sub_indices] : nested_projection_map) {
 			if (target_col_id < root_schema->children.size() &&
@@ -447,23 +472,12 @@ unique_ptr<ColumnReader> ParquetReader::CreateReaderRecursive(ClientContext &con
                 children[0] = CreateReaderRecursive(context, indexes, schema.children[0], current_pruning);
 			}
 			else if (schema.type.id() == LogicalTypeId::STRUCT) {
-				//std::cerr << ">>> [PRUNING_STRUCT] Target: " << schema.name << " (총 자식: " << schema.children.size() << ")\n";
-				vector<bool> is_survived(schema.children.size(), false);
+				// pruned struct read: only build readers for the referenced child fields
 				for (idx_t child_index : *current_pruning) {
 					if (child_index < schema.children.size()) {
-						is_survived[child_index] = true;
 						children[child_index] = CreateReaderRecursive(context, indexes, schema.children[child_index]);
-						//std::cerr << "\t-[KEEP] 인덱스: " << child_index
-						//<< " | 이름: " << schema.children[child_index].name << "\n";
 					}
 				}
-
-				for (idx_t i = 0; i < schema.children.size(); i++) {
-					if (!is_survived[i]) {
-						//std::cerr << "\t[DISCARD] 인덱스: " << i << " | 이름: " << schema.children[i].name << " (I/O 스킵됨)\n";
-					}
-				}
-				std::cerr << "------------------------------------------------------\n";
 			}
 			else {
 				return ColumnReader::CreateReader(*this, schema);
@@ -507,6 +521,114 @@ unique_ptr<ColumnReader> ParquetReader::CreateReaderRecursive(ClientContext &con
 	default:
 		throw InternalException("Unsupported ParquetColumnSchemaType");
 	}
+}
+
+// [Rey hybrid / approach C, option 2] Reads a LIST<STRUCT<...>> column with the STANDARD reader chain
+// (so all the Dremel def/rep assembly is handled correctly), then reinterprets the result as LIST<leaf> by
+// taking the struct's leaf field as the list element. The list offsets/validity are shared; only the leaf
+// column's values are copied. This validates the LIST<leaf> type plumbing end-to-end. The intermediate
+// STRUCT is still assembled (cheap for a single pruned field); reconstruction-free multi-level collapse is
+// future work (true Dremel-level flattening).
+class FlattenReinterpretColumnReader : public ColumnReader {
+public:
+	FlattenReinterpretColumnReader(ParquetReader &reader, const ParquetColumnSchema &schema,
+	                               unique_ptr<ColumnReader> inner_p, idx_t leaf_idx_p)
+	    : ColumnReader(reader, schema), inner(std::move(inner_p)), leaf_idx(leaf_idx_p),
+	      intermediate_cache(reader.allocator, inner->Type()), intermediate(intermediate_cache) {
+	}
+
+	idx_t Read(uint64_t num_values, data_ptr_t define_out, data_ptr_t repeat_out, Vector &result_out) override {
+		intermediate.ResetFromCache(intermediate_cache);
+		idx_t count = inner->Read(num_values, define_out, repeat_out, intermediate);
+		idx_t child_size = ListVector::GetListSize(intermediate);
+
+		// First set the list child to the struct's leaf field (Append may reallocate result_out's buffers,
+		// so do it BEFORE writing the list_entry_t offsets).
+		auto &struct_child = ListVector::GetEntry(intermediate);
+		auto &leaf_child = *StructVector::GetEntries(struct_child)[leaf_idx];
+		ListVector::SetListSize(result_out, 0);
+		if (child_size > 0) {
+			ListVector::Append(result_out, leaf_child, child_size);
+		}
+
+		// Now copy the top-level list_entry_t offsets/lengths and null mask (list structure is identical,
+		// and the leaf child sits at the same positions as the struct child it came from).
+		auto src = ListVector::GetData(intermediate);
+		auto dst = ListVector::GetData(result_out);
+		for (idx_t i = 0; i < count; i++) {
+			dst[i] = src[i];
+		}
+		auto &in_val = FlatVector::Validity(intermediate);
+		if (!in_val.AllValid()) {
+			auto &out_val = FlatVector::Validity(result_out);
+			for (idx_t i = 0; i < count; i++) {
+				if (!in_val.RowIsValid(i)) {
+					out_val.SetInvalid(i);
+				}
+			}
+		}
+		return count;
+	}
+
+	void InitializeRead(idx_t row_group_idx_p, const vector<ColumnChunk> &columns, TProtocol &protocol_p) override {
+		inner->InitializeRead(row_group_idx_p, columns, protocol_p);
+	}
+	idx_t GroupRowsAvailable() override {
+		return inner->GroupRowsAvailable();
+	}
+	uint64_t TotalCompressedSize() override {
+		return inner->TotalCompressedSize();
+	}
+	void RegisterPrefetch(ThriftFileTransport &transport, bool allow_merge) override {
+		inner->RegisterPrefetch(transport, allow_merge);
+	}
+	void Skip(idx_t num_values) override {
+		// delegate skips to the inner reader (it flushes its own pending skips on its next Read)
+		inner->Skip(num_values);
+	}
+
+private:
+	unique_ptr<ColumnReader> inner;
+	idx_t leaf_idx;
+	VectorCache intermediate_cache;
+	Vector intermediate;
+};
+
+unique_ptr<ColumnReader> ParquetReader::CreateFlattenListReader(ClientContext &context,
+                                                               const ParquetColumnSchema &list_schema,
+                                                               idx_t leaf_idx) {
+	// list_schema is LIST<STRUCT<...>>; children[0] is the struct element, whose children[leaf_idx] is the leaf.
+	D_ASSERT(list_schema.type.id() == LogicalTypeId::LIST);
+	if (list_schema.children.size() != 1) {
+		throw InternalException("[Rey hybrid] flatten target list schema must have exactly one child");
+	}
+	auto &element = list_schema.children[0];
+	if (element.type.id() != LogicalTypeId::STRUCT || leaf_idx >= element.children.size()) {
+		throw InternalException("[Rey hybrid] flatten target element must be a struct with the leaf in range");
+	}
+	auto &leaf = element.children[leaf_idx];
+
+	// Build the STANDARD pruned reader for this list column (LIST<STRUCT<...>>, only the leaf field read).
+	// Passing a non-null pruning vector both prunes the struct to the leaf and skips the flatten hook at the
+	// top of CreateReaderRecursive (active_pruning != null).
+	vector<idx_t> prune = {leaf_idx};
+	auto inner = CreateReaderRecursive(context, {}, list_schema, &prune);
+
+	// Synthesize the LIST<leaf> schema that the wrapper reader reports as its type. ColumnReader keeps its
+	// schema by reference, so persist it on the (long-lived) reader.
+	vector<ParquetColumnSchema> synth_children;
+	synth_children.emplace_back(leaf);
+	auto synth = make_uniq<ParquetColumnSchema>(ParquetColumnSchema::FromChildSchemas(
+	    list_schema.name, LogicalType::LIST(leaf.type), list_schema.max_define, list_schema.max_repeat,
+	    list_schema.schema_index.IsValid() ? list_schema.schema_index.GetIndex() : list_schema.column_index,
+	    list_schema.column_index, std::move(synth_children), ParquetColumnSchemaType::COLUMN));
+	auto &schema_ref = *synth;
+	{
+		// CreateReader runs concurrently across scan threads; serialize appends to this shared vector.
+		lock_guard<mutex> flatten_guard(flatten_schemas_lock);
+		flatten_schemas.push_back(std::move(synth));
+	}
+	return make_uniq<FlattenReinterpretColumnReader>(*this, schema_ref, std::move(inner), leaf_idx);
 }
 
 unique_ptr<ColumnReader> ParquetReader::CreateReader(ClientContext &context) {

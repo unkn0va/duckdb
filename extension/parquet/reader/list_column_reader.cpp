@@ -1,6 +1,8 @@
 #include "reader/list_column_reader.hpp"
 #include "parquet_reader.hpp"
 
+#include <iostream>
+
 namespace duckdb {
 
 struct ListReaderData {
@@ -114,7 +116,13 @@ idx_t ListColumnReader::ReadInternal(uint64_t num_values, data_ptr_t define_out,
 		// the rest is pretty much handed up as-is as a single-valued list or NULL
 		idx_t child_idx;
 		for (child_idx = 0; child_idx < child_actual_num_values; child_idx++) {
-			if (child_repeats_ptr[child_idx] == MaxRepeat()) {
+			// [Rey hybrid / approach C] In collapse mode we group the whole nesting path into one list
+			// per top-level row: any value that shares the top-level record (rep > 0) appends to the
+			// current list; only rep == 0 starts a new list entry. Otherwise (normal mode) we collapse
+			// only values repeating at this reader's own level (rep == MaxRepeat()).
+			const bool repeats_here = collapse_to_top_level ? (child_repeats_ptr[child_idx] > 0)
+			                                                : (child_repeats_ptr[child_idx] == MaxRepeat());
+			if (repeats_here) {
 				// value repeats on this level, append
 				D_ASSERT(result_offset > 0);
 				OP::HandleRepeat(data, result_offset - 1);

@@ -68,6 +68,25 @@ InsertionOrderPreservingMap<string> LogicalGet::ParamsToString() const {
 			result[it.first] = it.second;
 		}
 	}
+	if (!flatten_columns.empty()) {
+		// [Rey hybrid increment 1] Report which nested columns were detected as single-node
+		// flatten candidates. This changes no behavior yet — it only surfaces the detection so it
+		// can be inspected with SET explain_output='optimized_only'.
+		string flatten;
+		for (auto column_id : flatten_columns) {
+			if (column_id >= names.size()) {
+				continue;
+			}
+			if (!flatten.empty()) {
+				flatten += ", ";
+			}
+			flatten += names[column_id];
+		}
+		if (!flatten.empty()) {
+			result["Flatten (single-node candidate)"] = flatten;
+		}
+	}
+
 	SetParamsEstimatedCardinality(result);
 	return result;
 }

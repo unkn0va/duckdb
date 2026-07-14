@@ -45,6 +45,12 @@ public:
 	//! Subindex mapping archive for nested data pushdowns
 	unordered_map<column_t, vector<idx_t>> nested_projection_map;
 
+	//! [Rey hybrid] Columns that are single-node flatten candidates: a nested (LIST) column that is
+	//! UNNESTed directly above this scan and whose element is consumed only via leaf sub-fields.
+	//! For these, the nested reconstruct + UNNEST round-trip can be replaced by a flat leaf scan
+	//! (Rey et al., "Nested Parquet Is Flat", single-node case: no join / no key generation needed).
+	vector<column_t> flatten_columns;
+
 	//! Filters pushed down for table scan
 	TableFilterSet table_filters;
 	//! The set of input parameters for the table function

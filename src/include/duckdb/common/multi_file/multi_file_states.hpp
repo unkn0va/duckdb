@@ -83,6 +83,9 @@ struct MultiFileBindData : public TableFunctionData {
 	// 파케이 리더에게 전달될 공용 VIP 화물칸!
 	unordered_map<column_t, vector<idx_t>> nested_projection_map;
 
+	//! [Rey hybrid] flatten (collapse-to-flat) target columns
+	vector<column_t> flatten_columns;
+
 	void Initialize(shared_ptr<BaseFileReader> reader) {
 		initial_reader = std::move(reader);
 	}

@@ -41,6 +41,18 @@ public:
 		child_column_reader->RegisterPrefetch(transport, allow_merge);
 	}
 
+	//! [Rey hybrid / approach C] When enabled, this list reader collapses the ENTIRE nesting path below
+	//! it into a single list per top-level row: values are grouped by repetition level 0 (rep>0 appends
+	//! to the current top-level list, rep==0 starts a new one) instead of collapsing only at this list's
+	//! own level (rep == MaxRepeat()). Combined with a child that reads a leaf column directly (skipping
+	//! intermediate STRUCT/LIST assembly), this produces LIST<leaf> per top-level row so a single thin
+	//! UNNEST can flatten it — avoiding the reconstruct+multi-UNNEST round-trip.
+	//! NOTE (prototype): assumes no NULLs / empty lists at intermediate nesting levels; the def-level
+	//! branch below still uses the leaf MaxDefine. Revisit for nullable/empty cases before general use.
+	void SetCollapseToTopLevel(bool value) {
+		collapse_to_top_level = value;
+	}
+
 protected:
 	template <class OP>
 	idx_t ReadInternal(uint64_t num_values, data_ptr_t define_out, data_ptr_t repeat_out,
@@ -57,6 +69,9 @@ private:
 	Vector read_vector;
 
 	idx_t overflow_child_count;
+
+	//! [Rey hybrid / approach C] see SetCollapseToTopLevel above
+	bool collapse_to_top_level = false;
 };
 
 } // namespace duckdb

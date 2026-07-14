@@ -22,6 +22,7 @@ add_library_unity(
   deliminator.cpp
   expression_heuristics.cpp
   expression_rewriter.cpp
+  flatten_unnest.cpp
   filter_combiner.cpp
   filter_pullup.cpp
   filter_pushdown.cpp

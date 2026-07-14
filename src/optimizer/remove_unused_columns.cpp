@@ -375,6 +375,13 @@ void RemoveUnusedColumns::VisitOperator(LogicalOperator &op) {
 				indices.erase(std::unique(indices.begin(), indices.end()), indices.end());
 
 				get.nested_projection_map[base_column_id] = indices;
+				// [Rey hybrid increment 1] Mark this column as a single-node flatten candidate.
+				// Reaching this point means: the column is UNNESTed directly above the scan
+				// (found_get, no intervening UNNEST), the UNNEST child is a plain column ref, and only
+				// its leaf sub-fields are used (child_columns non-empty). That is exactly Rey's
+				// single-node case, where the nested reconstruct + UNNEST round-trip can be replaced by
+				// a flat leaf scan with no join and no on-the-fly key generation.
+				get.flatten_columns.push_back(base_column_id);
 			}
 		}
 		return;

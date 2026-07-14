@@ -149,6 +149,9 @@ struct TableFunctionInitInput {
 	// 파케이 리더로 넘겨줄 중첩 하위 인덱스 화물칸!
 	unordered_map<column_t, vector<idx_t>> nested_projection_map;
 
+	//! [Rey hybrid] flatten (collapse-to-flat) target columns
+	vector<column_t> flatten_columns;
+
 	bool CanRemoveFilterColumns() const {
 		if (projection_ids.empty()) {
 			// No filter columns to remove.

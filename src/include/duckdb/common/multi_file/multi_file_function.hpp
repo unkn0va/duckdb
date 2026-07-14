@@ -479,6 +479,7 @@ public:
 		
 		// 톨케이트에서 input 수레가 버려지기 전에 화물을 가로챔!
 		bind_data.nested_projection_map = input.nested_projection_map;
+		bind_data.flatten_columns = input.flatten_columns;
 
 		// 발송지 로그
 		//std::cerr << "\n>>> [DEBUG_DELIVERY] 1. 톨케이트(MultiFIleInitGlobal)에서 가방으로 화물 복사 완료!" << "\n";
