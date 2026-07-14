@@ -421,17 +421,31 @@ unique_ptr<ColumnReader> ParquetReader::CreateReaderRecursive(ClientContext &con
 			if (flat_col < root_schema->children.size() && &schema == &root_schema->children[flat_col] &&
 			    schema.type.id() == LogicalTypeId::LIST) {
 				auto np = nested_projection_map.find(flat_col);
-				if (np != nested_projection_map.end() && np->second.size() == 1) {
-					// Prototype: single nesting level with a SCALAR leaf only. If the "leaf" is itself nested
-					// (e.g. c_orders.o_lineitems is a LIST), this is the multi-level case -> skip flatten so the
-					// normal reader runs (and the optimizer pass likewise declines to retype it).
-					auto &elem = ListType::GetChildType(schema.type);
-					if (elem.id() == LogicalTypeId::STRUCT) {
-						auto &sc = StructType::GetChildTypes(elem);
-						idx_t li = np->second[0];
-						if (li < sc.size() && !sc[li].second.IsNested()) {
-							return CreateFlattenListReader(context, schema, li);
+				if (np != nested_projection_map.end() && !np->second.empty()) {
+					// Walk the type along the path (descending through LIST<STRUCT> levels). Flatten only if
+					// the path ends at a SCALAR leaf; otherwise fall back to the normal reader.
+					auto &path = np->second;
+					LogicalType t = schema.type;
+					bool ok = true;
+					for (idx_t i = 0; i < path.size(); i++) {
+						if (t.id() != LogicalTypeId::LIST) {
+							ok = false;
+							break;
 						}
+						auto &elem = ListType::GetChildType(t);
+						if (elem.id() != LogicalTypeId::STRUCT) {
+							ok = false;
+							break;
+						}
+						auto &sc = StructType::GetChildTypes(elem);
+						if (path[i] >= sc.size()) {
+							ok = false;
+							break;
+						}
+						t = sc[path[i]].second;
+					}
+					if (ok && !t.IsNested()) {
+						return CreateFlattenListReader(context, schema, path);
 					}
 				}
 			}
@@ -596,30 +610,36 @@ private:
 
 unique_ptr<ColumnReader> ParquetReader::CreateFlattenListReader(ClientContext &context,
                                                                const ParquetColumnSchema &list_schema,
-                                                               idx_t leaf_idx) {
-	// list_schema is LIST<STRUCT<...>>; children[0] is the struct element, whose children[leaf_idx] is the leaf.
+                                                               const vector<idx_t> &path) {
+	// Navigate the schema along `path` to the deep scalar leaf, descending through each LIST<STRUCT> level:
+	// at each step the current schema is a LIST, its element (children[0]) is a STRUCT, and path[i] selects the
+	// next child (an intermediate LIST for non-final steps, the scalar leaf for the last).
 	D_ASSERT(list_schema.type.id() == LogicalTypeId::LIST);
-	if (list_schema.children.size() != 1) {
-		throw InternalException("[Rey hybrid] flatten target list schema must have exactly one child");
+	const ParquetColumnSchema *cur = &list_schema;
+	for (idx_t i = 0; i < path.size(); i++) {
+		if (cur->type.id() != LogicalTypeId::LIST || cur->children.size() != 1) {
+			throw InternalException("[Rey hybrid] flatten path step %llu: expected LIST<STRUCT>", i);
+		}
+		auto &element = cur->children[0];
+		if (element.type.id() != LogicalTypeId::STRUCT || path[i] >= element.children.size()) {
+			throw InternalException("[Rey hybrid] flatten path step %llu: element not a struct / index out of range", i);
+		}
+		cur = &element.children[path[i]];
 	}
-	auto &element = list_schema.children[0];
-	if (element.type.id() != LogicalTypeId::STRUCT || leaf_idx >= element.children.size()) {
-		throw InternalException("[Rey hybrid] flatten target element must be a struct with the leaf in range");
-	}
-	auto &leaf = element.children[leaf_idx];
+	auto &leaf = *cur;
 
-	// Build the STANDARD pruned reader for this list column (LIST<STRUCT<...>>, only the leaf field read).
-	// Passing a non-null pruning vector both prunes the struct to the leaf and skips the flatten hook at the
-	// top of CreateReaderRecursive (active_pruning != null).
-	vector<idx_t> prune = {leaf_idx};
-	auto inner = CreateReaderRecursive(context, {}, list_schema, &prune);
+	// [Rey hybrid / approach C, option 1 - Dremel collapse] Read the LEAF column directly (no intermediate
+	// STRUCT/LIST assembly) and group its values into one list per TOP-LEVEL row via a collapse ListColumnReader
+	// (rep>0 -> append to current top-level list, rep==0 -> new list). This is the reconstruction-free path;
+	// prototype handles the all-present case (TPC-H has no null/empty lists), null/empty def handling is TODO.
+	auto leaf_reader = CreateReaderRecursive(context, {}, leaf);
 
-	// Synthesize the LIST<leaf> schema that the wrapper reader reports as its type. ColumnReader keeps its
-	// schema by reference, so persist it on the (long-lived) reader.
+	// Synthesize a LIST<leaf> schema using the LEAF's own define/repeat levels (the collapse reader's child is
+	// the leaf read directly, so its rep/def are at the leaf's levels). Persist it (ColumnReader holds by ref).
 	vector<ParquetColumnSchema> synth_children;
 	synth_children.emplace_back(leaf);
 	auto synth = make_uniq<ParquetColumnSchema>(ParquetColumnSchema::FromChildSchemas(
-	    list_schema.name, LogicalType::LIST(leaf.type), list_schema.max_define, list_schema.max_repeat,
+	    list_schema.name, LogicalType::LIST(leaf.type), leaf.max_define, leaf.max_repeat,
 	    list_schema.schema_index.IsValid() ? list_schema.schema_index.GetIndex() : list_schema.column_index,
 	    list_schema.column_index, std::move(synth_children), ParquetColumnSchemaType::COLUMN));
 	auto &schema_ref = *synth;
@@ -628,7 +648,9 @@ unique_ptr<ColumnReader> ParquetReader::CreateFlattenListReader(ClientContext &c
 		lock_guard<mutex> flatten_guard(flatten_schemas_lock);
 		flatten_schemas.push_back(std::move(synth));
 	}
-	return make_uniq<FlattenReinterpretColumnReader>(*this, schema_ref, std::move(inner), leaf_idx);
+	auto list_reader = make_uniq<ListColumnReader>(*this, schema_ref, std::move(leaf_reader));
+	list_reader->SetCollapseToTopLevel(true);
+	return std::move(list_reader);
 }
 
 unique_ptr<ColumnReader> ParquetReader::CreateReader(ClientContext &context) {

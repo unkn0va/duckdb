@@ -244,11 +244,13 @@ private:
 	                                               const ParquetColumnSchema &schema,
 												   const vector<idx_t> *active_pruning = nullptr);
 
-	//! [Rey hybrid / approach C] Build a reader that emits LIST<leaf> for a flatten column: reads the leaf
-	//! column directly (skipping intermediate STRUCT assembly) and groups it per top-level row. For a
-	//! single nesting level the plain ListColumnReader grouping (rep == list level) is already correct.
+	//! [Rey hybrid / approach C] Build a reader that emits LIST<leaf> for a flatten column: reads the deep leaf
+	//! column directly (skipping ALL intermediate STRUCT/LIST assembly) and collapses it into one list per
+	//! top-level row (Dremel-style, rep==0 boundary). `path` is the sequence of struct-field indices from the
+	//! list element down to the scalar leaf, descending through any intermediate LIST<STRUCT> levels
+	//! (single element for single-level, e.g. [o_orderkey]; [o_lineitems, l_returnflag] for the 2-level case).
 	unique_ptr<ColumnReader> CreateFlattenListReader(ClientContext &context, const ParquetColumnSchema &list_schema,
-	                                                 idx_t leaf_idx);
+	                                                 const vector<idx_t> &path);
 	const duckdb_parquet::RowGroup &GetGroup(ParquetReaderScanState &state);
 	uint64_t GetGroupCompressedSize(ParquetReaderScanState &state);
 	idx_t GetGroupOffset(ParquetReaderScanState &state);
