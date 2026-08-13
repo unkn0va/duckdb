@@ -95,6 +95,10 @@ protected:
 	//! path so nested sub-field requirements propagate through get_field (nested UNNEST projection).
 	bool RecordExtractWithLeafReqs(unique_ptr<Expression> *expression,
 	                               const vector<ColumnIndex> &leaf_child_columns);
+	//! Forward the sub-field requirements of a projection output onto the column it simply passes through
+	bool RecordPassthroughWithReqs(unique_ptr<Expression> *expression, const vector<ColumnIndex> &reqs);
+	//! Turn off the pushdown-extract rewrite for a column (its recorded paths may be multi-level)
+	void DisablePushdownExtract(const ColumnBinding &binding);
 
 	bool HandleStructExtract(unique_ptr<Expression> &expr, optional_ptr<BoundColumnRefExpression> &colref,
 	                         reference<ColumnIndex> &path_ref, vector<ReferencedExtractComponent> &expressions);

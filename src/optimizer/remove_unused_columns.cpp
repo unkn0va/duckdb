@@ -261,8 +261,13 @@ void RemoveUnusedColumns::VisitOperator(LogicalOperator &op) {
 		RemoveUnusedColumns remove(binder, context);
 		for (auto &expr : proj.expressions) {
 			auto entry = deep_output_reqs.find(expr.get());
-			if (entry != deep_output_reqs.end() && remove.RecordExtractWithLeafReqs(&expr, entry->second)) {
-				continue;
+			if (entry != deep_output_reqs.end()) {
+				if (remove.RecordExtractWithLeafReqs(&expr, entry->second)) {
+					continue;
+				}
+				if (remove.RecordPassthroughWithReqs(&expr, entry->second)) {
+					continue;
+				}
 			}
 			remove.VisitExpression(&expr);
 		}
@@ -333,14 +338,21 @@ void RemoveUnusedColumns::VisitOperator(LogicalOperator &op) {
 			bool remapped = false;
 			if (expr->GetExpressionClass() == ExpressionClass::BOUND_UNNEST) {
 				auto &bound_unnest = expr->Cast<BoundUnnestExpression>();
-				if (bound_unnest.child->GetExpressionClass() == ExpressionClass::BOUND_COLUMN_REF) {
-					auto &child_ref = bound_unnest.child->Cast<BoundColumnRefExpression>();
-					auto out_entry = column_references.find(ColumnBinding(unnest.unnest_index, i));
-					if (out_entry != column_references.end() && !out_entry->second.child_columns.empty()) {
-						// wrap the element's sub-field requirements under the list-element level (index 0)
-						ColumnIndex element_index(0, out_entry->second.child_columns);
+				auto out_entry = column_references.find(ColumnBinding(unnest.unnest_index, i));
+				if (out_entry != column_references.end() && !out_entry->second.child_columns.empty()) {
+					// wrap the element's sub-field requirements under the list-element level (index 0)
+					ColumnIndex element_index(0, out_entry->second.child_columns);
+					if (bound_unnest.child->GetExpressionClass() == ExpressionClass::BOUND_COLUMN_REF) {
+						auto &child_ref = bound_unnest.child->Cast<BoundColumnRefExpression>();
 						AddBinding(child_ref, std::move(element_index));
 						remapped = true;
+					} else {
+						// the unnested list is itself a sub-field, e.g. UNNEST(struct_extract(o, 'o_lineitems')).
+						// record the extract path and attach the element's requirements at its leaf, so the
+						// requirements survive instead of degrading to a full read of the list
+						vector<ColumnIndex> leaf_reqs;
+						leaf_reqs.push_back(std::move(element_index));
+						remapped = RecordExtractWithLeafReqs(&bound_unnest.child, leaf_reqs);
 					}
 				}
 			}
@@ -924,7 +936,33 @@ bool BaseColumnPruner::RecordExtractWithLeafReqs(unique_ptr<Expression> *express
 	// record as a FULL_READ sub-field path: the 2-arg AddBinding does not record struct_extracts, so
 	// pushdown-extract stays disabled - safe for LIST-typed fields whose extract cannot be pushed down
 	AddBinding(*colref, path.GetChildIndex(0));
+	DisablePushdownExtract(colref->binding);
 	return true;
+}
+
+bool BaseColumnPruner::RecordPassthroughWithReqs(unique_ptr<Expression> *expression,
+                                                 const vector<ColumnIndex> &reqs) {
+	auto &expr = **expression;
+	if (expr.GetExpressionClass() != ExpressionClass::BOUND_COLUMN_REF) {
+		return false;
+	}
+	// the expression just forwards a column, so the requirements on its output apply verbatim
+	// to the referenced column (mirrors DataFusion's add_passthrough)
+	auto &colref = expr.Cast<BoundColumnRefExpression>();
+	for (auto &req : reqs) {
+		AddBinding(colref, ColumnIndex(req));
+	}
+	DisablePushdownExtract(colref.binding);
+	return true;
+}
+
+void BaseColumnPruner::DisablePushdownExtract(const ColumnBinding &binding) {
+	// the sub-field paths recorded above can be more than one level deep, which the
+	// pushdown-extract rewrite cannot express - keep it off for this column
+	auto entry = column_references.find(binding);
+	if (entry != column_references.end()) {
+		entry->second.supports_pushdown_extract = PushdownExtractSupport::DISABLED;
+	}
 }
 
 void BaseColumnPruner::MergeChildColumns(vector<ColumnIndex> &current_child_columns, ColumnIndex &new_child_column) {
