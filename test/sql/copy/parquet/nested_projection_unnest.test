@@ -48,6 +48,31 @@ SELECT (UNNEST(posts)).c AS c FROM '__TEST_DIR__/nested_proj_unnest.parquet' ORD
 100
 200
 
+# same list column unnested twice, where the second unnest needs 2+ sub-fields.
+# regression: merging the second (multi-child) requirement used to keep only its first
+# child, so posts.c was never read and came back as NULL
+query III
+SELECT u.a AS ua, v.b AS vb, v.c AS vc
+FROM (SELECT UNNEST(posts) AS u, UNNEST(posts) AS v
+      FROM '__TEST_DIR__/nested_proj_unnest.parquet')
+ORDER BY ua
+----
+0	0	0
+1	10	100
+2	20	200
+
+# same, three levels deep: the dropped requirement used to be nested under docs.comments
+query III
+SELECT UNNEST(d1.comments).author AS a1, UNNEST(d2.comments).text AS t2,
+       UNNEST(d2.comments).author AS a2
+FROM (SELECT UNNEST(docs) AS d1, UNNEST(docs) AS d2
+      FROM '__TEST_DIR__/nested_proj_unnest.parquet')
+ORDER BY a1
+----
+au0	tx0	au0
+au1	tx1	au1
+au2	tx2	au2
+
 # ---- projection pushdown into the parquet scan ----
 
 statement ok
@@ -65,8 +90,41 @@ EXPLAIN SELECT UNNEST(comments).author FROM (SELECT UNNEST(docs).comments AS com
 ----
 physical_plan	<REGEX>:.*docs\.comments\.author.*
 
+# both sub-fields of the twice-unnested column reach the scan (none dropped during merge)
+query II
+EXPLAIN SELECT u.a, v.b, v.c
+FROM (SELECT UNNEST(posts) AS u, UNNEST(posts) AS v FROM '__TEST_DIR__/nested_proj_unnest.parquet')
+----
+physical_plan	<REGEX>:.*posts\.c.*
+
 # whole element used -> no sub-field pruning (the full posts column is read, not posts.a)
 query II
 EXPLAIN SELECT UNNEST(posts) FROM '__TEST_DIR__/nested_proj_unnest.parquet'
 ----
 physical_plan	<!REGEX>:.*posts\.a.*
+
+# ---- legacy list-element schema names ----
+# adam_genotypes.parquet was written by an Avro-based writer, so its LIST levels are called
+# "array" rather than "list"/"element". The element level must be resolved positionally,
+# otherwise the multi-file column mapper cannot descend into it.
+require parquet
+
+query I
+SELECT len(variant.names) FROM '__WORKING_DIRECTORY__/data/parquet-testing/adam_genotypes.parquet'
+----
+1
+
+query I
+SELECT variant.names[1] FROM '__WORKING_DIRECTORY__/data/parquet-testing/adam_genotypes.parquet'
+----
+name
+
+query I
+SELECT len(variant.filtersFailed) FROM '__WORKING_DIRECTORY__/data/parquet-testing/adam_genotypes.parquet'
+----
+0
+
+query I
+SELECT variant.annotation IS NULL FROM '__WORKING_DIRECTORY__/data/parquet-testing/adam_genotypes.parquet'
+----
+true
