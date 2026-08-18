@@ -193,11 +193,51 @@ void MultiFileColumnMapper::ThrowColumnNotFoundError(const string &global_column
 	                            candidate_names);
 }
 
+//! A LIST always has exactly one child (its element), but the name of that schema level is
+//! writer-dependent - "list"/"element" (parquet-mr >= 2, DuckDB), "array" (Avro/Thrift based writers)
+//! or "<name>_tuple" (legacy parquet-mr). Matching it by name is therefore unreliable, so element
+//! levels are resolved positionally instead.
+static bool MatchesChildrenPositionally(const MultiFileColumnDefinition &parent) {
+	return parent.type.id() == LogicalTypeId::LIST;
+}
+
+//! `remap_struct` always refers to the element level of a LIST by the fixed name "list"
+//! (see RemapStructFun::ConstructMap / RemapCast), no matter what the file calls that schema level.
+//! Rewrite the source name in the generated mapping to match, otherwise remap_struct reports
+//! "Source value <name> not found" for files whose element level is called e.g. "array".
+static Value RewriteListElementSourceName(Value column_map) {
+	if (column_map.IsNull()) {
+		return column_map;
+	}
+	if (column_map.type().id() != LogicalTypeId::STRUCT) {
+		//! leaf element - the mapping is just the source name
+		return Value("list");
+	}
+	//! nested element - the mapping is {source_name, child_mapping}; only the name needs rewriting
+	auto &children = StructValue::GetChildren(column_map);
+	if (children.size() != 2) {
+		return column_map;
+	}
+	child_list_t<Value> new_children;
+	new_children.emplace_back(string(), Value("list"));
+	new_children.emplace_back(string(), children[1]);
+	return Value::STRUCT(std::move(new_children));
+}
+
 //! Check if a column is trivially mappable (i.e. the column is effectively identical to the global column)
 bool IsTriviallyMappable(const MultiFileColumnDefinition &global_column,
                          const vector<MultiFileColumnDefinition> &local_columns, const ColumnMapper &mapper,
-                         optional_idx expected_idx = optional_idx()) {
-	auto entry = mapper.Find(global_column);
+                         optional_idx expected_idx = optional_idx(), bool match_positionally = false) {
+	optional_idx entry;
+	if (match_positionally) {
+		//! resolved by position (LIST element) - the schema name carries no information
+		if (!expected_idx.IsValid() || expected_idx.GetIndex() >= local_columns.size()) {
+			return false;
+		}
+		entry = expected_idx;
+	} else {
+		entry = mapper.Find(global_column);
+	}
 	if (!entry.IsValid()) {
 		return false;
 	}
@@ -214,9 +254,11 @@ bool IsTriviallyMappable(const MultiFileColumnDefinition &global_column,
 		return false;
 	}
 	auto nested_mapper = mapper.Create(local_column.children);
+	bool children_positional = MatchesChildrenPositionally(global_column);
 	for (idx_t i = 0; i < global_column.children.size(); i++) {
 		auto &global_child = global_column.children[i];
-		bool trivially_mappable = IsTriviallyMappable(global_child, local_column.children, *nested_mapper, i);
+		bool trivially_mappable =
+		    IsTriviallyMappable(global_child, local_column.children, *nested_mapper, i, children_positional);
 		if (!trivially_mappable) {
 			return false;
 		}
@@ -227,7 +269,8 @@ bool IsTriviallyMappable(const MultiFileColumnDefinition &global_column,
 static ColumnMapResult MapColumn(ClientContext &context, const MultiFileColumnDefinition &global_column,
                                  const ColumnIndex &global_index,
                                  const vector<MultiFileColumnDefinition> &local_columns, const ColumnMapper &mapper,
-                                 optional_idx top_level_index = optional_idx());
+                                 optional_idx top_level_index = optional_idx(),
+                                 optional_idx forced_local_index = optional_idx());
 
 ColumnMapResult MapColumnList(ClientContext &context, const MultiFileColumnDefinition &global_column,
                               const ColumnIndex &global_index, const MultiFileColumnDefinition &local_column,
@@ -245,7 +288,9 @@ ColumnMapResult MapColumnList(ClientContext &context, const MultiFileColumnDefin
 	unique_ptr<Expression> default_expression;
 	unordered_map<idx_t, const_reference<ColumnIndex>> selected_children;
 	if (global_index.HasChildren()) {
-		//! FIXME: is this expected for lists??
+		//! a LIST carries at most one child index - the element level, always numbered 0. This is
+		//! populated by the column pruner when only some sub-fields of the element are needed
+		//! (e.g. nested projection pushdown through UNNEST).
 		for (auto &index : global_index.GetChildIndexes()) {
 			selected_children.emplace(index.GetPrimaryIndex(), index);
 		}
@@ -269,7 +314,10 @@ ColumnMapResult MapColumnList(ClientContext &context, const MultiFileColumnDefin
 
 	ColumnMapResult child_map;
 	if (is_selected) {
-		child_map = MapColumn(context, global_child, global_child_index.get(), local_column.children, *nested_mapper);
+		//! a LIST has exactly one child - resolve it by position, since the element level's schema
+		//! name differs between parquet writers ("list"/"element" vs "array" vs "<name>_tuple")
+		child_map = MapColumn(context, global_child, global_child_index.get(), local_column.children, *nested_mapper,
+		                      optional_idx(), 0);
 	} else {
 		// column is not relevant for the query - push a NULL value
 		child_map.default_value = make_uniq<BoundConstantExpression>(Value(global_child.type));
@@ -281,7 +329,7 @@ ColumnMapResult MapColumnList(ClientContext &context, const MultiFileColumnDefin
 	}
 	if (!child_map.column_map.IsNull()) {
 		// found a column mapping for this child - emplace it
-		column_mapping.emplace_back("list", std::move(child_map.column_map));
+		column_mapping.emplace_back("list", RewriteListElementSourceName(std::move(child_map.column_map)));
 	}
 
 	ColumnMapResult result;
@@ -524,10 +572,19 @@ ColumnMapResult MapColumnStruct(ClientContext &context, const MultiFileColumnDef
 static ColumnMapResult MapColumn(ClientContext &context, const MultiFileColumnDefinition &global_column,
                                  const ColumnIndex &global_index,
                                  const vector<MultiFileColumnDefinition> &local_columns, const ColumnMapper &mapper,
-                                 optional_idx top_level_index) {
+                                 optional_idx top_level_index, optional_idx forced_local_index) {
 	bool is_root = top_level_index.IsValid();
 	ColumnMapResult result;
-	auto entry = mapper.Find(global_column);
+	optional_idx entry;
+	if (forced_local_index.IsValid()) {
+		//! the caller resolved this column by position (a LIST element level, whose schema name is
+		//! writer-dependent) - skip the name/field_id lookup entirely
+		if (forced_local_index.GetIndex() < local_columns.size()) {
+			entry = forced_local_index;
+		}
+	} else {
+		entry = mapper.Find(global_column);
+	}
 	if (!entry.IsValid()) {
 		// entry not present in map, use default value
 		result.default_value = mapper.GetDefaultExpression(global_column, is_root);

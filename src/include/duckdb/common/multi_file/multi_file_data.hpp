@@ -68,8 +68,14 @@ public:
 				result.children.push_back(CreateFromNameAndType(child_entry.first, child_entry.second));
 			}
 		} else if (type.id() == LogicalTypeId::LIST) {
-			// recursively create for the list element (enables nested sub-field projection through lists).
-			// the child is named "list" to match the parquet reader's list-element schema name.
+			// recursively create for the list element. this is what allows nested sub-field projection
+			// to descend through a LIST: MapColumn() treats a column with no children as a leaf and
+			// drops the requested child indexes, so without an element child the reader would fall
+			// back to reading the entire list.
+			// the name below is only a placeholder - element levels are matched by position (a LIST
+			// always has exactly one child), because their schema name is writer-dependent:
+			// "list"/"element" (DuckDB, parquet-mr >= 2), "array" (Avro/Thrift based writers) or
+			// "<name>_tuple" (legacy parquet-mr). See MapColumnList().
 			result.children.push_back(CreateFromNameAndType("list", ListType::GetChildType(type)));
 		}
 		return result;
