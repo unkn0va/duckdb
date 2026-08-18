@@ -995,9 +995,13 @@ void BaseColumnPruner::MergeChildColumns(vector<ColumnIndex> &current_child_colu
 			// new child is a reference to a full column - clear any existing bindings (if any)
 			nested_child_columns.clear();
 		} else {
-			// new child has a sub-reference - merge recursively
-			D_ASSERT(new_child_column.ChildIndexCount() == 1);
-			MergeChildColumns(nested_child_columns, new_child_column.GetChildIndex(0));
+			// new child has sub-references - merge recursively.
+			// NOTE: the nested UNNEST projection pruner can attach several sibling requirements
+			// under a single level at once (e.g. ColumnIndex(0, {b, c}) for a list element), so we
+			// must merge every child here - merging only child 0 would silently drop the rest.
+			for (auto &new_grandchild : new_child_column.GetChildIndexesMutable()) {
+				MergeChildColumns(nested_child_columns, new_grandchild);
+			}
 		}
 		return;
 	}
