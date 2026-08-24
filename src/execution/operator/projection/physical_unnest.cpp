@@ -48,7 +48,9 @@ public:
 				                        child_type.ToString());
 			}
 			vector<LogicalType> element_types {ListType::GetChildType(child_type)};
-			element_chunk.InitializeEmpty(element_types);
+			// allocated (not InitializeEmpty) so the struct's child vectors exist up front and the
+			// window slicing below can reuse them instead of building a fresh vector per window
+			element_chunk.Initialize(Allocator::DefaultAllocator(), element_types);
 			for (auto &filter : *element_filters) {
 				auto filter_executor = make_uniq<ExpressionExecutor>(context);
 				filter_executor->AddExpression(*filter);
@@ -104,6 +106,8 @@ private:
 	//! Evaluate the absorbed filters over the list's elements and rewrite unnest_lengths so the
 	//! main loop only ever emits surviving elements.
 	void ApplyElementFilter();
+	//! Point element_chunk at the [base, base + window) window of the list's child vector
+	void SliceElementWindow(Vector &child_vector, idx_t base, idx_t window);
 };
 
 void UnnestOperatorState::Reset() {
@@ -197,6 +201,27 @@ void UnnestOperatorState::PrepareInput(DataChunk &input, const vector<unique_ptr
 	first_fetch = false;
 }
 
+void UnnestOperatorState::SliceElementWindow(Vector &child_vector, const idx_t base, const idx_t window) {
+	auto &target = element_chunk.data[0];
+	// Vector::Slice on a STRUCT builds a fresh vector and allocates a buffer for every child, only
+	// to overwrite each of them with a reference right after - for a wide element type that costs
+	// more than evaluating the predicate we are about to run. Slice the children in place instead,
+	// which for a flat child is a reference plus a pointer offset.
+	if (child_vector.GetVectorType() == VectorType::FLAT_VECTOR &&
+	    target.GetType().InternalType() == PhysicalType::STRUCT) {
+		auto &target_entries = StructVector::GetEntries(target);
+		auto &source_entries = StructVector::GetEntries(child_vector);
+		D_ASSERT(target_entries.size() == source_entries.size());
+		for (idx_t i = 0; i < target_entries.size(); i++) {
+			target_entries[i]->Slice(*source_entries[i], base, base + window);
+		}
+		FlatVector::Validity(target).Slice(FlatVector::Validity(child_vector), base, window);
+	} else {
+		target.Slice(child_vector, base, base + window);
+	}
+	element_chunk.SetCardinality(window);
+}
+
 void UnnestOperatorState::ApplyElementFilter() {
 	// Guaranteed by the constructor: a single UNNEST over a LIST.
 	D_ASSERT(list_data.ColumnCount() == 1);
@@ -219,8 +244,7 @@ void UnnestOperatorState::ApplyElementFilter() {
 	auto &child_vector = ListVector::GetEntry(list_vector);
 	for (idx_t base = 0; base < list_size; base += STANDARD_VECTOR_SIZE) {
 		const auto window = MinValue<idx_t>(STANDARD_VECTOR_SIZE, list_size - base);
-		element_chunk.data[0].Slice(child_vector, base, base + window);
-		element_chunk.SetCardinality(window);
+		SliceElementWindow(child_vector, base, window);
 
 		// Chain the conjuncts: each round only re-evaluates the elements that are still alive,
 		// which is the same scheme ExpressionExecutor uses for a CONJUNCTION_AND.

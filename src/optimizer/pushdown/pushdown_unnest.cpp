@@ -23,6 +23,23 @@ static bool CanEvaluateOnElement(const Expression &expr, const idx_t unnest_inde
 		}
 		break;
 	}
+	case ExpressionClass::BOUND_OPERATOR:
+		// IN over a constant list is the one predicate shape that measurably costs more per element
+		// than it saves: evaluating it against the list's elements runs about 150ns per element,
+		// while the whole point of absorbing is to save the row expansion, which is a fraction of
+		// that. Leave it above the UNNEST, where it is evaluated on the expanded chunk instead.
+		if (expr.GetExpressionType() == ExpressionType::COMPARE_IN ||
+		    expr.GetExpressionType() == ExpressionType::COMPARE_NOT_IN) {
+			return false;
+		}
+		break;
+	case ExpressionClass::BOUND_CONJUNCTION:
+		// an OR only pays off when every branch is cheap, and each branch has to be evaluated over
+		// every element - the AND case below short-circuits instead, so it stays absorbable
+		if (expr.GetExpressionType() == ExpressionType::CONJUNCTION_OR) {
+			return false;
+		}
+		break;
 	case ExpressionClass::BOUND_BETWEEN:
 		// two-sided ranges reach us as BETWEEN: the optimizer rewrites `x >= a AND x < b` into one
 		// expression before filter pushdown runs, so leaving it out here would silently skip
@@ -30,10 +47,8 @@ static bool CanEvaluateOnElement(const Expression &expr, const idx_t unnest_inde
 	case ExpressionClass::BOUND_CASE:
 	case ExpressionClass::BOUND_CAST:
 	case ExpressionClass::BOUND_COMPARISON:
-	case ExpressionClass::BOUND_CONJUNCTION:
 	case ExpressionClass::BOUND_CONSTANT:
 	case ExpressionClass::BOUND_FUNCTION:
-	case ExpressionClass::BOUND_OPERATOR:
 		break;
 	default:
 		// BOUND_SUBQUERY, BOUND_WINDOW, BOUND_AGGREGATE, BOUND_LAMBDA, BOUND_PARAMETER, ...

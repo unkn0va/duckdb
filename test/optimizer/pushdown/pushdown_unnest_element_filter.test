@@ -84,12 +84,33 @@ WHERE o.qty >= 1 AND o.tag = 'tag0' ORDER BY ALL;
 38	3800	2
 39	3900	3
 
-# a disjunction over the element only is still a single-element predicate
+# A disjunction over the element could be absorbed, but it deliberately is not: every branch has to
+# be evaluated over every element, and measuring that against the alternative - evaluating the
+# predicate once on the expanded chunk - showed it costs more than the expansion it saves. The same
+# reasoning keeps IN out. Both stay in a Filter above the UNNEST.
 query II
 EXPLAIN SELECT cid FROM (SELECT cid, UNNEST(orders) AS o FROM orders_tbl)
 WHERE o.qty = 0 OR o.tag = 'tag2';
 ----
-logical_opt	<!REGEX>:.*FILTER.*
+logical_opt	<REGEX>:.*FILTER.*
+
+query II
+SELECT count(*), sum(o.oid) FROM (SELECT cid, UNNEST(orders) AS o FROM orders_tbl)
+WHERE o.qty = 0 OR o.tag = 'tag2';
+----
+20	40222
+
+query II
+EXPLAIN SELECT cid FROM (SELECT cid, UNNEST(orders) AS o FROM orders_tbl)
+WHERE o.tag IN ('tag0', 'tag2');
+----
+logical_opt	<REGEX>:.*FILTER.*
+
+query II
+SELECT count(*), sum(o.oid) FROM (SELECT cid, UNNEST(orders) AS o FROM orders_tbl)
+WHERE o.tag IN ('tag0', 'tag2');
+----
+37	75618
 
 # the whole element can be compared, not just its fields
 query I
