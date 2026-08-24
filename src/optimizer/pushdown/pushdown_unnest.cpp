@@ -23,6 +23,10 @@ static bool CanEvaluateOnElement(const Expression &expr, const idx_t unnest_inde
 		}
 		break;
 	}
+	case ExpressionClass::BOUND_BETWEEN:
+		// two-sided ranges reach us as BETWEEN: the optimizer rewrites `x >= a AND x < b` into one
+		// expression before filter pushdown runs, so leaving it out here would silently skip
+		// absorption for exactly the date-range predicates these queries are built out of
 	case ExpressionClass::BOUND_CASE:
 	case ExpressionClass::BOUND_CAST:
 	case ExpressionClass::BOUND_COMPARISON:

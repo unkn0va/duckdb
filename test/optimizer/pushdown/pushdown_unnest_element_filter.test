@@ -210,3 +210,46 @@ query II
 SELECT count(*), sum(e) FROM (SELECT cid, UNNEST(a) AS e FROM arr) WHERE e > 10;
 ----
 30	466
+
+# ------------------------------------------------------------------------------------------------
+# two-sided ranges: `x >= a AND x < b` is rewritten into a single BETWEEN before filter pushdown
+# runs, so BETWEEN has to be absorbable as well - otherwise exactly the range predicates these
+# queries are built out of would silently skip absorption
+# ------------------------------------------------------------------------------------------------
+
+query II
+EXPLAIN SELECT cid FROM (SELECT cid, UNNEST(orders) AS o FROM orders_tbl)
+WHERE o.qty >= 1 AND o.qty < 3;
+----
+logical_opt	<REGEX>:.*UNNEST.*Element Filters.*
+
+query II
+EXPLAIN SELECT cid FROM (SELECT cid, UNNEST(orders) AS o FROM orders_tbl)
+WHERE o.qty >= 1 AND o.qty < 3;
+----
+logical_opt	<!REGEX>:.*FILTER.*
+
+query II
+SELECT count(*), sum(o.oid) FROM (SELECT cid, UNNEST(orders) AS o FROM orders_tbl)
+WHERE o.qty >= 1 AND o.qty < 3;
+----
+27	51617
+
+query II
+EXPLAIN SELECT cid FROM (SELECT cid, UNNEST(orders) AS o FROM orders_tbl)
+WHERE o.qty BETWEEN 1 AND 2;
+----
+logical_opt	<!REGEX>:.*FILTER.*
+
+query II
+SELECT count(*), sum(o.oid) FROM (SELECT cid, UNNEST(orders) AS o FROM orders_tbl)
+WHERE o.qty BETWEEN 1 AND 2;
+----
+27	51617
+
+# a BETWEEN and a second conjunct are absorbed together
+query II
+SELECT count(*), sum(o.oid) FROM (SELECT cid, UNNEST(orders) AS o FROM orders_tbl)
+WHERE o.qty BETWEEN 1 AND 2 AND o.tag = 'tag0';
+----
+14	28500

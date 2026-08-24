@@ -1,0 +1,149 @@
+# name: test/sql/copy/parquet/nested_projection_unnest_element_filter.test
+# description: An absorbed UNNEST element filter keeps nested projection pushdown - the scan reads the union of the fields the parents need and the fields the predicate needs
+# group: [parquet]
+
+require parquet
+
+statement ok
+COPY (
+    SELECT i AS id,
+        [{'a': i, 'b': i * 10, 'c': i * 100}] AS posts,
+        [{'title': 't' || i,
+          'comments': [{'author': 'au' || i, 'score': i, 'text': 'tx' || i}]}] AS docs
+    FROM range(4) t(i)
+) TO '__TEST_DIR__/nested_proj_unnest_filter.parquet' (FORMAT parquet)
+
+# ---- correctness ----
+
+# the predicate field is not referenced above the UNNEST, so absorbing it removes the only
+# reference to posts.b - it still has to be read for the filter to be evaluated
+query I
+SELECT p.a FROM (SELECT UNNEST(posts) AS p FROM '__TEST_DIR__/nested_proj_unnest_filter.parquet')
+WHERE p.b >= 10 ORDER BY p.a
+----
+1
+2
+3
+
+# two-sided range (rewritten to BETWEEN before filter pushdown runs)
+query I
+SELECT p.a FROM (SELECT UNNEST(posts) AS p FROM '__TEST_DIR__/nested_proj_unnest_filter.parquet')
+WHERE p.b >= 10 AND p.b < 30 ORDER BY p.a
+----
+1
+2
+
+query I
+SELECT p.a FROM (SELECT UNNEST(posts) AS p FROM '__TEST_DIR__/nested_proj_unnest_filter.parquet')
+WHERE p.b BETWEEN 10 AND 20 ORDER BY p.a
+----
+1
+2
+
+# predicate on one sub-field, projection of another, three levels deep
+query I
+SELECT c.author
+FROM (SELECT UNNEST(d.comments) AS c
+      FROM (SELECT UNNEST(docs) AS d FROM '__TEST_DIR__/nested_proj_unnest_filter.parquet'))
+WHERE c.score >= 2 ORDER BY c.author
+----
+au2
+au3
+
+# predicate comparing two sub-fields of the same element
+query I
+SELECT p.a FROM (SELECT UNNEST(posts) AS p FROM '__TEST_DIR__/nested_proj_unnest_filter.parquet')
+WHERE p.c > p.b ORDER BY p.a
+----
+1
+2
+3
+
+# predicate that needs the element as a whole - falls back to reading it in full
+query I
+SELECT p.a FROM (SELECT UNNEST(posts) AS p FROM '__TEST_DIR__/nested_proj_unnest_filter.parquet')
+WHERE p IS NOT NULL ORDER BY p.a
+----
+0
+1
+2
+3
+
+# ---- both optimizations fire on the same scan ----
+
+statement ok
+SET explain_output='physical_only'
+
+# the field the parents need is still pruned into the scan ...
+query II
+EXPLAIN SELECT p.a FROM (SELECT UNNEST(posts) AS p FROM '__TEST_DIR__/nested_proj_unnest_filter.parquet')
+WHERE p.b >= 10
+----
+physical_plan	<REGEX>:.*posts\.a.*
+
+# ... and so is the field only the absorbed predicate needs (before, absorbing the filter
+# marked the whole element as read and the scan fell back to "Projections: posts")
+query II
+EXPLAIN SELECT p.a FROM (SELECT UNNEST(posts) AS p FROM '__TEST_DIR__/nested_proj_unnest_filter.parquet')
+WHERE p.b >= 10
+----
+physical_plan	<REGEX>:.*posts\.b.*
+
+# the field neither of them needs is not read
+query II
+EXPLAIN SELECT p.a FROM (SELECT UNNEST(posts) AS p FROM '__TEST_DIR__/nested_proj_unnest_filter.parquet')
+WHERE p.b >= 10
+----
+physical_plan	<!REGEX>:.*posts\.c.*
+
+# the filter really was absorbed into the UNNEST in that same plan
+query II
+EXPLAIN SELECT p.a FROM (SELECT UNNEST(posts) AS p FROM '__TEST_DIR__/nested_proj_unnest_filter.parquet')
+WHERE p.b >= 10
+----
+physical_plan	<REGEX>:.*Element Filters.*
+
+# a two-sided range is absorbed as well, and keeps the projection
+query II
+EXPLAIN SELECT p.a FROM (SELECT UNNEST(posts) AS p FROM '__TEST_DIR__/nested_proj_unnest_filter.parquet')
+WHERE p.b >= 10 AND p.b < 30
+----
+physical_plan	<REGEX>:.*Element Filters.*
+
+query II
+EXPLAIN SELECT p.a FROM (SELECT UNNEST(posts) AS p FROM '__TEST_DIR__/nested_proj_unnest_filter.parquet')
+WHERE p.b >= 10 AND p.b < 30
+----
+physical_plan	<!REGEX>:.*posts\.c.*
+
+# three levels deep: the predicate's path is pushed next to the projection's path
+query II
+EXPLAIN SELECT c.author
+FROM (SELECT UNNEST(d.comments) AS c
+      FROM (SELECT UNNEST(docs) AS d FROM '__TEST_DIR__/nested_proj_unnest_filter.parquet'))
+WHERE c.score >= 2
+----
+physical_plan	<REGEX>:.*docs\.comments\.author.*
+
+query II
+EXPLAIN SELECT c.author
+FROM (SELECT UNNEST(d.comments) AS c
+      FROM (SELECT UNNEST(docs) AS d FROM '__TEST_DIR__/nested_proj_unnest_filter.parquet'))
+WHERE c.score >= 2
+----
+physical_plan	<REGEX>:.*docs\.comments\.score.*
+
+query II
+EXPLAIN SELECT c.author
+FROM (SELECT UNNEST(d.comments) AS c
+      FROM (SELECT UNNEST(docs) AS d FROM '__TEST_DIR__/nested_proj_unnest_filter.parquet'))
+WHERE c.score >= 2
+----
+physical_plan	<!REGEX>:.*docs\.comments\.text.*
+
+# a predicate on the whole element still degrades to a full read of it
+query II
+EXPLAIN SELECT p.a FROM (SELECT UNNEST(posts) AS p FROM '__TEST_DIR__/nested_proj_unnest_filter.parquet')
+WHERE p IS NOT NULL
+----
+physical_plan	<!REGEX>:.*posts\.a.*
