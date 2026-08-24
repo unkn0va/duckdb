@@ -409,6 +409,11 @@ idx_t ColumnSegment::FilterSelection(SelectionVector &sel, Vector &vector, Unifi
 		auto &opt_filter = filter.Cast<OptionalFilter>();
 		return opt_filter.FilterSelection(sel, vector, vdata, filter_state, scan_count, approved_tuple_count);
 	}
+	case TableFilterType::LIST_ELEMENT: {
+		// pruning-only filter (see ListElementFilter): it never removes rows, so keep the selection
+		// exactly as it is
+		return approved_tuple_count;
+	}
 	case TableFilterType::CONJUNCTION_OR: {
 		// similar to the CONJUNCTION_AND, but we need to take care of the SelectionVectors (OR all of them)
 		auto &state = filter_state.Cast<ConjunctionOrFilterState>();

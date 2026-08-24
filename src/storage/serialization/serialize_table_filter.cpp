@@ -9,6 +9,7 @@
 #include "duckdb/planner/filter/null_filter.hpp"
 #include "duckdb/planner/filter/constant_filter.hpp"
 #include "duckdb/planner/filter/conjunction_filter.hpp"
+#include "duckdb/planner/filter/list_element_filter.hpp"
 #include "duckdb/planner/filter/struct_filter.hpp"
 #include "duckdb/planner/filter/optional_filter.hpp"
 #include "duckdb/planner/filter/in_filter.hpp"
@@ -51,6 +52,9 @@ unique_ptr<TableFilter> TableFilter::Deserialize(Deserializer &deserializer) {
 		break;
 	case TableFilterType::OPTIONAL_FILTER:
 		result = OptionalFilter::Deserialize(deserializer);
+		break;
+	case TableFilterType::LIST_ELEMENT:
+		result = ListElementFilter::Deserialize(deserializer);
 		break;
 	case TableFilterType::STRUCT_EXTRACT:
 		result = StructFilter::Deserialize(deserializer);
@@ -153,6 +157,17 @@ void OptionalFilter::Serialize(Serializer &serializer) const {
 unique_ptr<TableFilter> OptionalFilter::Deserialize(Deserializer &deserializer) {
 	auto result = duckdb::unique_ptr<OptionalFilter>(new OptionalFilter());
 	deserializer.ReadPropertyWithDefault<unique_ptr<TableFilter>>(200, "child_filter", result->child_filter);
+	return std::move(result);
+}
+
+void ListElementFilter::Serialize(Serializer &serializer) const {
+	TableFilter::Serialize(serializer);
+	serializer.WritePropertyWithDefault<unique_ptr<TableFilter>>(200, "child_filter", child_filter);
+}
+
+unique_ptr<TableFilter> ListElementFilter::Deserialize(Deserializer &deserializer) {
+	auto child_filter = deserializer.ReadPropertyWithDefault<unique_ptr<TableFilter>>(200, "child_filter");
+	auto result = duckdb::unique_ptr<ListElementFilter>(new ListElementFilter(std::move(child_filter)));
 	return std::move(result);
 }
 

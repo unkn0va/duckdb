@@ -51,6 +51,8 @@ unique_ptr<TableFilterState> TableFilterState::Initialize(ClientContext &context
 	case TableFilterType::IS_NULL:
 	case TableFilterType::IS_NOT_NULL:
 	case TableFilterType::PERFECT_HASH_JOIN_FILTER:
+	// LIST_ELEMENT only ever prunes, so its child filter is never evaluated and needs no state
+	case TableFilterType::LIST_ELEMENT:
 		// root nodes - create an empty filter state
 		return make_uniq<TableFilterState>();
 	default:

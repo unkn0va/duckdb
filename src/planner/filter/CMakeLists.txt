@@ -9,6 +9,7 @@ add_library_unity(
   in_filter.cpp
   null_filter.cpp
   struct_filter.cpp
+  list_element_filter.cpp
   optional_filter.cpp
   perfect_hash_join_filter.cpp
   selectivity_optional_filter.cpp)

@@ -1,0 +1,135 @@
+# name: test/sql/copy/parquet/nested_filter_row_group_pruning.test
+# description: A predicate absorbed into an UNNEST becomes a pruning filter on the scan of the unnested list
+# group: [parquet]
+
+require parquet
+
+# id ascending, so each row group covers a narrow range of items[*].k - which is what makes the
+# element statistics of most row groups exclude the predicates below
+statement ok
+COPY (
+    SELECT i AS id,
+           [{'k': i * 10 + j, 'v': j} FOR j IN range(3)] AS items,
+           [{'inner': [{'k': i * 10 + j, 'v': j} FOR j IN range(3)]}] AS docs
+    FROM range(2000) t(i)
+) TO '__TEST_DIR__/nested_prune.parquet' (FORMAT parquet, ROW_GROUP_SIZE 256)
+
+# ---- correctness: pruning must not change any answer ----
+
+query II
+SELECT count(*), sum(e.v) FROM
+(SELECT UNNEST(items) AS e FROM '__TEST_DIR__/nested_prune.parquet') WHERE e.k > 19000
+----
+299	300
+
+query II
+SELECT count(*), sum(e.v) FROM
+(SELECT UNNEST(items) AS e FROM '__TEST_DIR__/nested_prune.parquet') WHERE e.k BETWEEN 5000 AND 5999
+----
+300	300
+
+# nothing matches - every row group is pruned, the answer is still the empty aggregate
+query II
+SELECT count(*), sum(e.v) FROM
+(SELECT UNNEST(items) AS e FROM '__TEST_DIR__/nested_prune.parquet') WHERE e.k > 1000000
+----
+0	NULL
+
+# everything matches
+query II
+SELECT count(*), sum(e.v) FROM
+(SELECT UNNEST(items) AS e FROM '__TEST_DIR__/nested_prune.parquet') WHERE e.k >= 0
+----
+6000	6000
+
+# two levels of nesting: the path has to reach through both UNNESTs
+query II
+SELECT count(*), sum(e.v) FROM
+(SELECT UNNEST(d.inner) AS e
+ FROM (SELECT UNNEST(docs) AS d FROM '__TEST_DIR__/nested_prune.parquet')) WHERE e.k > 19000
+----
+299	300
+
+query II
+SELECT count(*), sum(e.v) FROM
+(SELECT UNNEST(d.inner) AS e
+ FROM (SELECT UNNEST(docs) AS d FROM '__TEST_DIR__/nested_prune.parquet')) WHERE e.k > 1000000
+----
+0	NULL
+
+# a predicate comparing two fields of the same element cannot be translated into a scan filter,
+# but the query must still be answered correctly
+query I
+SELECT count(*) FROM
+(SELECT UNNEST(items) AS e FROM '__TEST_DIR__/nested_prune.parquet') WHERE e.v > e.k
+----
+0
+
+# ---- the filter reaches the scan ----
+
+statement ok
+SET explain_output='physical_only'
+
+# [*] marks the step into the list's elements
+query II
+EXPLAIN SELECT count(*) FROM
+(SELECT UNNEST(items) AS e FROM '__TEST_DIR__/nested_prune.parquet') WHERE e.k > 19000
+----
+physical_plan	<REGEX>:.*items\[\*\]\.k.*
+
+# ... while the UNNEST above keeps evaluating the predicate per element: the scan filter only prunes
+query II
+EXPLAIN SELECT count(*) FROM
+(SELECT UNNEST(items) AS e FROM '__TEST_DIR__/nested_prune.parquet') WHERE e.k > 19000
+----
+physical_plan	<REGEX>:.*Element Filters.*
+
+# the two-level path is resolved all the way down to the scan column
+query II
+EXPLAIN SELECT count(*) FROM
+(SELECT UNNEST(d.inner) AS e
+ FROM (SELECT UNNEST(docs) AS d FROM '__TEST_DIR__/nested_prune.parquet')) WHERE e.k > 19000
+----
+physical_plan	<REGEX>:.*docs\[\*\]\.inner\[\*\]\.k.*
+
+# a field-vs-field predicate produces no scan filter
+query II
+EXPLAIN SELECT count(*) FROM
+(SELECT UNNEST(items) AS e FROM '__TEST_DIR__/nested_prune.parquet') WHERE e.v > e.k
+----
+physical_plan	<!REGEX>:.*items\[\*\].*
+
+# ---- same thing on a table, where the filter must not remove rows by itself ----
+
+statement ok
+CREATE TABLE nested_tbl AS
+SELECT i AS id, [{'k': i * 10 + j, 'v': j} FOR j IN range(3)] AS items FROM range(2000) t(i)
+
+query II
+SELECT count(*), sum(e.v) FROM (SELECT UNNEST(items) AS e FROM nested_tbl) WHERE e.k > 19000
+----
+299	300
+
+query II
+SELECT count(*), sum(e.v) FROM (SELECT UNNEST(items) AS e FROM nested_tbl) WHERE e.k > 1000000
+----
+0	NULL
+
+# lists that are empty or NULL have no element that can pass, so they contribute nothing either way
+statement ok
+CREATE TABLE sparse_tbl AS
+SELECT i AS id,
+       CASE WHEN i % 3 = 0 THEN NULL
+            WHEN i % 3 = 1 THEN []::STRUCT(k BIGINT, v BIGINT)[]
+            ELSE [{'k': i, 'v': 1}] END AS items
+FROM range(300) t(i)
+
+query II
+SELECT count(*), sum(e.v) FROM (SELECT UNNEST(items) AS e FROM sparse_tbl) WHERE e.k > 200
+----
+33	33
+
+query II
+SELECT count(*), sum(e.v) FROM (SELECT UNNEST(items) AS e FROM sparse_tbl) WHERE e.k > 100000
+----
+0	NULL
