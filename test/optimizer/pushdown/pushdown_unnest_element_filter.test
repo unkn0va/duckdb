@@ -1,0 +1,212 @@
+# name: test/optimizer/pushdown/pushdown_unnest_element_filter.test
+# description: Absorb predicates on the UNNEST output into the UNNEST as element-level filters
+# group: [pushdown]
+
+statement ok
+PRAGMA enable_verification
+
+statement ok
+CREATE TABLE orders_tbl AS
+SELECT i AS cid,
+       CASE WHEN i % 7 = 0 THEN NULL
+            WHEN i % 5 = 0 THEN []::STRUCT(oid BIGINT, qty BIGINT, tag VARCHAR)[]
+            ELSE [{'oid': i * 100 + j, 'qty': (i + j) % 4, 'tag': 'tag' || (j % 3)::VARCHAR}
+                  FOR j IN range(1 + i % 3)]
+       END AS orders
+FROM range(40) s(i);
+
+statement ok
+PRAGMA explain_output='OPTIMIZED_ONLY';
+
+# ------------------------------------------------------------------------------------------------
+# a predicate on the unnested element is absorbed: no Filter is left above the UNNEST
+# ------------------------------------------------------------------------------------------------
+
+query II
+EXPLAIN SELECT cid FROM (SELECT cid, UNNEST(orders) AS o FROM orders_tbl) WHERE o.qty >= 3;
+----
+logical_opt	<REGEX>:.*UNNEST.*Element Filters.*
+
+query II
+EXPLAIN SELECT cid FROM (SELECT cid, UNNEST(orders) AS o FROM orders_tbl) WHERE o.qty >= 3;
+----
+logical_opt	<!REGEX>:.*FILTER.*
+
+query III
+SELECT cid, o.oid, o.qty FROM (SELECT cid, UNNEST(orders) AS o FROM orders_tbl)
+WHERE o.qty >= 3 ORDER BY ALL;
+----
+2	201	3
+3	300	3
+11	1100	3
+17	1702	3
+19	1900	3
+22	2201	3
+23	2300	3
+26	2601	3
+27	2700	3
+29	2902	3
+31	3100	3
+34	3401	3
+38	3801	3
+39	3900	3
+
+# several conjuncts are absorbed independently
+query II
+EXPLAIN SELECT cid FROM (SELECT cid, UNNEST(orders) AS o FROM orders_tbl)
+WHERE o.qty >= 1 AND o.tag = 'tag0';
+----
+logical_opt	<!REGEX>:.*FILTER.*
+
+query III
+SELECT cid, o.oid, o.qty FROM (SELECT cid, UNNEST(orders) AS o FROM orders_tbl)
+WHERE o.qty >= 1 AND o.tag = 'tag0' ORDER BY ALL;
+----
+1	100	1
+2	200	2
+3	300	3
+6	600	2
+9	900	1
+11	1100	3
+13	1300	1
+17	1700	1
+18	1800	2
+19	1900	3
+22	2200	2
+23	2300	3
+26	2600	2
+27	2700	3
+29	2900	1
+31	3100	3
+33	3300	1
+34	3400	2
+37	3700	1
+38	3800	2
+39	3900	3
+
+# a disjunction over the element only is still a single-element predicate
+query II
+EXPLAIN SELECT cid FROM (SELECT cid, UNNEST(orders) AS o FROM orders_tbl)
+WHERE o.qty = 0 OR o.tag = 'tag2';
+----
+logical_opt	<!REGEX>:.*FILTER.*
+
+# the whole element can be compared, not just its fields
+query I
+SELECT o FROM (SELECT UNNEST([{'a': 1}, {'a': 2}, {'a': 3}]) AS o) WHERE o = {'a': 2};
+----
+{'a': 2}
+
+# ------------------------------------------------------------------------------------------------
+# absorbing must not change results in the corner cases
+# ------------------------------------------------------------------------------------------------
+
+# NULL and empty lists produce no rows either way
+query I
+SELECT count(*) FROM (SELECT cid, UNNEST(orders) AS o FROM orders_tbl) WHERE o.qty IS NULL;
+----
+0
+
+# every element filtered out
+query I
+SELECT count(*) FROM (SELECT cid, UNNEST(orders) AS o FROM orders_tbl) WHERE o.qty > 1000;
+----
+0
+
+# no element filtered out (the short-circuit path in UnnestOperatorState::ApplyElementFilter)
+query I
+SELECT count(*) FROM (SELECT cid, UNNEST(orders) AS o FROM orders_tbl) WHERE o.qty >= 0;
+----
+55
+
+# a NULL-valued predicate drops the element, exactly like a Filter would
+query I
+SELECT count(*) FROM (SELECT UNNEST([{'a': 1}, {'a': NULL}, {'a': 3}]) AS o) WHERE o.a > 0;
+----
+2
+
+# ------------------------------------------------------------------------------------------------
+# the child vector of one input chunk can be longer than STANDARD_VECTOR_SIZE, so the predicate
+# is evaluated in windows - check that the windows line up with the per-row list entries
+# ------------------------------------------------------------------------------------------------
+
+statement ok
+CREATE TABLE wide AS SELECT i AS cid, [{'oid': i * 20 + j, 'qty': j} FOR j IN range(20)] AS orders
+FROM range(3000) s(i);
+
+query III
+SELECT count(*), sum(o.oid), sum(o.qty) FROM (SELECT cid, UNNEST(orders) AS o FROM wide)
+WHERE o.qty >= 17;
+----
+9000	270072000	162000
+
+query II
+SELECT count(*), sum(o.oid) FROM (SELECT cid, UNNEST(orders) AS o FROM wide) WHERE o.qty = 19;
+----
+3000	90027000
+
+# ------------------------------------------------------------------------------------------------
+# shapes that must NOT be absorbed - the Filter has to stay above the UNNEST
+# ------------------------------------------------------------------------------------------------
+
+# references a column of the child plan as well as the element
+query II
+EXPLAIN SELECT cid FROM (SELECT cid, UNNEST(orders) AS o FROM orders_tbl) WHERE o.qty >= cid % 3;
+----
+logical_opt	<REGEX>:.*FILTER.*
+
+query I
+SELECT count(*) FROM (SELECT cid, UNNEST(orders) AS o FROM orders_tbl) WHERE o.qty >= cid % 3;
+----
+38
+
+# two UNNESTs in one operator: dropping elements of one list would shift it against the other
+query II
+EXPLAIN SELECT a FROM (SELECT UNNEST([1, 2, 3]) AS a, UNNEST([10, 20]) AS b) WHERE a > 1;
+----
+logical_opt	<REGEX>:.*FILTER.*
+
+query II
+SELECT a, b FROM (SELECT UNNEST([1, 2, 3]) AS a, UNNEST([10, 20]) AS b) WHERE a > 1 ORDER BY ALL;
+----
+2	20
+3	NULL
+
+# a volatile predicate would be evaluated over a different set of values
+query II
+EXPLAIN SELECT cid FROM (SELECT cid, UNNEST(orders) AS o FROM orders_tbl)
+WHERE o.qty >= random() * 100;
+----
+logical_opt	<REGEX>:.*FILTER.*
+
+# ------------------------------------------------------------------------------------------------
+# absorbing the filter removes the last reference to the element, so column pruning must not
+# prune away the fields the absorbed predicate needs
+# ------------------------------------------------------------------------------------------------
+
+query I
+SELECT count(*) FROM (SELECT cid, UNNEST(orders) AS o FROM orders_tbl) WHERE o.tag = 'tag1';
+----
+18
+
+query II
+SELECT o.tag, count(*) FROM (SELECT cid, UNNEST(orders) AS o FROM orders_tbl)
+WHERE o.qty = 2 GROUP BY o.tag ORDER BY ALL;
+----
+tag0	7
+tag1	5
+tag2	2
+
+# ARRAY is unnested through an implicit cast to LIST, which is absorbable
+statement ok
+CREATE TABLE arr AS SELECT i AS cid, [i, i + 1, i + 2]::INT[3] AS a FROM range(20) s(i);
+
+query II
+EXPLAIN SELECT e FROM (SELECT cid, UNNEST(a) AS e FROM arr) WHERE e > 10;
+----
+logical_opt	<REGEX>:.*UNNEST.*Element Filters.*
+
+query II
+SELECT count(*), sum(e) FROM (SELECT cid, UNNEST(a) AS e FROM arr) WHERE e > 10;
+----
+30	466

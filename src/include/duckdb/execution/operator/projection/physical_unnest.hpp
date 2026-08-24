@@ -20,14 +20,21 @@ public:
 
 public:
 	PhysicalUnnest(PhysicalPlan &physical_plan, vector<LogicalType> types, vector<unique_ptr<Expression>> select_list,
-	               idx_t estimated_cardinality, PhysicalOperatorType type = PhysicalOperatorType::UNNEST);
+	               vector<unique_ptr<Expression>> element_filters, idx_t estimated_cardinality,
+	               PhysicalOperatorType type = PhysicalOperatorType::UNNEST);
 
 	//! The projection list of the UNNEST
 	//! E.g. SELECT 1, UNNEST([1]), UNNEST([2, 3]); has two UNNESTs in its select_list
 	vector<unique_ptr<Expression>> select_list;
+	//! Element-level filters absorbed from the Filter above this UNNEST (see LogicalUnnest).
+	//! Evaluated against a chunk holding one list element per UNNEST in select_list, so a
+	//! BoundReferenceExpression with index i refers to an element of select_list[i]'s list.
+	//! Elements that do not satisfy every filter are never expanded into output rows.
+	vector<unique_ptr<Expression>> element_filters;
 
 public:
 	unique_ptr<OperatorState> GetOperatorState(ExecutionContext &context) const override;
+	InsertionOrderPreservingMap<string> ParamsToString() const override;
 	OperatorResultType Execute(ExecutionContext &context, DataChunk &input, DataChunk &chunk,
 	                           GlobalOperatorState &gstate, OperatorState &state) const override;
 
@@ -37,7 +44,8 @@ public:
 
 public:
 	static unique_ptr<OperatorState> GetState(ExecutionContext &context,
-	                                          const vector<unique_ptr<Expression>> &select_list);
+	                                          const vector<unique_ptr<Expression>> &select_list,
+	                                          const vector<unique_ptr<Expression>> *element_filters = nullptr);
 	//! Executes the UNNEST operator internally and emits a chunk of unnested data. If include_input is set, then
 	//! the resulting chunk also contains vectors for all non-UNNEST columns in the projection. If include_input is
 	//! not set, then the UNNEST behaves as a table function and only emits the unnested data.

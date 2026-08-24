@@ -12,6 +12,21 @@ vector<ColumnBinding> LogicalUnnest::GetColumnBindings() {
 	return child_bindings;
 }
 
+InsertionOrderPreservingMap<string> LogicalUnnest::ParamsToString() const {
+	auto result = LogicalOperator::ParamsToString();
+	if (!element_filters.empty()) {
+		string filters_info;
+		for (idx_t i = 0; i < element_filters.size(); i++) {
+			if (i > 0) {
+				filters_info += "\n";
+			}
+			filters_info += element_filters[i]->GetName();
+		}
+		result["Element Filters"] = filters_info;
+	}
+	return result;
+}
+
 void LogicalUnnest::ResolveTypes() {
 	types.insert(types.end(), children[0]->types.begin(), children[0]->types.end());
 	for (auto &expr : expressions) {

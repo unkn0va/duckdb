@@ -326,6 +326,21 @@ void RemoveUnusedColumns::VisitOperator(LogicalOperator &op) {
 			break;
 		}
 		auto &unnest = op.Cast<LogicalUnnest>();
+		// Filters absorbed into this UNNEST are evaluated against the list elements at runtime, so
+		// the element has to stay readable even though nothing above this operator references it
+		// any more (absorbing the filter is exactly what removed those references). Mark them as
+		// whole-column reads: AddBinding(col) clears any sub-field requirement the parents
+		// recorded, so the remapping below falls back to reading the element in full and the
+		// fields the predicate needs can never be pruned away from the scan.
+		// TODO: record the filter's own sub-field paths instead, so an absorbed filter keeps the
+		// benefit of nested projection pushdown rather than forcing a full element read.
+		for (auto &element_filter : unnest.element_filters) {
+			ExpressionIterator::EnumerateExpression(element_filter, [&](Expression &child) {
+				if (child.GetExpressionClass() == ExpressionClass::BOUND_COLUMN_REF) {
+					AddBinding(child.Cast<BoundColumnRefExpression>());
+				}
+			});
+		}
 		// Nested projection pushdown through UNNEST.
 		// For each UNNEST expression that unnests a plain column reference, check whether the
 		// parent only accesses specific sub-fields of the unnested element. If so, remap those
