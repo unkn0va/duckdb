@@ -28,7 +28,6 @@ add_library_unity(
   in_clause_rewriter.cpp
   join_filter_pushdown_optimizer.cpp
   late_materialization.cpp
-  nested_filter_pushdown.cpp
   late_materialization_helper.cpp
   optimizer.cpp
   join_elimination.cpp

@@ -1,86 +1,10 @@
 #include "duckdb/optimizer/filter_pushdown.hpp"
 #include "duckdb/planner/expression/bound_columnref_expression.hpp"
-#include "duckdb/planner/expression/bound_unnest_expression.hpp"
 #include "duckdb/planner/expression_iterator.hpp"
 #include "duckdb/planner/operator/logical_empty_result.hpp"
 #include "duckdb/planner/operator/logical_unnest.hpp"
 
 namespace duckdb {
-
-//! Can `expr` be evaluated against a single element of the list this UNNEST iterates?
-//! Two things have to hold. It must reference nothing but this UNNEST's output element -
-//! anything else (a column of the child plan, a correlated reference) is simply not available
-//! when we run the predicate before the expansion. And it must be a plain deterministic
-//! expression: subqueries, window and aggregate expressions have no meaning per element, and a
-//! volatile function would be evaluated over a different set of values than it is today.
-static bool CanEvaluateOnElement(const Expression &expr, const idx_t unnest_index) {
-	switch (expr.GetExpressionClass()) {
-	case ExpressionClass::BOUND_COLUMN_REF: {
-		auto &colref = expr.Cast<BoundColumnRefExpression>();
-		// column_index 0 is the only one: absorption is only attempted for a single-expression UNNEST
-		if (colref.binding.table_index != unnest_index || colref.binding.column_index != 0) {
-			return false;
-		}
-		break;
-	}
-	case ExpressionClass::BOUND_OPERATOR:
-		// IN over a constant list is the one predicate shape that measurably costs more per element
-		// than it saves: evaluating it against the list's elements runs about 150ns per element,
-		// while the whole point of absorbing is to save the row expansion, which is a fraction of
-		// that. Leave it above the UNNEST, where it is evaluated on the expanded chunk instead.
-		if (expr.GetExpressionType() == ExpressionType::COMPARE_IN ||
-		    expr.GetExpressionType() == ExpressionType::COMPARE_NOT_IN) {
-			return false;
-		}
-		break;
-	case ExpressionClass::BOUND_CONJUNCTION:
-		// an OR only pays off when every branch is cheap, and each branch has to be evaluated over
-		// every element - the AND case below short-circuits instead, so it stays absorbable
-		if (expr.GetExpressionType() == ExpressionType::CONJUNCTION_OR) {
-			return false;
-		}
-		break;
-	case ExpressionClass::BOUND_BETWEEN:
-		// two-sided ranges reach us as BETWEEN: the optimizer rewrites `x >= a AND x < b` into one
-		// expression before filter pushdown runs, so leaving it out here would silently skip
-		// absorption for exactly the date-range predicates these queries are built out of
-	case ExpressionClass::BOUND_CASE:
-	case ExpressionClass::BOUND_CAST:
-	case ExpressionClass::BOUND_COMPARISON:
-	case ExpressionClass::BOUND_CONSTANT:
-	case ExpressionClass::BOUND_FUNCTION:
-		break;
-	default:
-		// BOUND_SUBQUERY, BOUND_WINDOW, BOUND_AGGREGATE, BOUND_LAMBDA, BOUND_PARAMETER, ...
-		return false;
-	}
-	if (expr.IsVolatile()) {
-		return false;
-	}
-	auto can_evaluate = true;
-	ExpressionIterator::EnumerateChildren(expr, [&](const Expression &child) {
-		if (!CanEvaluateOnElement(child, unnest_index)) {
-			can_evaluate = false;
-		}
-	});
-	return can_evaluate;
-}
-
-//! Whether this UNNEST has the shape that element-level filtering is defined for: exactly one
-//! UNNEST over a LIST. With several UNNESTs in one operator each output row combines elements
-//! from different lists, padded with NULLs up to the longest one, so dropping elements from one
-//! list would shift it against the others. A non-LIST child (UNNEST(NULL), ARRAY) has no
-//! element vector to run the predicate over.
-static bool CanAbsorbElementFilters(const LogicalUnnest &unnest) {
-	if (unnest.expressions.size() != 1) {
-		return false;
-	}
-	auto &expr = *unnest.expressions[0];
-	if (expr.GetExpressionClass() != ExpressionClass::BOUND_UNNEST) {
-		return false;
-	}
-	return expr.Cast<BoundUnnestExpression>().child->return_type.id() == LogicalTypeId::LIST;
-}
 
 unique_ptr<LogicalOperator> FilterPushdown::PushdownUnnest(unique_ptr<LogicalOperator> op) {
 	D_ASSERT(op->type == LogicalOperatorType::LOGICAL_UNNEST);
@@ -92,7 +16,6 @@ unique_ptr<LogicalOperator> FilterPushdown::PushdownUnnest(unique_ptr<LogicalOpe
 	// There are some expressions can not be pushed down. We should keep them
 	// and add an extra filter operator.
 	vector<unique_ptr<Expression>> remain_expressions;
-	const auto can_absorb = CanAbsorbElementFilters(unnest);
 	for (auto &filter : filters) {
 		auto &f = *filter;
 		auto can_push = true;
@@ -105,25 +28,6 @@ unique_ptr<LogicalOperator> FilterPushdown::PushdownUnnest(unique_ptr<LogicalOpe
 		// if the expression index table index is the unnest index, then the filter is on the
 		// unnest, and it should not be pushed down.
 		if (!can_push) {
-			// The filter cannot move below the UNNEST, but if it is a predicate on one list element
-			// we can still absorb it into the UNNEST itself. The elements that fail it are then
-			// never expanded into output rows at all, instead of being expanded and thrown away.
-			if (can_absorb && CanEvaluateOnElement(*f.filter, unnest.unnest_index)) {
-				// Filter pushdown runs more than once over a plan (statistics propagation kicks off
-				// another pass), so guard against absorbing the same predicate twice - it would be
-				// evaluated twice per element for no gain.
-				auto already_absorbed = false;
-				for (auto &absorbed : unnest.element_filters) {
-					if (absorbed->Equals(*f.filter)) {
-						already_absorbed = true;
-						break;
-					}
-				}
-				if (!already_absorbed) {
-					unnest.element_filters.push_back(std::move(f.filter));
-				}
-				continue;
-			}
 			// We can't push down related expressions if the column in the
 			// expression is generated by the functions which have side effects
 			remain_expressions.push_back(std::move(f.filter));

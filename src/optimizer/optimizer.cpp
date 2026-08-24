@@ -23,7 +23,6 @@
 #include "duckdb/optimizer/limit_pushdown.hpp"
 #include "duckdb/optimizer/regex_range_filter.hpp"
 #include "duckdb/optimizer/remove_duplicate_groups.hpp"
-#include "duckdb/optimizer/nested_filter_pushdown.hpp"
 #include "duckdb/optimizer/remove_unused_columns.hpp"
 #include "duckdb/optimizer/row_group_pruner.hpp"
 #include "duckdb/optimizer/rule/distinct_aggregate_optimizer.hpp"
@@ -228,11 +227,6 @@ void Optimizer::RunBuiltInOptimizers() {
 	RunOptimizer(OptimizerType::UNUSED_COLUMNS, [&]() {
 		RemoveUnusedColumns unused(binder, context, true);
 		unused.VisitOperator(*plan);
-		// derive scan pruning filters from predicates absorbed into UNNEST operators; this has to
-		// happen after column pruning, which is what fixes the scan's column ids that the filters
-		// are keyed by
-		NestedFilterPushdown nested_filter_pushdown;
-		nested_filter_pushdown.Optimize(*plan);
 	});
 
 	// Remove duplicate groups from aggregates

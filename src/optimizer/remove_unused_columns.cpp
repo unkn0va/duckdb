@@ -326,32 +326,6 @@ void RemoveUnusedColumns::VisitOperator(LogicalOperator &op) {
 			break;
 		}
 		auto &unnest = op.Cast<LogicalUnnest>();
-		// Filters absorbed into this UNNEST are evaluated against the list elements at runtime, so
-		// the element has to stay readable even though nothing above this operator references it
-		// any more (absorbing the filter is exactly what removed those references). Visiting them
-		// like any other expression records the sub-field paths they actually extract, which merge
-		// with the requirements the operators above recorded - the remapping below then pushes the
-		// union of both into the scan, so absorbing a filter no longer costs the element's nested
-		// projection pushdown. A predicate that needs the element as a whole (or extracts through
-		// something the pruner does not model) still degrades to a full read, via the same
-		// AddBinding(col) fallback inside VisitExpression.
-		// This relies on UNUSED_COLUMNS running after FILTER_PUSHDOWN, so every absorbed filter is
-		// visible by the time we prune. The one pass that can still absorb afterwards is statistics
-		// propagation deriving range filters from join keys (propagate_join.cpp), and those are
-		// built out of expressions that already sit above the UNNEST - so the fields they read are
-		// recorded here either way.
-		if (!unnest.element_filters.empty()) {
-			for (auto &element_filter : unnest.element_filters) {
-				VisitExpression(&element_filter);
-			}
-			// The extracts recorded above sit inside element_filters, which stay relative to the
-			// list element - they must never be rewritten into scan-produced columns. Nothing calls
-			// CheckPushdownExtract for an UNNEST today, so its bindings are never ENABLED; disable
-			// it explicitly so that this keeps holding if that ever changes.
-			for (idx_t i = 0; i < unnest.expressions.size(); i++) {
-				DisablePushdownExtract(ColumnBinding(unnest.unnest_index, i));
-			}
-		}
 		// Nested projection pushdown through UNNEST.
 		// For each UNNEST expression that unnests a plain column reference, check whether the
 		// parent only accesses specific sub-fields of the unnested element. If so, remap those

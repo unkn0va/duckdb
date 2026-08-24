@@ -1032,23 +1032,6 @@ static unique_ptr<TableFilter> TryCastTableFilter(const TableFilter &global_filt
 		auto child_name = struct_type[struct_mapping.index].first;
 		return make_uniq<StructFilter>(struct_mapping.index, std::move(child_name), std::move(new_child_filter));
 	}
-	case TableFilterType::LIST_ELEMENT: {
-		auto &list_filter = global_filter.Cast<ListElementFilter>();
-		if (target_type.id() != LogicalTypeId::LIST) {
-			return nullptr;
-		}
-		// a LIST carries exactly one child mapping - the element level, always numbered 0
-		auto entry = mapping.child_mapping.find(0);
-		if (entry == mapping.child_mapping.end()) {
-			return nullptr;
-		}
-		auto new_child_filter =
-		    TryCastTableFilter(*list_filter.child_filter, *entry->second, ListType::GetChildType(target_type));
-		if (!new_child_filter) {
-			return nullptr;
-		}
-		return make_uniq<ListElementFilter>(std::move(new_child_filter));
-	}
 	case TableFilterType::OPTIONAL_FILTER: {
 		auto &optional_filter = global_filter.Cast<OptionalFilter>();
 		auto child_result = TryCastTableFilter(*optional_filter.child_filter, mapping, target_type);

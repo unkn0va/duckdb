@@ -79,22 +79,6 @@
     ]
   },
   {
-    "class": "ListElementFilter",
-    "base": "TableFilter",
-    "enum": "LIST_ELEMENT",
-    "includes": [
-      "duckdb/planner/filter/list_element_filter.hpp"
-    ],
-    "members": [
-      {
-        "id": 200,
-        "name": "child_filter",
-        "type": "TableFilter*"
-      }
-    ],
-    "constructor": ["child_filter"]
-  },
-  {
     "class": "StructFilter",
     "base": "TableFilter",
     "enum": "STRUCT_EXTRACT",
