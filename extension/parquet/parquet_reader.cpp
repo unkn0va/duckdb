@@ -1,4 +1,5 @@
 #include "parquet_reader.hpp"
+#include "prenest_filter.hpp"
 
 #include "duckdb/common/optional_ptr.hpp"
 #include "duckdb/function/partition_stats.hpp"
@@ -403,6 +404,43 @@ ParquetColumnSchema ParquetReader::ParseColumnSchema(const SchemaElement &s_ele,
 	                                              parquet_options);
 }
 
+
+//! PROBE: build an element-level filter for this LIST, if the manually supplied
+//! `parquet_prenest_filter` names fields that live in its element struct AND all
+//! of those fields are actually being read (an unprojected child is a constant
+//! NULL vector, which would silently drop every element).
+static unique_ptr<PrenestFilter> TryBuildPrenestFilter(ClientContext &context, const ParquetColumnSchema &schema,
+                                                       ColumnReader &child_reader) {
+	Value setting;
+	if (!context.TryGetCurrentSetting("parquet_prenest_filter", setting) || setting.IsNull()) {
+		return nullptr;
+	}
+	auto filter = PrenestFilter::Parse(setting.ToString());
+	if (!filter) {
+		return nullptr;
+	}
+	if (schema.type.id() != LogicalTypeId::LIST) {
+		return nullptr;
+	}
+	auto &element_type = ListType::GetChildType(schema.type);
+	if (element_type.id() != LogicalTypeId::STRUCT || child_reader.Type().id() != LogicalTypeId::STRUCT) {
+		return nullptr;
+	}
+	if (!filter->Bind(context, element_type)) {
+		// the referenced fields are not in this list's element struct
+		return nullptr;
+	}
+	auto &struct_reader = child_reader.Cast<StructColumnReader>();
+	for (auto child_idx : filter->FieldChildIndexes()) {
+		if (child_idx >= struct_reader.child_readers.size() || !struct_reader.child_readers[child_idx]) {
+			throw InvalidInputException(
+			    "parquet_prenest_filter references a field that this query does not project - the pre-nest "
+			    "filter would see a constant NULL vector. Project the predicate columns or clear the setting.");
+		}
+	}
+	return filter;
+}
+
 unique_ptr<ColumnReader> ParquetReader::CreateReaderRecursive(ClientContext &context,
                                                               const vector<ColumnIndex> &indexes,
                                                               const ParquetColumnSchema &schema) {
@@ -432,9 +470,18 @@ unique_ptr<ColumnReader> ParquetReader::CreateReaderRecursive(ClientContext &con
 		}
 		switch (schema.type.id()) {
 		case LogicalTypeId::LIST:
-		case LogicalTypeId::MAP:
+		case LogicalTypeId::MAP: {
 			D_ASSERT(children.size() == 1);
-			return make_uniq<ListColumnReader>(*this, schema, std::move(children[0]));
+			unique_ptr<PrenestFilter> prenest;
+			if (children[0]) {
+				prenest = TryBuildPrenestFilter(context, schema, *children[0]);
+			}
+			auto list_reader = make_uniq<ListColumnReader>(*this, schema, std::move(children[0]));
+			if (prenest) {
+				list_reader->SetPrenestFilter(std::move(prenest));
+			}
+			return std::move(list_reader);
+		}
 		case LogicalTypeId::STRUCT:
 			return make_uniq<StructColumnReader>(*this, schema, std::move(children));
 		default:
