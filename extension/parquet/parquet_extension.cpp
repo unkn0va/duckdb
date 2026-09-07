@@ -57,6 +57,8 @@
 #include "duckdb/main/settings.hpp"
 #include "parquet_multi_file_info.hpp"
 
+#include "prenest_filter.hpp"
+
 namespace duckdb {
 
 struct ParquetWriteBindData : public TableFunctionData {
@@ -839,6 +841,39 @@ static vector<unique_ptr<Expression>> ParquetWriteSelect(CopyToSelectInput &inpu
 	return {};
 }
 
+
+//! PROBE: parquet_prenest_stat('<counter>') - read the pre-nest instrumentation.
+//! 'reset' zeroes every counter and returns 0.
+static void ParquetPrenestStatFunction(DataChunk &args, ExpressionState &state, Vector &result) {
+	auto &stats = PrenestStats::Get();
+	UnaryExecutor::Execute<string_t, int64_t>(args.data[0], result, args.size(), [&](string_t name_s) -> int64_t {
+		auto name = name_s.GetString();
+		if (name == "reset") {
+			stats.Reset();
+			return 0;
+		}
+		if (name == "elements_decoded") {
+			return NumericCast<int64_t>(stats.elements_decoded.load());
+		}
+		if (name == "elements_appended") {
+			return NumericCast<int64_t>(stats.elements_appended.load());
+		}
+		if (name == "inner_iterations") {
+			return NumericCast<int64_t>(stats.inner_iterations.load());
+		}
+		if (name == "carryovers") {
+			return NumericCast<int64_t>(stats.carryovers.load());
+		}
+		if (name == "carryover_flattens") {
+			return NumericCast<int64_t>(stats.carryover_flattens.load());
+		}
+		if (name == "predicate_elements") {
+			return NumericCast<int64_t>(stats.predicate_elements.load());
+		}
+		throw InvalidInputException("unknown parquet_prenest_stat counter \"%s\"", name);
+	});
+}
+
 static void LoadInternal(ExtensionLoader &loader) {
 	auto &db_instance = loader.GetDatabaseInstance();
 	auto &fs = db_instance.GetFileSystem();
@@ -907,6 +942,12 @@ static void LoadInternal(ExtensionLoader &loader) {
 	                                                  {LogicalType::VARCHAR, LogicalType::VARCHAR});
 	loader.RegisterFunction(parquet_key_fun);
 
+	// PROBE: pre-nest filter plumbing
+	ScalarFunction prenest_stat_fun("parquet_prenest_stat", {LogicalType::VARCHAR}, LogicalType::BIGINT,
+	                                ParquetPrenestStatFunction);
+	prenest_stat_fun.stability = FunctionStability::VOLATILE;
+	loader.RegisterFunction(prenest_stat_fun);
+
 	auto &config = DBConfig::GetConfig(db_instance);
 	config.replacement_scans.emplace_back(ParquetScanReplacement);
 	config.AddExtensionOption("binary_as_string", "In Parquet files, interpret binary data as a string.",
@@ -916,6 +957,10 @@ static void LoadInternal(ExtensionLoader &loader) {
 	config.AddExtensionOption("prefetch_all_parquet_files",
 	                          "Use the prefetching mechanism for all types of parquet files", LogicalType::BOOLEAN,
 	                          Value(false));
+	config.AddExtensionOption("parquet_prenest_filter",
+	                          "PROBE: element-level predicate applied during list assembly, as "
+	                          "\"<list_name>: <field> <op> <value> AND ...\". Empty disables it.",
+	                          LogicalType::VARCHAR, Value(""));
 	config.AddExtensionOption("parquet_metadata_cache",
 	                          "Cache Parquet metadata - useful when reading the same files multiple times",
 	                          LogicalType::BOOLEAN, Value(false));
