@@ -32,8 +32,8 @@ struct PrenestPushdownStats {
 	idx_t binders_not_formable = 0;
 	//! conjuncts unrelated to the UNNEST they sat on
 	idx_t passthroughs = 0;
-	//! comprehensions from a deeper UNNEST that stayed above (the shallow paradigm)
-	idx_t comprehensions_left_above = 0;
+	//! comprehensions wrapped in a generator level to pass an outer UNNEST (Recurse)
+	idx_t levels_lifted = 0;
 	//! scans that received a PrenestFilterSpec
 	idx_t absorbed_at_scan = 0;
 	//! comprehensions lifted onto LogicalUnnest::filters

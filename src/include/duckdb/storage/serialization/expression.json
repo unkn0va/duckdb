@@ -191,9 +191,15 @@
         "id": 201,
         "name": "predicate",
         "type": "Expression*"
+      },
+      {
+        "id": 202,
+        "name": "inner",
+        "type": "Expression*",
+        "default": "nullptr"
       }
     ],
-    "constructor": ["source", "predicate"]
+    "constructor": ["source", "predicate", "inner"]
   },
   {
     "class": "BoundDefaultExpression",

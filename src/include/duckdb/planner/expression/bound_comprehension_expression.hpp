@@ -31,12 +31,27 @@ public:
 	static constexpr const ExpressionClass TYPE = ExpressionClass::BOUND_COMPREHENSION;
 
 public:
-	BoundComprehensionExpression(string source, unique_ptr<Expression> predicate);
+	BoundComprehensionExpression(string source, unique_ptr<Expression> predicate,
+	                             unique_ptr<Expression> inner = nullptr);
 
 	//! Root-relative dotted path of the list whose elements are iterated
 	string source;
-	//! Per-element predicate, flattened against the element struct
+	//! Per-element predicate for THIS level, flattened against the element struct.
+	//! Null on a pure generator level (DataFusion's Recurse with no self_predicate).
 	unique_ptr<Expression> predicate;
+	//! A comprehension over a list nested inside this level's element, iterated for
+	//! each element of `source`. This is DataFusion's NestedFilterBody::Recurse: it is
+	//! what lets a predicate on an inner list travel down past an outer UNNEST.
+	//!
+	//!   [{..., [l | l <- o.o_lineitems; l.l_quantity < 24]} | o <- c_orders]
+	//!
+	//! Always a BoundComprehensionExpression when set.
+	unique_ptr<Expression> inner;
+
+public:
+	//! The deepest level of this comprehension - the one that actually names a list of
+	//! elements to drop.
+	const BoundComprehensionExpression &Innermost() const;
 
 public:
 	string ToString() const override;

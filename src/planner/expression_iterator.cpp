@@ -132,6 +132,9 @@ void ExpressionIterator::EnumerateChildren(Expression &expr,
 		if (comprehension.predicate) {
 			callback(comprehension.predicate);
 		}
+		if (comprehension.inner) {
+			callback(comprehension.inner);
+		}
 		break;
 	}
 	case ExpressionClass::BOUND_COLUMN_REF:
