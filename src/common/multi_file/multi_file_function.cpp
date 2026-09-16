@@ -49,4 +49,9 @@ FileGlobInput MultiFileReaderInterface::GetGlobInput() {
 	return FileGlobOptions::DISALLOW_EMPTY;
 }
 
+bool MultiFileReaderInterface::TrySetPrenestFilter(MultiFileBindData &, const PrenestFilterSpec &) {
+	// PROBE: only Parquet implements element-level pre-nest filtering
+	return false;
+}
+
 } // namespace duckdb

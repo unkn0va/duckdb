@@ -47,6 +47,7 @@ static const DefaultOptimizerType internal_optimizer_types[] = {
     {"join_elimination", OptimizerType::JOIN_ELIMINATION},
     {"window_self_join", OptimizerType::WINDOW_SELF_JOIN},
     {"projection_pullup", OptimizerType::PROJECTION_PULLUP},
+    {"prenest_filter_pushdown", OptimizerType::PRENEST_FILTER_PUSHDOWN},
     {nullptr, OptimizerType::INVALID}};
 
 string OptimizerTypeToString(OptimizerType type) {

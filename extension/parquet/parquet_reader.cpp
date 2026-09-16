@@ -405,17 +405,35 @@ ParquetColumnSchema ParquetReader::ParseColumnSchema(const SchemaElement &s_ele,
 }
 
 
-//! PROBE: build an element-level filter for this LIST, if the manually supplied
-//! `parquet_prenest_filter` names fields that live in its element struct AND all
-//! of those fields are actually being read (an unprojected child is a constant
-//! NULL vector, which would silently drop every element).
-static unique_ptr<PrenestFilter> TryBuildPrenestFilter(ClientContext &context, const ParquetColumnSchema &schema,
+//! PROBE: build an element-level filter for this LIST, if the supplied predicate
+//! names fields that live in its element struct AND all of those fields are
+//! actually being read (an unprojected child is a constant NULL vector, which
+//! would silently drop every element).
+//!
+//! The predicate comes from, in order:
+//!   (a) `injected` - a conjunction carried down from the bind phase,
+//!   (b) the manually set `parquet_prenest_filter` setting,
+//!   (c) neither, in which case the stock path is kept.
+static unique_ptr<PrenestFilter> TryBuildPrenestFilter(ClientContext &context, const PrenestFilterSpec &injected,
+                                                       const ParquetColumnSchema &schema,
                                                        ColumnReader &child_reader) {
-	Value setting;
-	if (!context.TryGetCurrentSetting("parquet_prenest_filter", setting) || setting.IsNull()) {
-		return nullptr;
+	unique_ptr<PrenestFilter> filter;
+	bool from_injection = false;
+	if (!injected.empty()) {
+		// the optimizer resolved the predicate to one specific LIST, so require the name
+		// to match rather than relying on Bind() to sort the lists out by field names
+		if (!StringUtil::CIEquals(schema.name, injected.list_name)) {
+			return nullptr;
+		}
+		filter = PrenestFilter::FromConditions(injected.list_name, injected.conditions);
+		from_injection = true;
+	} else {
+		Value setting;
+		if (!context.TryGetCurrentSetting("parquet_prenest_filter", setting) || setting.IsNull()) {
+			return nullptr;
+		}
+		filter = PrenestFilter::Parse(setting.ToString());
 	}
-	auto filter = PrenestFilter::Parse(setting.ToString());
 	if (!filter) {
 		return nullptr;
 	}
@@ -433,6 +451,11 @@ static unique_ptr<PrenestFilter> TryBuildPrenestFilter(ClientContext &context, c
 	auto &struct_reader = child_reader.Cast<StructColumnReader>();
 	for (auto child_idx : filter->FieldChildIndexes()) {
 		if (child_idx >= struct_reader.child_readers.size() || !struct_reader.child_readers[child_idx]) {
+			if (from_injection) {
+				// an automatically extracted predicate must never turn a working query into an
+				// error - just keep the stock path for this list
+				return nullptr;
+			}
 			throw InvalidInputException(
 			    "parquet_prenest_filter references a field that this query does not project - the pre-nest "
 			    "filter would see a constant NULL vector. Project the predicate columns or clear the setting.");
@@ -474,7 +497,7 @@ unique_ptr<ColumnReader> ParquetReader::CreateReaderRecursive(ClientContext &con
 			D_ASSERT(children.size() == 1);
 			unique_ptr<PrenestFilter> prenest;
 			if (children[0]) {
-				prenest = TryBuildPrenestFilter(context, schema, *children[0]);
+				prenest = TryBuildPrenestFilter(context, parquet_options.prenest_filter, schema, *children[0]);
 			}
 			auto list_reader = make_uniq<ListColumnReader>(*this, schema, std::move(children[0]));
 			if (prenest) {

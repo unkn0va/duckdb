@@ -14,6 +14,7 @@
 #include "duckdb/common/atomic.hpp"
 #include "duckdb/common/types/selection_vector.hpp"
 #include "duckdb/common/types/vector.hpp"
+#include "duckdb/planner/filter/prenest_filter_spec.hpp"
 #include "duckdb/planner/table_filter.hpp"
 #include "duckdb/planner/table_filter_state.hpp"
 
@@ -50,8 +51,19 @@ struct PrenestCondition {
 //! struct of one LIST column.
 class PrenestFilter {
 public:
+	//! One "<field> <cmp> <literal>" term. The literal is still a string here -
+	//! it is cast to the field's type in Bind(). Defined in the core planner so the
+	//! optimizer can build these without depending on the parquet extension.
+	using RawCondition = PrenestRawCondition;
+
+public:
 	//! Parse "list_name: f op v AND f op v ...". Returns nullptr for an empty spec.
 	static unique_ptr<PrenestFilter> Parse(const string &spec);
+
+	//! Build straight from conditions, bypassing the string spec. This is the path
+	//! for predicates handed over by something other than the setting (e.g. an
+	//! automatic extraction). Returns nullptr if `conditions` is empty.
+	static unique_ptr<PrenestFilter> FromConditions(const string &list_name, vector<RawCondition> conditions);
 
 	//! Resolve field names against a concrete element STRUCT type. Returns false
 	//! if any referenced field is absent - the caller then keeps the stock path.
@@ -69,12 +81,12 @@ public:
 	//! `element_vector` must be flat. Returns the number of survivors.
 	idx_t Apply(Vector &element_vector, idx_t count, SelectionVector &sel, bool *keep) const;
 
+	//! The LIST column this conjunction was written for.
+	const string &ListName() const {
+		return list_name;
+	}
+
 private:
-	struct RawCondition {
-		string field;
-		ExpressionType comparison;
-		string literal;
-	};
 	string list_name;
 	vector<RawCondition> raw_conditions;
 	vector<string> field_names;

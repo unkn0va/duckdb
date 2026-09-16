@@ -961,6 +961,10 @@ static void LoadInternal(ExtensionLoader &loader) {
 	                          "PROBE: element-level predicate applied during list assembly, as "
 	                          "\"<list_name>: <field> <op> <value> AND ...\". Empty disables it.",
 	                          LogicalType::VARCHAR, Value(""));
+	config.AddExtensionOption("parquet_prenest_auto",
+	                          "PROBE: automatically extract element-level pre-nest predicates from the query "
+	                          "instead of taking them from parquet_prenest_filter.",
+	                          LogicalType::BOOLEAN, Value::BOOLEAN(false));
 	config.AddExtensionOption("parquet_metadata_cache",
 	                          "Cache Parquet metadata - useful when reading the same files multiple times",
 	                          LogicalType::BOOLEAN, Value(false));

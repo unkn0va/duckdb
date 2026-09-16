@@ -40,6 +40,11 @@ bool FunctionData::SupportStatementCache() const {
 	return true;
 }
 
+bool FunctionData::TrySetPrenestFilter(const PrenestFilterSpec &) {
+	// PROBE: most scans have no notion of a pre-nest predicate
+	return false;
+}
+
 Function::Function(string name_p) : name(std::move(name_p)) {
 }
 Function::~Function() {

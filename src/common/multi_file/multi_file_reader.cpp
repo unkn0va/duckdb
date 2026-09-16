@@ -52,6 +52,13 @@ unique_ptr<MultiFileReader> MultiFileReader::Copy() const {
 MultiFileBindData::~MultiFileBindData() {
 }
 
+bool MultiFileBindData::TrySetPrenestFilter(const PrenestFilterSpec &spec) {
+	if (!interface || !bind_data) {
+		return false;
+	}
+	return interface->TrySetPrenestFilter(*this, spec);
+}
+
 unique_ptr<FunctionData> MultiFileBindData::Copy() const {
 	auto result = make_uniq<MultiFileBindData>();
 	if (bind_data) {

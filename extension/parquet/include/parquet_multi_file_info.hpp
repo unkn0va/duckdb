@@ -56,6 +56,8 @@ struct ParquetMultiFileInfo : MultiFileReaderInterface {
 	void GetVirtualColumns(ClientContext &context, MultiFileBindData &bind_data, virtual_column_map_t &result) override;
 	unique_ptr<MultiFileReaderInterface> Copy() override;
 	FileGlobInput GetGlobInput() override;
+	//! PROBE: store an automatically extracted pre-nest predicate on the parquet options
+	bool TrySetPrenestFilter(MultiFileBindData &bind_data, const PrenestFilterSpec &spec) override;
 };
 
 class ParquetScanFunction {

@@ -16,6 +16,7 @@
 #include "duckdb/optimizer/expression_heuristics.hpp"
 #include "duckdb/optimizer/filter_pullup.hpp"
 #include "duckdb/optimizer/filter_pushdown.hpp"
+#include "duckdb/optimizer/prenest_filter_pushdown.hpp"
 #include "duckdb/optimizer/in_clause_rewriter.hpp"
 #include "duckdb/optimizer/join_elimination.hpp"
 #include "duckdb/optimizer/join_filter_pushdown_optimizer.hpp"
@@ -325,6 +326,14 @@ void Optimizer::RunBuiltInOptimizers() {
 	RunOptimizer(OptimizerType::JOIN_FILTER_PUSHDOWN, [&]() {
 		JoinFilterPushdownOptimizer join_filter_pushdown(*this);
 		join_filter_pushdown.VisitOperator(*plan);
+	});
+
+	// PROBE: hand element-level predicates to the scans that can pre-filter list
+	// elements. Runs last so it reads the final plan shape; it only annotates bind
+	// data and never rewrites the plan.
+	RunOptimizer(OptimizerType::PRENEST_FILTER_PUSHDOWN, [&]() {
+		PrenestFilterPushdown prenest_filter_pushdown(context);
+		prenest_filter_pushdown.Optimize(*plan);
 	});
 }
 

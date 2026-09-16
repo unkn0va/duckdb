@@ -16,6 +16,7 @@
 #include "duckdb/common/enums/function_errors.hpp"
 
 namespace duckdb {
+struct PrenestFilterSpec;
 class CatalogEntry;
 class Catalog;
 class ClientContext;
@@ -62,6 +63,9 @@ struct FunctionData {
 	DUCKDB_API virtual bool Equals(const FunctionData &other) const = 0;
 	DUCKDB_API static bool Equals(const FunctionData *left, const FunctionData *right);
 	DUCKDB_API virtual bool SupportStatementCache() const;
+	//! PROBE: hand an element-level pre-nest predicate to this bind data. Returns
+	//! false when the scan cannot make use of one, which is the default.
+	DUCKDB_API virtual bool TrySetPrenestFilter(const PrenestFilterSpec &spec);
 
 	template <class TARGET>
 	TARGET &Cast() {

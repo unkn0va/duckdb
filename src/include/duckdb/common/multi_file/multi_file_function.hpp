@@ -16,6 +16,7 @@
 #include <numeric>
 
 namespace duckdb {
+struct PrenestFilterSpec;
 
 struct MultiFileReaderInterface {
 	virtual ~MultiFileReaderInterface();
@@ -57,6 +58,9 @@ struct MultiFileReaderInterface {
 	virtual void GetVirtualColumns(ClientContext &context, MultiFileBindData &bind_data, virtual_column_map_t &result);
 	virtual unique_ptr<MultiFileReaderInterface> Copy();
 	virtual FileGlobInput GetGlobInput();
+	//! PROBE: hand an element-level pre-nest predicate to this format's bind data.
+	//! Returns false when the format does not support pre-nest filtering (the default).
+	virtual bool TrySetPrenestFilter(MultiFileBindData &bind_data, const PrenestFilterSpec &spec);
 };
 
 template <class OP>

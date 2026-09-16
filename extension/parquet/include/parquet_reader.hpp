@@ -23,6 +23,7 @@
 #include "parquet_file_metadata_cache.hpp"
 #include "parquet_rle_bp_decoder.hpp"
 #include "parquet_types.h"
+#include "prenest_filter.hpp"
 #include "resizable_buffer.hpp"
 #include "duckdb/execution/adaptive_filter.hpp"
 
@@ -113,6 +114,11 @@ struct ParquetOptions {
 	vector<ParquetColumnDefinition> schema;
 	idx_t explicit_cardinality = 0;
 	bool can_have_nan = false; // if floats or doubles can contain NaN values
+	//! PROBE: element-level pre-nest predicate handed down from the bind phase.
+	//! Nothing fills this in yet; while it is empty the readers fall back to the
+	//! `parquet_prenest_filter` setting, i.e. behaviour is unchanged. Deliberately
+	//! not serialized (see parquet.json) - it never survives a plan round-trip.
+	PrenestFilterSpec prenest_filter;
 };
 
 struct ParquetOptionsSerialization {

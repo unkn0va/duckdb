@@ -37,33 +37,14 @@ static bool ParseComparison(const string &term, string &field, ExpressionType &c
 	return false;
 }
 
-unique_ptr<PrenestFilter> PrenestFilter::Parse(const string &spec) {
-	auto trimmed = spec;
-	StringUtil::Trim(trimmed);
-	if (trimmed.empty()) {
+unique_ptr<PrenestFilter> PrenestFilter::FromConditions(const string &list_name, vector<RawCondition> conditions) {
+	if (conditions.empty()) {
 		return nullptr;
 	}
 	auto result = make_uniq<PrenestFilter>();
-	auto colon = trimmed.find(':');
-	if (colon == string::npos) {
-		throw InvalidInputException("parquet_prenest_filter: expected \"<list_name>: <conjunction>\"");
-	}
-	result->list_name = trimmed.substr(0, colon);
+	result->list_name = list_name;
 	StringUtil::Trim(result->list_name);
-	auto body = trimmed.substr(colon + 1);
-
-	for (auto &term_raw : StringUtil::Split(body, " AND ")) {
-		auto term = term_raw;
-		StringUtil::Trim(term);
-		RawCondition cond;
-		if (!ParseComparison(term, cond.field, cond.comparison, cond.literal)) {
-			throw InvalidInputException("parquet_prenest_filter: cannot parse condition \"%s\"", term);
-		}
-		result->raw_conditions.push_back(std::move(cond));
-	}
-	if (result->raw_conditions.empty()) {
-		throw InvalidInputException("parquet_prenest_filter: no conditions");
-	}
+	result->raw_conditions = std::move(conditions);
 	for (auto &cond : result->raw_conditions) {
 		bool seen = false;
 		for (auto &name : result->field_names) {
@@ -77,6 +58,35 @@ unique_ptr<PrenestFilter> PrenestFilter::Parse(const string &spec) {
 		}
 	}
 	return result;
+}
+
+unique_ptr<PrenestFilter> PrenestFilter::Parse(const string &spec) {
+	auto trimmed = spec;
+	StringUtil::Trim(trimmed);
+	if (trimmed.empty()) {
+		return nullptr;
+	}
+	auto colon = trimmed.find(':');
+	if (colon == string::npos) {
+		throw InvalidInputException("parquet_prenest_filter: expected \"<list_name>: <conjunction>\"");
+	}
+	auto list_name = trimmed.substr(0, colon);
+	auto body = trimmed.substr(colon + 1);
+
+	vector<RawCondition> conditions;
+	for (auto &term_raw : StringUtil::Split(body, " AND ")) {
+		auto term = term_raw;
+		StringUtil::Trim(term);
+		RawCondition cond;
+		if (!ParseComparison(term, cond.field, cond.comparison, cond.literal)) {
+			throw InvalidInputException("parquet_prenest_filter: cannot parse condition \"%s\"", term);
+		}
+		conditions.push_back(std::move(cond));
+	}
+	if (conditions.empty()) {
+		throw InvalidInputException("parquet_prenest_filter: no conditions");
+	}
+	return FromConditions(list_name, std::move(conditions));
 }
 
 bool PrenestFilter::Bind(ClientContext &context, const LogicalType &element_type) {
