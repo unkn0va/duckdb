@@ -42,6 +42,9 @@ unique_ptr<Expression> Expression::Deserialize(Deserializer &deserializer) {
 	case ExpressionClass::BOUND_COMPARISON:
 		result = BoundComparisonExpression::Deserialize(deserializer);
 		break;
+	case ExpressionClass::BOUND_COMPREHENSION:
+		result = BoundComprehensionExpression::Deserialize(deserializer);
+		break;
 	case ExpressionClass::BOUND_CONJUNCTION:
 		result = BoundConjunctionExpression::Deserialize(deserializer);
 		break;
@@ -158,6 +161,19 @@ unique_ptr<Expression> BoundComparisonExpression::Deserialize(Deserializer &dese
 	auto left = deserializer.ReadPropertyWithDefault<unique_ptr<Expression>>(200, "left");
 	auto right = deserializer.ReadPropertyWithDefault<unique_ptr<Expression>>(201, "right");
 	auto result = duckdb::unique_ptr<BoundComparisonExpression>(new BoundComparisonExpression(deserializer.Get<ExpressionType>(), std::move(left), std::move(right)));
+	return std::move(result);
+}
+
+void BoundComprehensionExpression::Serialize(Serializer &serializer) const {
+	Expression::Serialize(serializer);
+	serializer.WritePropertyWithDefault<string>(200, "source", source);
+	serializer.WritePropertyWithDefault<unique_ptr<Expression>>(201, "predicate", predicate);
+}
+
+unique_ptr<Expression> BoundComprehensionExpression::Deserialize(Deserializer &deserializer) {
+	auto source = deserializer.ReadPropertyWithDefault<string>(200, "source");
+	auto predicate = deserializer.ReadPropertyWithDefault<unique_ptr<Expression>>(201, "predicate");
+	auto result = duckdb::unique_ptr<BoundComprehensionExpression>(new BoundComprehensionExpression(std::move(source), std::move(predicate)));
 	return std::move(result);
 }
 

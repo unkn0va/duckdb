@@ -178,6 +178,24 @@
     "constructor": ["value"]
   },
   {
+    "class": "BoundComprehensionExpression",
+    "base": "Expression",
+    "enum": "BOUND_COMPREHENSION",
+    "members": [
+      {
+        "id": 200,
+        "name": "source",
+        "type": "string"
+      },
+      {
+        "id": 201,
+        "name": "predicate",
+        "type": "Expression*"
+      }
+    ],
+    "constructor": ["source", "predicate"]
+  },
+  {
     "class": "BoundDefaultExpression",
     "base": "Expression",
     "enum": "BOUND_DEFAULT",

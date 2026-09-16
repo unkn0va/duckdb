@@ -151,7 +151,8 @@ enum class ExpressionType : uint8_t {
 	LAMBDA = 231,
 	POSITIONAL_REFERENCE = 232,
 	BOUND_LAMBDA_REF = 233,
-	BOUND_EXPANDED = 234
+	BOUND_EXPANDED = 234,
+	BOUND_COMPREHENSION = 235
 };
 
 //===--------------------------------------------------------------------===//
@@ -207,7 +208,8 @@ enum class ExpressionClass : uint8_t {
 	// Miscellaneous
 	//===--------------------------------------------------------------------===//
 	BOUND_EXPRESSION = 50,
-	BOUND_EXPANDED = 51
+	BOUND_EXPANDED = 51,
+	BOUND_COMPREHENSION = 52
 };
 
 DUCKDB_API string ExpressionTypeToString(ExpressionType type);

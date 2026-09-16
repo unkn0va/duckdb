@@ -333,7 +333,7 @@ void Optimizer::RunBuiltInOptimizers() {
 	// data and never rewrites the plan.
 	RunOptimizer(OptimizerType::PRENEST_FILTER_PUSHDOWN, [&]() {
 		PrenestFilterPushdown prenest_filter_pushdown(context);
-		prenest_filter_pushdown.Optimize(*plan);
+		prenest_filter_pushdown.Optimize(plan);
 	});
 }
 

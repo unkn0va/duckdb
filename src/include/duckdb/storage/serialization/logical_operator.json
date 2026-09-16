@@ -146,6 +146,11 @@
         "id": 201,
         "name": "expressions",
         "type": "vector<Expression*>"
+      },
+      {
+        "id": 202,
+        "name": "filters",
+        "type": "vector<Expression*>"
       }
     ],
     "constructor": [

@@ -127,6 +127,13 @@ void ExpressionIterator::EnumerateChildren(Expression &expr,
 		callback(unnest_expr.child);
 		break;
 	}
+	case ExpressionClass::BOUND_COMPREHENSION: {
+		auto &comprehension = expr.Cast<BoundComprehensionExpression>();
+		if (comprehension.predicate) {
+			callback(comprehension.predicate);
+		}
+		break;
+	}
 	case ExpressionClass::BOUND_COLUMN_REF:
 	case ExpressionClass::BOUND_LAMBDA_REF:
 	case ExpressionClass::BOUND_CONSTANT:

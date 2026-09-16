@@ -794,12 +794,14 @@ void LogicalUnnest::Serialize(Serializer &serializer) const {
 	LogicalOperator::Serialize(serializer);
 	serializer.WritePropertyWithDefault<idx_t>(200, "unnest_index", unnest_index);
 	serializer.WritePropertyWithDefault<vector<unique_ptr<Expression>>>(201, "expressions", expressions);
+	serializer.WritePropertyWithDefault<vector<unique_ptr<Expression>>>(202, "filters", filters);
 }
 
 unique_ptr<LogicalOperator> LogicalUnnest::Deserialize(Deserializer &deserializer) {
 	auto unnest_index = deserializer.ReadPropertyWithDefault<idx_t>(200, "unnest_index");
 	auto result = duckdb::unique_ptr<LogicalUnnest>(new LogicalUnnest(unnest_index));
 	deserializer.ReadPropertyWithDefault<vector<unique_ptr<Expression>>>(201, "expressions", result->expressions);
+	deserializer.ReadPropertyWithDefault<vector<unique_ptr<Expression>>>(202, "filters", result->filters);
 	return std::move(result);
 }
 

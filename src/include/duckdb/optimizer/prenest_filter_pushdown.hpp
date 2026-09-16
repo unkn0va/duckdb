@@ -3,14 +3,17 @@
 //
 // duckdb/optimizer/prenest_filter_pushdown.hpp
 //
-// PROBE CODE. Finds conjuncts of a LogicalFilter that reduce, through UNNEST and
-// PROJECTION, to "<element struct field> <cmp> <constant>" over one LIST column
-// of a scan, and hands them to that scan as a PrenestFilterSpec so the reader can
-// drop elements before the list is assembled.
+// PROBE CODE. A port of DataFusion's nested filter pushdown (shallow paradigm).
 //
-// The extracted conjuncts are deliberately LEFT IN PLACE in the LogicalFilter:
-// the predicate is evaluated twice, which makes a mis-pushed predicate a
-// performance bug rather than a correctness bug.
+// A Filter sitting on an UNNEST has its conjuncts split three ways -
+// comprehensions / binders / passthroughs - and a binder over the unnested
+// element is re-expressed as a BoundComprehensionExpression bound to that
+// UNNEST's list. Comprehensions that reach a scan become a PrenestFilterSpec so
+// the reader can drop elements before the list is assembled; the rest are rolled
+// up into LogicalUnnest::filters, where nothing consumes them yet.
+//
+// The binder is never removed from the Filter it came from, so the rule only ever
+// ADDS information: a mis-pushed predicate costs performance, never correctness.
 //
 //===----------------------------------------------------------------------===//
 
@@ -21,14 +24,35 @@
 namespace duckdb {
 class ClientContext;
 
+//! Where the comprehensions of the last optimized plan ended up. Measurement only.
+struct PrenestPushdownStats {
+	//! binders turned into a comprehension
+	idx_t comprehensions_formed = 0;
+	//! binders that could not be expressed as one
+	idx_t binders_not_formable = 0;
+	//! conjuncts unrelated to the UNNEST they sat on
+	idx_t passthroughs = 0;
+	//! comprehensions from a deeper UNNEST that stayed above (the shallow paradigm)
+	idx_t comprehensions_left_above = 0;
+	//! scans that received a PrenestFilterSpec
+	idx_t absorbed_at_scan = 0;
+	//! comprehensions lifted onto LogicalUnnest::filters
+	idx_t rolled_up = 0;
+	//! comprehensions that reached a scan but whose list is read elsewhere too
+	idx_t refused_list_read_elsewhere = 0;
+	//! comprehensions nothing claimed - dropped, which is always safe
+	idx_t dropped = 0;
+
+	static PrenestPushdownStats &Get();
+};
+
 class PrenestFilterPushdown {
 public:
 	explicit PrenestFilterPushdown(ClientContext &context) : context(context) {
 	}
 
-	//! Extract pre-nest predicates and attach them to the scans they belong to.
 	//! Does nothing unless `parquet_prenest_auto` is set.
-	void Optimize(LogicalOperator &plan);
+	void Optimize(unique_ptr<LogicalOperator> &plan);
 
 private:
 	ClientContext &context;

@@ -12,6 +12,23 @@ vector<ColumnBinding> LogicalUnnest::GetColumnBindings() {
 	return child_bindings;
 }
 
+//! Revived from the version removed in fff6e6276e. Makes the absorbed comprehensions
+//! visible in EXPLAIN, which is how they are counted - nothing consumes them yet.
+InsertionOrderPreservingMap<string> LogicalUnnest::ParamsToString() const {
+	auto result = LogicalOperator::ParamsToString();
+	if (!filters.empty()) {
+		string filters_info;
+		for (idx_t i = 0; i < filters.size(); i++) {
+			if (i > 0) {
+				filters_info += "\n";
+			}
+			filters_info += filters[i]->GetName();
+		}
+		result["Comprehension Filters"] = filters_info;
+	}
+	return result;
+}
+
 void LogicalUnnest::ResolveTypes() {
 	types.insert(types.end(), children[0]->types.begin(), children[0]->types.end());
 	for (auto &expr : expressions) {

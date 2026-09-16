@@ -24,8 +24,22 @@ public:
 
 	idx_t unnest_index;
 
+	//! Comprehension filters absorbed from a Filter below this UNNEST, revived from the
+	//! `element_filters` field removed in fff6e6276e ("reset to projection pruning") but with
+	//! different semantics: these are BoundComprehensionExpressions moved here by the roll-up
+	//! rule (DataFusion's RollUpNestedFilter / Unnest.filters), not per-element row predicates.
+	//!
+	//! Deliberately kept out of `expressions`: LogicalOperatorVisitor passes must not treat them
+	//! as row-level expressions of this operator.
+	//!
+	//! Nothing consumes them yet - a Filtered UNNEST operator would. Until then they are pure
+	//! annotation: the predicate they describe is still evaluated by the Filter that stays above
+	//! this UNNEST, so dropping them cannot change a result.
+	vector<unique_ptr<Expression>> filters;
+
 public:
 	vector<ColumnBinding> GetColumnBindings() override;
+	InsertionOrderPreservingMap<string> ParamsToString() const override;
 	void Serialize(Serializer &serializer) const override;
 	static unique_ptr<LogicalOperator> Deserialize(Deserializer &deserializer);
 	vector<idx_t> GetTableIndex() const override;
