@@ -304,7 +304,9 @@ private:
 		// next UNNEST down - that is what lets a comprehension keep descending.
 		auto direct = op->children[0]->type == LogicalOperatorType::LOGICAL_UNNEST;
 		auto cursor = op->children[0].get();
-		while (cursor->type == LogicalOperatorType::LOGICAL_PROJECTION && !cursor->children.empty()) {
+		while ((cursor->type == LogicalOperatorType::LOGICAL_PROJECTION ||
+		        cursor->type == LogicalOperatorType::LOGICAL_FILTER) &&
+		       !cursor->children.empty()) {
 			cursor = cursor->children[0].get();
 		}
 		if (cursor->type != LogicalOperatorType::LOGICAL_UNNEST) {
@@ -475,7 +477,8 @@ private:
 
 	//! Resolve what an expression denotes, as a path relative to a scan's root column.
 	//! `struct_extract(o, 'o_lineitems')` becomes c_orders -> element -> o_lineitems.
-	bool ResolveExpressionPath(unique_ptr<Expression> &expr, vector<PrenestPathEntry> &result) {
+	bool ResolveExpressionPath(unique_ptr<Expression> &expr, vector<PrenestPathEntry> &result,
+	                           optional_ptr<LogicalGet> *owner = nullptr) {
 		ExtractChainReducer reducer;
 		ColumnBinding binding;
 		vector<string> prefix;
@@ -487,7 +490,7 @@ private:
 		for (auto &name : prefix) {
 			path.push_back(PrenestPathEntry {false, name});
 		}
-		if (!ResolveBindingPath(binding, path)) {
+		if (!ResolveBindingPath(binding, path, owner)) {
 			return false;
 		}
 		result = std::move(path);
@@ -495,7 +498,8 @@ private:
 	}
 
 	//! Walk `binding` down to a scan column, prepending each step to `path`.
-	bool ResolveBindingPath(ColumnBinding binding, vector<PrenestPathEntry> &path) {
+	bool ResolveBindingPath(ColumnBinding binding, vector<PrenestPathEntry> &path,
+	                        optional_ptr<LogicalGet> *owner = nullptr) {
 		ExtractChainReducer reducer;
 		for (idx_t guard = 0; guard < MAX_RESOLVE_DEPTH; guard++) {
 			auto defining = FindDefiningOperator(binding.table_index);
@@ -514,6 +518,9 @@ private:
 					return false;
 				}
 				path.insert(path.begin(), PrenestPathEntry {false, get.names[root_index]});
+				if (owner) {
+					*owner = get;
+				}
 				return true;
 			}
 			optional_ptr<unique_ptr<Expression>> source;
@@ -597,66 +604,101 @@ private:
 	// Pass 2 - a comprehension that reached the scan becomes a PrenestFilterSpec
 	//===------------------------------------------------------------------===//
 	void AbsorbAtScan(unique_ptr<LogicalOperator> &op) {
-		for (auto &child : op->children) {
-			AbsorbAtScan(child);
+		// Top-down, and each scan is handled once from the highest Filter above it: comprehensions
+		// for different levels of the same scan end up in SEPARATE stacked Filters (one per
+		// forming UNNEST), and the innermost-list choice has to see all of them at once.
+		if (!Absorbed(op)) {
+			for (auto &child : op->children) {
+				AbsorbAtScan(child);
+			}
 		}
-		if (op->type != LogicalOperatorType::LOGICAL_FILTER || op->children.empty()) {
-			return;
+	}
+
+	//! Collect the Filters that stand between `op` and a scan, passing through Projections and
+	//! other Filters. Returns false when `op` does not head such a chain.
+	bool CollectScanFilters(LogicalOperator &op, vector<LogicalOperator *> &filters, optional_ptr<LogicalGet> &get) {
+		if (op.type != LogicalOperatorType::LOGICAL_FILTER || op.children.empty()) {
+			return false;
 		}
-		// walk through Projections to the scan; anything else (in particular another UNNEST)
-		// means these comprehensions belong to a different list level
-		auto cursor = op->children[0].get();
-		while (cursor->type == LogicalOperatorType::LOGICAL_PROJECTION && !cursor->children.empty()) {
+		auto cursor = &op;
+		while (cursor->type == LogicalOperatorType::LOGICAL_FILTER ||
+		       cursor->type == LogicalOperatorType::LOGICAL_PROJECTION) {
+			if (cursor->type == LogicalOperatorType::LOGICAL_FILTER) {
+				filters.push_back(cursor);
+			}
+			if (cursor->children.empty()) {
+				return false;
+			}
 			cursor = cursor->children[0].get();
 		}
+		// anything else in the way (in particular another UNNEST) means a different list level
 		if (cursor->type != LogicalOperatorType::LOGICAL_GET) {
-			return;
+			return false;
 		}
-		auto &get = cursor->Cast<LogicalGet>();
-		if (!get.bind_data) {
-			return;
+		get = cursor->Cast<LogicalGet>();
+		return true;
+	}
+
+	bool Absorbed(unique_ptr<LogicalOperator> &op) {
+		vector<LogicalOperator *> filters;
+		optional_ptr<LogicalGet> get_ptr;
+		if (!CollectScanFilters(*op, filters, get_ptr) || !get_ptr->bind_data) {
+			return false;
+		}
+		auto &get = *get_ptr;
+
+		// Every comprehension standing above this scan, wherever in the Filter stack it sits.
+		vector<pair<LogicalOperator *, idx_t>> candidates;
+		for (auto *filter : filters) {
+			for (idx_t i = 0; i < filter->expressions.size(); i++) {
+				if (filter->expressions[i]->GetExpressionClass() == ExpressionClass::BOUND_COMPREHENSION) {
+					candidates.push_back(make_pair(filter, i));
+				}
+			}
+		}
+		if (candidates.empty()) {
+			return false;
 		}
 
-		// Decide first, move afterwards: nothing may be moved out of op->expressions until
-		// the spec is known to be accepted, or an early return would leave null entries behind.
-		//
-		// PrenestFilterSpec carries ONE list_name, so the reader can pre-filter a single list
-		// per scan. When several lists reach the same scan we take the DEEPEST one: it is the
-		// list with the most elements (every level multiplies), so filtering it removes the
-		// most work. Depth is a property of the path, not of the order we happen to walk the
-		// Filter in, so the choice is deterministic.
-		vector<idx_t> candidates;
-		for (idx_t i = 0; i < op->expressions.size(); i++) {
-			if (op->expressions[i]->GetExpressionClass() == ExpressionClass::BOUND_COMPREHENSION) {
-				candidates.push_back(i);
-			}
-		}
+		// PrenestFilterSpec carries ONE list_name, so the reader pre-filters a single list per
+		// scan. When several lists reach the same scan we take the DEEPEST one: every nesting
+		// level multiplies the element count, so the innermost list is where the work is.
+		// Depth is a property of the path, not of the order we walk the plan in.
 		string list_source;
 		idx_t best_depth = 0;
-		for (auto i : candidates) {
-			auto &innermost = op->expressions[i]->Cast<BoundComprehensionExpression>().Innermost();
-			auto depth = ParsePath(innermost.source).size();
-			if (list_source.empty() || depth > best_depth) {
-				vector<PrenestRawCondition> probe;
-				if (!innermost.predicate || !ToRawConditions(*innermost.predicate, probe) || probe.empty()) {
-					continue;
-				}
-				list_source = innermost.source;
-				best_depth = depth;
+		for (auto &candidate : candidates) {
+			auto &innermost =
+			    candidate.first->expressions[candidate.second]->Cast<BoundComprehensionExpression>().Innermost();
+			if (!innermost.predicate) {
+				continue;
 			}
+			auto depth = ParsePath(innermost.source).size();
+			if (!list_source.empty() && depth <= best_depth) {
+				continue;
+			}
+			vector<PrenestRawCondition> probe;
+			if (!ToRawConditions(*innermost.predicate, probe) || probe.empty()) {
+				continue;
+			}
+			list_source = innermost.source;
+			best_depth = depth;
 		}
 		if (list_source.empty()) {
-			return;
+			return false;
 		}
 		auto target_path = ParsePath(list_source);
-		if (!SafeToTruncate(target_path)) {
+		if (!SafeToTruncate(get, target_path)) {
 			stats.refused_list_read_elsewhere++;
-			return;
+			return false;
 		}
+
+		// Decide first, move afterwards: nothing may be moved out of a Filter until the spec is
+		// known to be accepted, or an early return would leave null entries behind.
 		vector<PrenestRawCondition> conditions;
-		vector<bool> consumed(op->expressions.size(), false);
-		for (auto i : candidates) {
-			auto &innermost = op->expressions[i]->Cast<BoundComprehensionExpression>().Innermost();
+		vector<pair<LogicalOperator *, idx_t>> consumed;
+		for (auto &candidate : candidates) {
+			auto &innermost =
+			    candidate.first->expressions[candidate.second]->Cast<BoundComprehensionExpression>().Innermost();
 			if (innermost.source != list_source || !innermost.predicate) {
 				continue;
 			}
@@ -664,31 +706,49 @@ private:
 			if (!ToRawConditions(*innermost.predicate, extracted) || extracted.empty()) {
 				continue;
 			}
-			consumed[i] = true;
+			consumed.push_back(candidate);
 			for (auto &condition : extracted) {
 				conditions.push_back(std::move(condition));
 			}
 		}
 		if (conditions.empty()) {
-			return;
+			return false;
 		}
 		PrenestFilterSpec spec;
 		spec.list_name = LastSegment(list_source);
 		spec.conditions = std::move(conditions);
 		if (!get.bind_data->TrySetPrenestFilter(spec)) {
-			return;
+			return false;
 		}
 		stats.absorbed_at_scan++;
 		// taking the consumed ones out keeps the roll-up from also claiming them, so the plan
 		// reports where each comprehension actually ended up
-		vector<unique_ptr<Expression>> kept;
-		for (idx_t i = 0; i < op->expressions.size(); i++) {
-			if (!consumed[i]) {
-				kept.push_back(std::move(op->expressions[i]));
+		for (auto *filter : filters) {
+			vector<unique_ptr<Expression>> kept;
+			for (idx_t i = 0; i < filter->expressions.size(); i++) {
+				auto is_consumed = false;
+				for (auto &entry : consumed) {
+					if (entry.first == filter && entry.second == i) {
+						is_consumed = true;
+						break;
+					}
+				}
+				if (!is_consumed) {
+					kept.push_back(std::move(filter->expressions[i]));
+				}
 			}
+			filter->expressions = std::move(kept);
 		}
-		op->expressions = std::move(kept);
-		if (op->expressions.empty()) {
+		DropEmptyFilters(op);
+		return true;
+	}
+
+	//! Remove Filters we emptied, anywhere in the chain we just processed.
+	static void DropEmptyFilters(unique_ptr<LogicalOperator> &op) {
+		if (!op->children.empty()) {
+			DropEmptyFilters(op->children[0]);
+		}
+		if (op->type == LogicalOperatorType::LOGICAL_FILTER && op->expressions.empty() && !op->children.empty()) {
 			op = std::move(op->children[0]);
 		}
 	}
@@ -767,8 +827,8 @@ private:
 	//!   l / l.l_quantity         -> below the list          -> allow, that is the point
 	//!
 	//! Reads deeper than the list are fine: they see exactly the elements that survive.
-	bool SafeToTruncate(const vector<PrenestPathEntry> &target) {
-		ContainerReadScanner scanner(*this, target);
+	bool SafeToTruncate(LogicalGet &get, const vector<PrenestPathEntry> &target) {
+		ContainerReadScanner scanner(*this, get, target);
 		scanner.VisitOperator(*root);
 		if (scanner.illegal > 0) {
 			return false;
@@ -778,7 +838,8 @@ private:
 		// selects the enclosing value would see the truncation.
 		for (auto &binding : root->GetColumnBindings()) {
 			vector<PrenestPathEntry> path;
-			if (ResolveBindingPath(binding, path) && IsAncestorOrSame(path, target)) {
+			optional_ptr<LogicalGet> owner;
+			if (ResolveBindingPath(binding, path, &owner) && owner.get() == &get && IsAncestorOrSame(path, target)) {
 				return false;
 			}
 		}
@@ -814,8 +875,9 @@ private:
 	//! UNNESTs that iterate it from everything else.
 	class ContainerReadScanner : public LogicalOperatorVisitor {
 	public:
-		ContainerReadScanner(PrenestFilterExtractor &owner_p, const vector<PrenestPathEntry> &target_p)
-		    : owner(owner_p), target(target_p) {
+		ContainerReadScanner(PrenestFilterExtractor &owner_p, LogicalGet &get_p,
+		                     const vector<PrenestPathEntry> &target_p)
+		    : owner(owner_p), get(get_p), target(target_p) {
 		}
 		idx_t illegal = 0;
 		unordered_map<string, idx_t> iterated;
@@ -839,7 +901,8 @@ private:
 		void VisitExpression(unique_ptr<Expression> *expression) override {
 			if (forwarding) {
 				vector<PrenestPathEntry> path;
-				if (owner.ResolveExpressionPath(*expression, path)) {
+				optional_ptr<LogicalGet> path_owner;
+				if (owner.ResolveExpressionPath(*expression, path, &path_owner)) {
 					return;
 				}
 			}
@@ -853,7 +916,9 @@ private:
 				// truncation is meant for
 				auto &child = expr->Cast<BoundUnnestExpression>().child;
 				vector<PrenestPathEntry> path;
-				if (owner.ResolveExpressionPath(child, path) && IsAncestorOrSame(path, target)) {
+				optional_ptr<LogicalGet> path_owner;
+				if (owner.ResolveExpressionPath(child, path, &path_owner) && path_owner.get() == &get &&
+				    IsAncestorOrSame(path, target)) {
 					iterated[RenderPath(path)]++;
 					return;
 				}
@@ -861,10 +926,11 @@ private:
 				return;
 			}
 			vector<PrenestPathEntry> path;
-			if (owner.ResolveExpressionPath(expr, path)) {
+			optional_ptr<LogicalGet> path_owner;
+			if (owner.ResolveExpressionPath(expr, path, &path_owner)) {
 				// a whole access path: judge it here rather than descending into the
 				// struct_extract chain that spells it out
-				if (IsAncestorOrSame(path, target)) {
+				if (path_owner.get() == &get && IsAncestorOrSame(path, target)) {
 					illegal++;
 				}
 				return;
@@ -873,6 +939,9 @@ private:
 		}
 
 		PrenestFilterExtractor &owner;
+		//! Paths are only comparable within one scan: two independent scans of the same file
+		//! render the same path but are different lists.
+		LogicalGet &get;
 		const vector<PrenestPathEntry> &target;
 		bool forwarding = false;
 	};
