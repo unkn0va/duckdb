@@ -1,0 +1,131 @@
+# name: test/sql/optimizer/prenest/prenest_name_collision.test
+# description: KNOWN FAIL - a spec is matched to a list by bare name, so a reused list name
+#              attaches it to the wrong list
+# group: [prenest]
+
+# ------------------------------------------------------------------------------------------------
+# THIS TEST IS PARKED (`mode skip`). It must pass once bare-name matching is replaced by path
+# matching; until then the skipped assertions below fail.
+#
+# PrenestFilterSpec::list_name is the LAST SEGMENT of the list's root-relative path
+# (PrenestFilterPushdown::LastSegment), and TryBuildPrenestFilter attaches a spec to every parquet
+# schema node whose name matches. A schema that reuses a list name at two depths - here top-level
+# `items` and `orders[].items` - therefore has one spec applied to BOTH lists, and elements are
+# dropped from a list no predicate ever named.
+#
+# Pre-existing, and not specific to the automatic path: it reproduces with parquet_prenest_auto
+# OFF, driving the reader from the manual setting alone -
+#
+#     SET parquet_prenest_auto=false;
+#     SET parquet_prenest_filter='items: qty < 2';
+#     SELECT sum(len(items)), sum(len(o.items))
+#     FROM (SELECT items, unnest(orders) AS o FROM '<collide.parquet>');
+#     -- 36, 36 without the setting; 16, 15 with it: one spec, two lists
+#
+# PrenestFilterPushdown::DropNameCollisions refuses every spec of a scan whose reader-visible
+# names collide, which covers the case where ONE Absorbed() call builds two colliding specs. It
+# does not cover this: AbsorbAtScan retries on the deeper Filter chain, that chain holds only one
+# comprehension, and a single spec has nothing to collide with - so the ambiguous name is pushed
+# anyway. The guard is necessary but not sufficient.
+#
+# THE FIX (separate change): carry the full root-relative path in PrenestFilterSpec and match it
+# against the accumulated schema path in ParquetReader::CreateReaderRecursive, instead of
+# comparing ParquetColumnSchema::name to LastSegment(source). Getting that right means settling
+# DuckDB column names vs. parquet schema names, case sensitivity and MAP nodes, and a mismatch
+# attaches a spec to the wrong list rather than simply declining - which is why it is not folded
+# into the change that introduced multiple specs per scan.
+# ------------------------------------------------------------------------------------------------
+
+require parquet
+
+statement ok
+PRAGMA enable_verification
+
+# `items` appears twice: once at the top level, once inside the `orders` element struct.
+statement ok
+COPY (
+    SELECT i AS cid,
+           [{'qty': (i + j) % 5} FOR j IN range(3)] AS items,
+           [{'oid': i * 10 + k,
+             'items': [{'qty': (i + k + j) % 5} FOR j IN range(3)]}
+            FOR k IN range(2)] AS orders
+    FROM range(6) t(i)
+) TO '__TEST_DIR__/prenest_name_collision.parquet' (FORMAT parquet)
+
+# ------------------------------------------------------------------------------------------------
+# ground truth - the answers every one of the assertions below has to reproduce. These run with
+# pre-nest filtering off, so they are stable whatever the matching rule becomes.
+# ------------------------------------------------------------------------------------------------
+
+statement ok
+SET parquet_prenest_auto=false
+
+# a predicate on the top-level `items` and one on `orders[].items`, at two UNNEST levels
+query II
+SELECT count(*), sum(b.qty) FROM (
+    SELECT unnest(o.items) AS b
+    FROM (
+        SELECT unnest(orders) AS o
+        FROM (SELECT orders, unnest(items) AS a FROM '__TEST_DIR__/prenest_name_collision.parquet') s
+        WHERE s.a.qty < 3
+    ) t
+) WHERE b.qty < 2
+----
+32	19
+
+# neither list is truncated when nothing asks for it
+query II
+SELECT sum(len(items)), sum(len(o.items))
+FROM (SELECT items, unnest(orders) AS o FROM '__TEST_DIR__/prenest_name_collision.parquet')
+----
+36	36
+
+mode skip
+
+# ------------------------------------------------------------------------------------------------
+# everything below this line is the known failure.
+#
+# Verification has to be off here. PRAGMA enable_verification re-runs the statement with the
+# optimizer disabled and reports that result, which is the correct one - so with it on these
+# assertions pass without the pre-nest path ever having run, and pin nothing.
+# ------------------------------------------------------------------------------------------------
+
+statement ok
+PRAGMA disable_verification
+
+statement ok
+SET parquet_prenest_auto=true
+
+# FAILS TODAY: returns 24 / 14. Two specs are built for this scan, both named `items`, so
+# DropNameCollisions refuses the pair - but the retry on the deeper Filter chain pushes the
+# `orders[].items` spec on its own, and the reader attaches it to the top-level `items` as well.
+query II
+SELECT count(*), sum(b.qty) FROM (
+    SELECT unnest(o.items) AS b
+    FROM (
+        SELECT unnest(orders) AS o
+        FROM (SELECT orders, unnest(items) AS a FROM '__TEST_DIR__/prenest_name_collision.parquet') s
+        WHERE s.a.qty < 3
+    ) t
+) WHERE b.qty < 2
+----
+32	19
+
+# FAILS TODAY: the manual setting shows the same ambiguity with the optimizer out of the picture.
+statement ok
+SET parquet_prenest_auto=false
+
+statement ok
+SET parquet_prenest_filter='items: qty < 2'
+
+# FAILS TODAY: returns 16 / 15. The spec names one list; it is applied to both.
+query II
+SELECT sum(len(items)), sum(len(o.items))
+FROM (SELECT items, unnest(orders) AS o FROM '__TEST_DIR__/prenest_name_collision.parquet')
+----
+36	36
+
+mode unskip
+
+statement ok
+SET parquet_prenest_filter=''
