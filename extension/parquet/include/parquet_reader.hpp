@@ -115,7 +115,7 @@ struct ParquetOptions {
 	idx_t explicit_cardinality = 0;
 	bool can_have_nan = false; // if floats or doubles can contain NaN values
 	//! PROBE: element-level pre-nest predicates handed down from the bind phase, at most
-	//! one per LIST column of this scan. While empty the readers fall back to the
+	//! one per LIST column of this scan. (see below) While empty the readers fall back to the
 	//! `parquet_prenest_filter` setting, i.e. behaviour is unchanged. Deliberately
 	//! not serialized (see parquet.json) - it never survives a plan round-trip.
 	vector<PrenestFilterSpec> prenest_filters;
@@ -232,7 +232,11 @@ private:
 	unique_ptr<ColumnReader> CreateReader(ClientContext &context);
 
 	unique_ptr<ColumnReader> CreateReaderRecursive(ClientContext &context, const vector<ColumnIndex> &indexes,
-	                                               const ParquetColumnSchema &schema);
+	                                               const ParquetColumnSchema &schema, const string &path,
+	                                               const PrenestReaderPlan &prenest);
+	//! PROBE: resolve the pre-nest specs of this scan (or the parquet_prenest_filter setting)
+	//! against this file's schema, once, before any reader is built.
+	PrenestReaderPlan BuildPrenestPlan(ClientContext &context);
 	const duckdb_parquet::RowGroup &GetGroup(ParquetReaderScanState &state);
 	uint64_t GetGroupCompressedSize(ParquetReaderScanState &state);
 	idx_t GetGroupOffset(ParquetReaderScanState &state);

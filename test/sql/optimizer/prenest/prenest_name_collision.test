@@ -1,45 +1,21 @@
 # name: test/sql/optimizer/prenest/prenest_name_collision.test
-# description: KNOWN FAIL - a spec is matched to a list by bare name, so a reused list name
-#              attaches it to the wrong list
+# description: A spec is matched to a list by its full path, so a reused list name is not ambiguous
 # group: [prenest]
 
-# ------------------------------------------------------------------------------------------------
-# THIS TEST IS PARKED (`mode skip`). It must pass once bare-name matching is replaced by path
-# matching; until then the skipped assertions below fail.
+# PrenestFilterSpec carries the list's full root-relative path in the optimizer's RenderPath
+# spelling ("orders[].items"), and ParquetReader rebuilds the same path while walking the file
+# schema. Before that, the spec carried only the last segment and the reader attached it to every
+# schema node with that name, so a file that reuses a list name at two depths had one spec applied
+# to two lists and dropped elements from a list no predicate named.
 #
-# PrenestFilterSpec::list_name is the LAST SEGMENT of the list's root-relative path
-# (PrenestFilterPushdown::LastSegment), and TryBuildPrenestFilter attaches a spec to every parquet
-# schema node whose name matches. A schema that reuses a list name at two depths - here top-level
-# `items` and `orders[].items` - therefore has one spec applied to BOTH lists, and elements are
-# dropped from a list no predicate ever named.
-#
-# Pre-existing, and not specific to the automatic path: it reproduces with parquet_prenest_auto
-# OFF, driving the reader from the manual setting alone -
-#
-#     SET parquet_prenest_auto=false;
-#     SET parquet_prenest_filter='items: qty < 2';
-#     SELECT sum(len(items)), sum(len(o.items))
-#     FROM (SELECT items, unnest(orders) AS o FROM '<collide.parquet>');
-#     -- 36, 36 without the setting; 16, 15 with it: one spec, two lists
-#
-# PrenestFilterPushdown::DropNameCollisions refuses every spec of a scan whose reader-visible
-# names collide, which covers the case where ONE Absorbed() call builds two colliding specs. It
-# does not cover this: AbsorbAtScan retries on the deeper Filter chain, that chain holds only one
-# comprehension, and a single spec has nothing to collide with - so the ambiguous name is pushed
-# anyway. The guard is necessary but not sufficient.
-#
-# THE FIX (separate change): carry the full root-relative path in PrenestFilterSpec and match it
-# against the accumulated schema path in ParquetReader::CreateReaderRecursive, instead of
-# comparing ParquetColumnSchema::name to LastSegment(source). Getting that right means settling
-# DuckDB column names vs. parquet schema names, case sensitivity and MAP nodes, and a mismatch
-# attaches a spec to the wrong list rather than simply declining - which is why it is not folded
-# into the change that introduced multiple specs per scan.
-# ------------------------------------------------------------------------------------------------
+# Verification is off throughout: PRAGMA enable_verification re-runs the statement with the
+# optimizer disabled and reports that result, so with it on these assertions would pass without
+# the pre-nest path ever having run.
 
 require parquet
 
 statement ok
-PRAGMA enable_verification
+PRAGMA disable_verification
 
 # `items` appears twice: once at the top level, once inside the `orders` element struct.
 statement ok
@@ -53,14 +29,14 @@ COPY (
 ) TO '__TEST_DIR__/prenest_name_collision.parquet' (FORMAT parquet)
 
 # ------------------------------------------------------------------------------------------------
-# ground truth - the answers every one of the assertions below has to reproduce. These run with
-# pre-nest filtering off, so they are stable whatever the matching rule becomes.
+# the automatic path: two predicates at two UNNEST levels, on two lists both called `items`
 # ------------------------------------------------------------------------------------------------
 
-statement ok
-SET parquet_prenest_auto=false
+foreach auto false true
 
-# a predicate on the top-level `items` and one on `orders[].items`, at two UNNEST levels
+statement ok
+SET parquet_prenest_auto=${auto}
+
 query II
 SELECT count(*), sum(b.qty) FROM (
     SELECT unnest(o.items) AS b
@@ -73,59 +49,162 @@ SELECT count(*), sum(b.qty) FROM (
 ----
 32	19
 
-# neither list is truncated when nothing asks for it
 query II
 SELECT sum(len(items)), sum(len(o.items))
 FROM (SELECT items, unnest(orders) AS o FROM '__TEST_DIR__/prenest_name_collision.parquet')
 ----
 36	36
 
-mode skip
+endloop
 
 # ------------------------------------------------------------------------------------------------
-# everything below this line is the known failure.
-#
-# Verification has to be off here. PRAGMA enable_verification re-runs the statement with the
-# optimizer disabled and reports that result, which is the correct one - so with it on these
-# assertions pass without the pre-nest path ever having run, and pin nothing.
+# the setting resolves a name against the file schema, and reaches exactly one list
 # ------------------------------------------------------------------------------------------------
 
 statement ok
-PRAGMA disable_verification
+SET parquet_prenest_auto=false
+
+# `items` is itself the path of the top-level list, so it names that one and leaves the nested
+# list alone. Before path matching this truncated both (16 / 15).
+statement ok
+SET parquet_prenest_filter='items: qty < 2'
+
+query II
+SELECT sum(len(items)), sum(len(o.items))
+FROM (SELECT items, unnest(orders) AS o FROM '__TEST_DIR__/prenest_name_collision.parquet')
+----
+16	36
+
+# ... and the nested one is reached by spelling its path out
+statement ok
+SET parquet_prenest_filter='orders[].items: qty < 2'
+
+query II
+SELECT sum(len(items)), sum(len(o.items))
+FROM (SELECT items, unnest(orders) AS o FROM '__TEST_DIR__/prenest_name_collision.parquet')
+----
+36	15
+
+statement ok
+SET parquet_prenest_filter=''
+
+# ------------------------------------------------------------------------------------------------
+# a bare name that is not itself a path and reaches more than one list is refused, and the error
+# names the paths to choose from. Silently picking one is what used to produce wrong answers.
+# ------------------------------------------------------------------------------------------------
+
+statement ok
+COPY (SELECT [{'items': [{'qty': 1}, {'qty': 7}]}] AS a, [{'items': [{'qty': 2}, {'qty': 8}]}] AS b)
+TO '__TEST_DIR__/prenest_two_nested.parquet' (FORMAT parquet)
+
+statement ok
+SET parquet_prenest_filter='items: qty < 5'
+
+statement error
+SELECT sum(len(a[1].items)) FROM '__TEST_DIR__/prenest_two_nested.parquet'
+----
+is ambiguous - this file has 2 lists it could mean: a[].items, b[].items
+
+statement ok
+SET parquet_prenest_filter='a[].items: qty < 5'
+
+query II
+SELECT sum(len(a[1].items)), sum(len(b[1].items)) FROM '__TEST_DIR__/prenest_two_nested.parquet'
+----
+1	2
+
+# a name that matches no list of this file is not an error - the setting may be meant for another
+# file read in the same session
+statement ok
+SET parquet_prenest_filter='nosuchlist: qty < 5'
+
+query II
+SELECT sum(len(a[1].items)), sum(len(b[1].items)) FROM '__TEST_DIR__/prenest_two_nested.parquet'
+----
+2	2
+
+statement ok
+SET parquet_prenest_filter=''
+
+# ------------------------------------------------------------------------------------------------
+# the path rendering is not injective: a field name containing '.' or ending in "[]" produces a
+# path another node also produces. Those must fail to MATCH, not match the wrong list - so the
+# answer stays right and nothing is dropped (elements_appended = 0).
+# ------------------------------------------------------------------------------------------------
 
 statement ok
 SET parquet_prenest_auto=true
 
-# FAILS TODAY: returns 24 / 14. Two specs are built for this scan, both named `items`, so
-# DropNameCollisions refuses the pair - but the retry on the deeper Filter chain pushes the
-# `orders[].items` spec on its own, and the reader attaches it to the top-level `items` as well.
+# a column literally named "a.b" renders to the same path as field b of struct a
+statement ok
+COPY (SELECT [{'q':1},{'q':7}] AS "a.b", {'b': [{'q':2},{'q':8}]} AS a)
+TO '__TEST_DIR__/prenest_dot.parquet' (FORMAT parquet)
+
+statement ok
+SELECT parquet_prenest_stat('reset')
+
 query II
-SELECT count(*), sum(b.qty) FROM (
-    SELECT unnest(o.items) AS b
-    FROM (
-        SELECT unnest(orders) AS o
-        FROM (SELECT orders, unnest(items) AS a FROM '__TEST_DIR__/prenest_name_collision.parquet') s
-        WHERE s.a.qty < 3
-    ) t
-) WHERE b.qty < 2
+SELECT count(*), sum(y.q) FROM (SELECT unnest(a.b) AS y FROM '__TEST_DIR__/prenest_dot.parquet') WHERE y.q < 5
 ----
-32	19
+1	2
 
-# FAILS TODAY: the manual setting shows the same ambiguity with the optimizer out of the picture.
+query I
+SELECT parquet_prenest_stat('elements_appended')
+----
+0
+
+# control: the same query on a file without the colliding column DOES push, so the 0 above is the
+# uniqueness check refusing and not the optimizer declining to build a spec
 statement ok
-SET parquet_prenest_auto=false
+COPY (SELECT {'b': [{'q':2},{'q':8}]} AS a) TO '__TEST_DIR__/prenest_dot_ctl.parquet' (FORMAT parquet)
 
 statement ok
-SET parquet_prenest_filter='items: qty < 2'
+SELECT parquet_prenest_stat('reset')
 
-# FAILS TODAY: returns 16 / 15. The spec names one list; it is applied to both.
 query II
-SELECT sum(len(items)), sum(len(o.items))
-FROM (SELECT items, unnest(orders) AS o FROM '__TEST_DIR__/prenest_name_collision.parquet')
+SELECT count(*), sum(y.q) FROM (SELECT unnest(a.b) AS y FROM '__TEST_DIR__/prenest_dot_ctl.parquet') WHERE y.q < 5
 ----
-36	36
+1	2
 
-mode unskip
+query I
+SELECT parquet_prenest_stat('elements_appended')
+----
+1
+
+# a column literally named "a[]" renders its field b to the same path as list a's element field b
+statement ok
+COPY (SELECT {'b': [{'q':1},{'q':7}]} AS "a[]", [{'b': [{'q':2},{'q':8}]}] AS a)
+TO '__TEST_DIR__/prenest_brk.parquet' (FORMAT parquet)
 
 statement ok
-SET parquet_prenest_filter=''
+SELECT parquet_prenest_stat('reset')
+
+query II
+SELECT count(*), sum(z.q) FROM (
+    SELECT unnest(e.b) AS z FROM (SELECT unnest(a) AS e FROM '__TEST_DIR__/prenest_brk.parquet')
+) WHERE z.q < 5
+----
+1	2
+
+query I
+SELECT parquet_prenest_stat('elements_appended')
+----
+0
+
+statement ok
+COPY (SELECT [{'b': [{'q':2},{'q':8}]}] AS a) TO '__TEST_DIR__/prenest_brk_ctl.parquet' (FORMAT parquet)
+
+statement ok
+SELECT parquet_prenest_stat('reset')
+
+query II
+SELECT count(*), sum(z.q) FROM (
+    SELECT unnest(e.b) AS z FROM (SELECT unnest(a) AS e FROM '__TEST_DIR__/prenest_brk_ctl.parquet')
+) WHERE z.q < 5
+----
+1	2
+
+query I
+SELECT parquet_prenest_stat('elements_appended')
+----
+1

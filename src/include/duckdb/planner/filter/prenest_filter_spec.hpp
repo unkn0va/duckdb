@@ -29,6 +29,16 @@ struct PrenestRawCondition {
 //! A pre-nest predicate carried from the bind/optimize phase down to the readers.
 //! Empty means "nothing was injected" and the reader keeps its normal behaviour.
 struct PrenestFilterSpec {
+	//! Root-relative path of the target LIST, in the optimizer's RenderPath spelling:
+	//! field names joined by '.', with "[]" appended for each list-element step, e.g.
+	//! "c_orders[].o_lineitems". This is what identifies the list to the reader - a bare
+	//! name cannot, because one name may occur at several depths in a file.
+	//!
+	//! Empty when the predicate came from the `parquet_prenest_filter` setting, which
+	//! speaks names rather than paths; the reader resolves it against the file schema.
+	string list_path;
+	//! Last segment of `list_path`. Not an identifier - two different lists can share it.
+	//! Kept because it is what the counters are keyed on and what the setting accepts.
 	string list_name;
 	vector<PrenestRawCondition> conditions;
 

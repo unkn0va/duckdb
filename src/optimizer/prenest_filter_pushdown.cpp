@@ -765,18 +765,21 @@ private:
 				stats.refused_list_read_elsewhere++;
 				continue;
 			}
+			entry.spec.list_path = source;
 			entry.spec.list_name = LastSegment(source);
 			pending.push_back(std::move(entry));
 		}
 
-		// The reader matches a spec to a list by the bare schema node name, so two specs whose
-		// paths differ but whose last segment is the same are indistinguishable down there - the
-		// search would attach the first one to both lists and silently drop elements the other
-		// spec never asked to drop. Refuse every member of such a collision rather than guess.
-		DropNameCollisions(pending);
 		if (pending.empty()) {
 			return false;
 		}
+		// NOTE: no name-collision guard here any more. The reader identifies a list by its full
+		// path (PrenestFilterSpec::list_path), and two groups of one scan cannot share a path -
+		// the grouping key IS the path. A path that is not unique WITHIN THE FILE (possible only
+		// when a field name itself contains '.' or "[]", which makes the rendering ambiguous) is
+		// refused by the reader, which counts the nodes a path matches and attaches nothing
+		// unless there is exactly one. Both halves of the old guard are therefore covered where
+		// the information actually is.
 
 		vector<PrenestFilterSpec> specs;
 		vector<pair<LogicalOperator *, idx_t>> consumed;
@@ -811,25 +814,6 @@ private:
 		}
 		DropEmptyFilters(op);
 		return true;
-	}
-
-	//! Remove every spec that shares its reader-visible list_name with another. Nothing in the
-	//! TPC-H corpus triggers this - it is the guard for a schema that reuses a list name at two
-	//! depths, e.g. `items` and `orders[].items`.
-	void DropNameCollisions(vector<PendingSpec> &pending) {
-		unordered_map<string, idx_t> counts;
-		for (auto &entry : pending) {
-			counts[StringUtil::Lower(entry.spec.list_name)]++;
-		}
-		vector<PendingSpec> kept;
-		for (auto &entry : pending) {
-			if (counts[StringUtil::Lower(entry.spec.list_name)] > 1) {
-				stats.refused_name_collision++;
-				continue;
-			}
-			kept.push_back(std::move(entry));
-		}
-		pending = std::move(kept);
 	}
 
 	//! Remove Filters we emptied, anywhere in the chain we just processed.

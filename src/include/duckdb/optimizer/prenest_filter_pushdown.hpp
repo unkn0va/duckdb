@@ -48,9 +48,6 @@ struct PrenestPushdownStats {
 	idx_t rolled_up = 0;
 	//! comprehensions that reached a scan but whose list is read elsewhere too
 	idx_t refused_list_read_elsewhere = 0;
-	//! specs dropped because another spec of the same scan renders the same reader-visible
-	//! list name, which the reader cannot tell apart
-	idx_t refused_name_collision = 0;
 	//! comprehensions nothing claimed - dropped, which is always safe
 	idx_t dropped = 0;
 

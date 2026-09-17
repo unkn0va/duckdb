@@ -94,18 +94,19 @@ unique_ptr<PrenestFilter> PrenestFilter::FromConditions(const string &list_name,
 	return result;
 }
 
-unique_ptr<PrenestFilter> PrenestFilter::Parse(const string &spec) {
+bool PrenestFilter::ParseSpec(const string &spec, PrenestFilterSpec &result) {
 	auto trimmed = spec;
 	StringUtil::Trim(trimmed);
 	if (trimmed.empty()) {
-		return nullptr;
+		return false;
 	}
 	auto colon = trimmed.find(':');
 	if (colon == string::npos) {
-		throw InvalidInputException("parquet_prenest_filter: expected \"<list_name>: <conjunction>\"");
+		throw InvalidInputException("parquet_prenest_filter: expected \"<list>: <conjunction>\"");
 	}
 	auto list_name = trimmed.substr(0, colon);
 	auto body = trimmed.substr(colon + 1);
+	StringUtil::Trim(list_name);
 
 	vector<RawCondition> conditions;
 	for (auto &term_raw : StringUtil::Split(body, " AND ")) {
@@ -120,7 +121,15 @@ unique_ptr<PrenestFilter> PrenestFilter::Parse(const string &spec) {
 	if (conditions.empty()) {
 		throw InvalidInputException("parquet_prenest_filter: no conditions");
 	}
-	return FromConditions(list_name, std::move(conditions));
+	// left for the reader to resolve against the file schema - it may be a name or a path
+	result.list_name = list_name;
+	result.list_path = string();
+	result.conditions = std::move(conditions);
+	return true;
+}
+
+unique_ptr<PrenestFilter> PrenestFilter::FromSpec(const PrenestFilterSpec &spec) {
+	return FromConditions(spec.list_name, spec.conditions);
 }
 
 bool PrenestFilter::Bind(ClientContext &context, const LogicalType &element_type) {

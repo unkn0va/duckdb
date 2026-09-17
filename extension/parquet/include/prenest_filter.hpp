@@ -12,6 +12,7 @@
 #pragma once
 
 #include "duckdb/common/atomic.hpp"
+#include "duckdb/common/case_insensitive_map.hpp"
 #include "duckdb/common/mutex.hpp"
 #include "duckdb/common/unordered_map.hpp"
 #include "duckdb/common/types/selection_vector.hpp"
@@ -65,6 +66,20 @@ private:
 	unordered_map<string, unique_ptr<PrenestListStats>> per_list;
 };
 
+//! PROBE: which spec, if any, attaches to each LIST node of one file. Built once per reader
+//! from the scan's specs (or the parquet_prenest_filter setting) and the file's own schema, so
+//! that resolving a target - including deciding that a path is ambiguous - happens in one place
+//! instead of at every node.
+struct PrenestReaderPlan {
+	//! the specs that resolved to exactly one node of this file
+	vector<PrenestFilterSpec> specs;
+	//! that node's path -> index into `specs`
+	case_insensitive_map_t<idx_t> by_path;
+	//! false when the predicate came from the setting, in which case an unprojected predicate
+	//! field is a user error rather than something to silently decline
+	bool from_injection = false;
+};
+
 struct PrenestCondition {
 	idx_t child_idx;
 	unique_ptr<TableFilter> filter;
@@ -81,8 +96,13 @@ public:
 	using RawCondition = PrenestRawCondition;
 
 public:
-	//! Parse "list_name: f op v AND f op v ...". Returns nullptr for an empty spec.
-	static unique_ptr<PrenestFilter> Parse(const string &spec);
+	//! Parse "<list>: f op v AND f op v ..." into a spec. `<list>` is left in list_name; the
+	//! reader resolves it against the file schema, so it may be either a bare list name or a
+	//! full path. Returns false for an empty string, throws on a malformed one.
+	static bool ParseSpec(const string &spec, PrenestFilterSpec &result);
+
+	//! Build from an already-resolved spec. Returns nullptr if it carries no conditions.
+	static unique_ptr<PrenestFilter> FromSpec(const PrenestFilterSpec &spec);
 
 	//! Build straight from conditions, bypassing the string spec. This is the path
 	//! for predicates handed over by something other than the setting (e.g. an
