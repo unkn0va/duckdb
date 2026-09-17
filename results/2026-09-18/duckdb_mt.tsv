@@ -1,0 +1,36 @@
+# machine: apache10 | date: 2026-09-18 | data: /data/tpch-nested/1/ (SF1)
+# duckdb commit: f98ed6227e (prenest-3way, multi-spec)
+# DuckDB: auto=false vs auto=true, default parallelism, median-5 (1 discarded)
+# NOTE: counters are the SUM over all specs in a scan.
+#   q10: 7588935 = 6045075 (o_lineitems) + 1543860 (c_orders)
+#        1535939 = 1478870 (o_lineitems) +   57069 (c_orders)
+#   q3:  3969081 = 3241776 (o_lineitems) +  727305 (c_orders)
+#   Use parquet_prenest_stat('elements_appended:<list>') for per-list values.
+query	off	on	ratio
+q10a	0.90	0.24	3.750
+q10b	0.85	0.25	3.400
+q10	0.85	0.24	3.541
+q11	0.08	0.07	1.142
+q12	1.06	0.33	3.212
+q13	0.24	0.23	1.043
+q14	0.94	0.28	3.357
+q15	0.91	0.25	3.640
+q16	0.17	0.17	1.000
+q17	0.90	0.89	1.011
+q18	1.04	1.05	.990
+q19	1.23	0.57	2.157
+q1	1.24	1.12	1.107
+q20	1.01	0.43	2.348
+q21	0.83	0.60	1.383
+q22	1.63	1.65	.987
+q2	0.19	0.19	1.000
+q3a	0.89	0.29	3.068
+q3b	0.86	0.30	2.866
+q3	0.89	0.30	2.966
+q4	0.79	0.30	2.633
+q5	0.88	0.34	2.588
+q6	0.98	0.22	4.454
+q7	0.82	0.38	2.157
+q8	0.82	0.48	1.708
+q9b	1.04	1.01	1.029
+q9	1.04	1.06	.981
