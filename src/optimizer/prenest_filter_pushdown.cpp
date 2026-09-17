@@ -20,6 +20,46 @@
 #include "duckdb/planner/operator/logical_projection.hpp"
 #include "duckdb/planner/operator/logical_unnest.hpp"
 
+//===--------------------------------------------------------------------===//
+// Ordering dependency: this pass must run AFTER OptimizerType::EXPRESSION_REWRITER
+//===--------------------------------------------------------------------===//
+// This pass only ever inspects the TOP-LEVEL AND conjuncts of a LogicalFilter. It
+// does not descend into a disjunction and it never performs a DNF rewrite, so a
+// predicate written as
+//
+//     (A AND C) OR (B AND C)
+//
+// is invisible to it as written - there is no top-level conjunct to classify.
+//
+// Such predicates are nevertheless extracted in practice, because DuckDB's own
+// DistributivityRule (src/optimizer/rule/distributivity.cpp, registered in
+// optimizer.cpp as part of the EXPRESSION_REWRITER pass) has already lifted the
+// common factor out by the time we run:
+//
+//     (A AND C) OR (B AND C)   ==>   C AND (A OR B)
+//
+// leaving C as a plain top-level conjunct that we then classify normally. TPC-H
+// q19 is the case that exercises this: its WHERE is a three-way OR, and the two
+// conjuncts common to all three branches reach us already flattened.
+//
+// The soundness condition for that rewrite - a factor may only be lifted when it
+// appears in EVERY branch - is enforced there, not here, by intersecting the
+// expression set of each branch (distributivity.cpp, "we want to find expressions
+// that occur in each of the children of the OR"). This pass deliberately does not
+// duplicate that check: it never sees a partial factor in the first place.
+//
+// Consequences worth knowing:
+//   * The dependency is on ORDER, not on correctness. Running with the rewriter
+//     disabled (SET disabled_optimizers='expression_rewriter') simply means the OR
+//     stays intact, nothing is classified, and no predicate is pushed. Results stay
+//     correct; only the optimization is lost. That direction is covered by
+//     test/sql/optimizer/prenest/prenest_distributivity_dependency.test.
+//   * A factor lifted this way can still fail to reach the scan for an unrelated
+//     reason. q19's `l_shipmode IN ('AIR','AIR REG')` is lifted as a common factor,
+//     becomes a comprehension, and is then rejected by ToRawConditions because an
+//     IN list arrives as a CONJUNCTION_OR, which PrenestRawCondition cannot express.
+//===--------------------------------------------------------------------===//
+
 namespace duckdb {
 
 namespace {

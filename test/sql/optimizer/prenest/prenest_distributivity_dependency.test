@@ -1,0 +1,128 @@
+# name: test/sql/optimizer/prenest/prenest_distributivity_dependency.test
+# description: Pins the prenest pass's ordering dependency on DistributivityRule
+# group: [prenest]
+
+# The prenest pass only classifies TOP-LEVEL AND conjuncts. A predicate written as
+# (A AND C) OR (B AND C) is extracted only because DuckDB's DistributivityRule
+# (EXPRESSION_REWRITER) lifted C out first. These tests pin both halves of that:
+#   - with the rewriter off, nothing is extracted and the answer is still right
+#   - a factor missing from one branch is never lifted, so never extracted
+#
+# Asserted on elements_appended / predicate_elements. NOT on elements_decoded:
+# that counter skips the decode of any iteration entered with carried-over values,
+# so on a single-iteration read it stays 0 even though the filter ran.
+
+require parquet
+
+statement ok
+SET parquet_prenest_auto=true
+
+# Two-level nesting, mirroring the TPC-H q19 shape: 60 rows x 2 orders x 3 lines = 360 elements
+statement ok
+COPY (
+    SELECT i AS cid,
+        [{'okey': i * 10 + k,
+          'lines': [{'lq': ((i * 7 + k * 3 + j) % 50)::BIGINT,
+                     'lmode': CASE (i + k + j) % 4 WHEN 0 THEN 'AIR' WHEN 1 THEN 'RAIL'
+                                                   WHEN 2 THEN 'SHIP' ELSE 'AIR REG' END,
+                     'linstruct': CASE (i + k * 2 + j) % 4 WHEN 0 THEN 'DELIVER IN PERSON'
+                                                           WHEN 1 THEN 'COLLECT COD'
+                                                           WHEN 2 THEN 'NONE' ELSE 'TAKE BACK RETURN' END}
+                    FOR j IN range(3)]}
+         FOR k IN range(2)] AS orders
+    FROM range(60) t(i)
+) TO '__TEST_DIR__/prenest_distributivity.parquet' (FORMAT parquet)
+
+# ------------------------------------------------------------------------------------------------
+# baseline: the factor common to all three OR branches is lifted, then extracted
+# ------------------------------------------------------------------------------------------------
+
+statement ok
+SELECT parquet_prenest_stat('reset')
+
+query I
+SELECT count(*) FROM (
+    SELECT unnest(o.lines) AS l
+    FROM (SELECT unnest(orders) AS o FROM '__TEST_DIR__/prenest_distributivity.parquet')
+)
+WHERE (l.lq >= 0  AND l.lq <= 9  AND l.linstruct = 'DELIVER IN PERSON' AND l.lmode IN ('AIR', 'AIR REG'))
+   OR (l.lq >= 20 AND l.lq <= 29 AND l.linstruct = 'DELIVER IN PERSON' AND l.lmode IN ('AIR', 'AIR REG'))
+   OR (l.lq >= 40 AND l.lq <= 49 AND l.linstruct = 'DELIVER IN PERSON' AND l.lmode IN ('AIR', 'AIR REG'))
+----
+55
+
+# the reader saw all 360 elements and kept 90: extraction really happened
+query II
+SELECT parquet_prenest_stat('predicate_elements'), parquet_prenest_stat('elements_appended')
+----
+360	90
+
+# ------------------------------------------------------------------------------------------------
+# rewriter disabled: the OR stays intact, nothing is extracted, the answer is unchanged.
+# This pins that the dependency fails SAFE - a lost optimization, never a wrong result.
+# ------------------------------------------------------------------------------------------------
+
+statement ok
+SET disabled_optimizers='expression_rewriter'
+
+statement ok
+SELECT parquet_prenest_stat('reset')
+
+query I
+SELECT count(*) FROM (
+    SELECT unnest(o.lines) AS l
+    FROM (SELECT unnest(orders) AS o FROM '__TEST_DIR__/prenest_distributivity.parquet')
+)
+WHERE (l.lq >= 0  AND l.lq <= 9  AND l.linstruct = 'DELIVER IN PERSON' AND l.lmode IN ('AIR', 'AIR REG'))
+   OR (l.lq >= 20 AND l.lq <= 29 AND l.linstruct = 'DELIVER IN PERSON' AND l.lmode IN ('AIR', 'AIR REG'))
+   OR (l.lq >= 40 AND l.lq <= 49 AND l.linstruct = 'DELIVER IN PERSON' AND l.lmode IN ('AIR', 'AIR REG'))
+----
+55
+
+query II
+SELECT parquet_prenest_stat('predicate_elements'), parquet_prenest_stat('elements_appended')
+----
+0	0
+
+statement ok
+SET disabled_optimizers=''
+
+# ------------------------------------------------------------------------------------------------
+# counterexample: l_shipinstruct is absent from the third branch, so DistributivityRule's
+# all-branch intersection refuses to lift it and no spec is ever built.
+# (A AND C) OR (B AND C) OR (D)  =/=>  C
+# ------------------------------------------------------------------------------------------------
+
+statement ok
+SELECT parquet_prenest_stat('reset')
+
+query I
+SELECT count(*) FROM (
+    SELECT unnest(o.lines) AS l
+    FROM (SELECT unnest(orders) AS o FROM '__TEST_DIR__/prenest_distributivity.parquet')
+)
+WHERE (l.lq >= 0  AND l.lq <= 9  AND l.linstruct = 'DELIVER IN PERSON' AND l.lmode IN ('AIR', 'AIR REG'))
+   OR (l.lq >= 20 AND l.lq <= 29 AND l.linstruct = 'DELIVER IN PERSON' AND l.lmode IN ('AIR', 'AIR REG'))
+   OR (l.lq >= 40 AND l.lq <= 49 AND l.lmode IN ('AIR', 'AIR REG'))
+----
+72
+
+query II
+SELECT parquet_prenest_stat('predicate_elements'), parquet_prenest_stat('elements_appended')
+----
+0	0
+
+# and the same answer with the pass switched off entirely
+statement ok
+SET parquet_prenest_auto=false
+
+query I
+SELECT count(*) FROM (
+    SELECT unnest(o.lines) AS l
+    FROM (SELECT unnest(orders) AS o FROM '__TEST_DIR__/prenest_distributivity.parquet')
+)
+WHERE (l.lq >= 0  AND l.lq <= 9  AND l.linstruct = 'DELIVER IN PERSON' AND l.lmode IN ('AIR', 'AIR REG'))
+   OR (l.lq >= 20 AND l.lq <= 29 AND l.linstruct = 'DELIVER IN PERSON' AND l.lmode IN ('AIR', 'AIR REG'))
+   OR (l.lq >= 40 AND l.lq <= 49 AND l.lmode IN ('AIR', 'AIR REG'))
+----
+72
