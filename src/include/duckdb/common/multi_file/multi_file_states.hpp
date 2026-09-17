@@ -88,8 +88,8 @@ struct MultiFileBindData : public TableFunctionData {
 	bool SupportStatementCache() const override {
 		return false;
 	}
-	//! PROBE: forward the pre-nest predicate to the format-specific bind data
-	bool TrySetPrenestFilter(const PrenestFilterSpec &spec) override;
+	//! PROBE: forward the pre-nest predicates to the format-specific bind data
+	bool TrySetPrenestFilter(const vector<PrenestFilterSpec> &specs) override;
 
 	unique_ptr<FunctionData> Copy() const override;
 };

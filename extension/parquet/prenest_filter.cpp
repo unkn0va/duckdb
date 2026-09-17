@@ -13,6 +13,39 @@ PrenestStats &PrenestStats::Get() {
 	return stats;
 }
 
+PrenestListStats &PrenestStats::ForList(const string &list_name) {
+	lock_guard<mutex> guard(list_lock);
+	auto entry = per_list.find(list_name);
+	if (entry == per_list.end()) {
+		entry = per_list.insert(make_pair(list_name, make_uniq<PrenestListStats>())).first;
+	}
+	return *entry->second;
+}
+
+idx_t PrenestStats::GetListCounter(const string &list_name, const string &counter) const {
+	lock_guard<mutex> guard(list_lock);
+	auto entry = per_list.find(list_name);
+	if (entry == per_list.end()) {
+		return 0;
+	}
+	if (counter == "elements_appended") {
+		return entry->second->elements_appended.load();
+	}
+	if (counter == "predicate_elements") {
+		return entry->second->predicate_elements.load();
+	}
+	throw InvalidInputException("parquet_prenest_stat: \"%s\" has no per-list breakdown", counter);
+}
+
+void PrenestStats::ResetPerList() {
+	lock_guard<mutex> guard(list_lock);
+	// zeroed in place, never erased: readers cache the pointer ForList() hands out
+	for (auto &entry : per_list) {
+		entry.second->elements_appended = 0;
+		entry.second->predicate_elements = 0;
+	}
+}
+
 static bool ParseComparison(const string &term, string &field, ExpressionType &cmp, string &literal) {
 	// order matters: the two-character operators must be tried first
 	static const std::pair<const char *, ExpressionType> OPS[] = {
@@ -44,6 +77,7 @@ unique_ptr<PrenestFilter> PrenestFilter::FromConditions(const string &list_name,
 	auto result = make_uniq<PrenestFilter>();
 	result->list_name = list_name;
 	StringUtil::Trim(result->list_name);
+	result->list_stats = PrenestStats::Get().ForList(result->list_name);
 	result->raw_conditions = std::move(conditions);
 	for (auto &cond : result->raw_conditions) {
 		bool seen = false;
@@ -143,6 +177,7 @@ idx_t PrenestFilter::Apply(Vector &element_vector, idx_t count, SelectionVector 
 		keep[sel.get_index(i)] = true;
 	}
 	PrenestStats::Get().predicate_elements += count;
+	ListStats().predicate_elements += count;
 	return approved;
 }
 

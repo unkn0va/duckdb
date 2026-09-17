@@ -4,14 +4,16 @@
 // prenest_filter.hpp
 //
 // PROBE CODE. Element-level predicate applied during list assembly in
-// ListColumnReader. Supplied manually via the `parquet_prenest_filter`
-// setting; nothing in the optimizer, planner or binder is involved.
+// ListColumnReader. Supplied either by PrenestFilterPushdown (one spec per LIST
+// column of a scan) or manually via the `parquet_prenest_filter` setting.
 //
 //===----------------------------------------------------------------------===//
 
 #pragma once
 
 #include "duckdb/common/atomic.hpp"
+#include "duckdb/common/mutex.hpp"
+#include "duckdb/common/unordered_map.hpp"
 #include "duckdb/common/types/selection_vector.hpp"
 #include "duckdb/common/types/vector.hpp"
 #include "duckdb/planner/filter/prenest_filter_spec.hpp"
@@ -21,7 +23,16 @@
 namespace duckdb {
 class ClientContext;
 
-//! Instrumentation. Read with parquet_prenest_stat('<name>'); 'reset' zeroes.
+//! The two counters that mean something per LIST column. With more than one list of a scan
+//! pre-filtered, the totals in PrenestStats are sums over all of them, which is the right
+//! number for "how much did the reader drop" but useless for "did THIS spec fire".
+struct PrenestListStats {
+	atomic<idx_t> elements_appended {0};
+	atomic<idx_t> predicate_elements {0};
+};
+
+//! Instrumentation. Read with parquet_prenest_stat('<name>'); 'reset' zeroes. A name of the
+//! form '<counter>:<list_name>' reads the per-list breakdown instead of the total.
 struct PrenestStats {
 	atomic<idx_t> elements_decoded {0};
 	atomic<idx_t> elements_appended {0};
@@ -30,6 +41,12 @@ struct PrenestStats {
 	atomic<idx_t> carryover_flattens {0};
 	atomic<idx_t> predicate_elements {0};
 
+	//! Stable accumulator for one list name. Entries are never erased - Reset() zeroes them in
+	//! place - so a pointer handed to a reader stays valid for the life of the process.
+	PrenestListStats &ForList(const string &list_name);
+	//! Per-list counter, or 0 when that list was never filtered.
+	idx_t GetListCounter(const string &list_name, const string &counter) const;
+
 	void Reset() {
 		elements_decoded = 0;
 		elements_appended = 0;
@@ -37,8 +54,15 @@ struct PrenestStats {
 		carryovers = 0;
 		carryover_flattens = 0;
 		predicate_elements = 0;
+		ResetPerList();
 	}
 	static PrenestStats &Get();
+
+private:
+	void ResetPerList();
+
+	mutable mutex list_lock;
+	unordered_map<string, unique_ptr<PrenestListStats>> per_list;
 };
 
 struct PrenestCondition {
@@ -85,9 +109,16 @@ public:
 	const string &ListName() const {
 		return list_name;
 	}
+	//! The per-list accumulator for that column. Never null once the filter exists.
+	//! get_mutable() because the accumulator is shared instrumentation, not part of the
+	//! filter's own state - Apply() is const and still has to count.
+	PrenestListStats &ListStats() const {
+		return *list_stats.get_mutable();
+	}
 
 private:
 	string list_name;
+	optional_ptr<PrenestListStats> list_stats;
 	vector<RawCondition> raw_conditions;
 	vector<string> field_names;
 	vector<idx_t> field_child_indexes;

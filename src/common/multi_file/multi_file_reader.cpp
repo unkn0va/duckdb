@@ -52,11 +52,11 @@ unique_ptr<MultiFileReader> MultiFileReader::Copy() const {
 MultiFileBindData::~MultiFileBindData() {
 }
 
-bool MultiFileBindData::TrySetPrenestFilter(const PrenestFilterSpec &spec) {
+bool MultiFileBindData::TrySetPrenestFilter(const vector<PrenestFilterSpec> &specs) {
 	if (!interface || !bind_data) {
 		return false;
 	}
-	return interface->TrySetPrenestFilter(*this, spec);
+	return interface->TrySetPrenestFilter(*this, specs);
 }
 
 unique_ptr<FunctionData> MultiFileBindData::Copy() const {

@@ -843,7 +843,9 @@ static vector<unique_ptr<Expression>> ParquetWriteSelect(CopyToSelectInput &inpu
 
 
 //! PROBE: parquet_prenest_stat('<counter>') - read the pre-nest instrumentation.
-//! 'reset' zeroes every counter and returns 0.
+//! 'reset' zeroes every counter and returns 0. '<counter>:<list_name>' reads the per-list
+//! breakdown, which is what tells two pre-filtered lists of one scan apart - the bare
+//! counters are sums over all of them.
 static void ParquetPrenestStatFunction(DataChunk &args, ExpressionState &state, Vector &result) {
 	auto &stats = PrenestStats::Get();
 	UnaryExecutor::Execute<string_t, int64_t>(args.data[0], result, args.size(), [&](string_t name_s) -> int64_t {
@@ -851,6 +853,11 @@ static void ParquetPrenestStatFunction(DataChunk &args, ExpressionState &state, 
 		if (name == "reset") {
 			stats.Reset();
 			return 0;
+		}
+		auto colon = name.find(':');
+		if (colon != string::npos) {
+			return NumericCast<int64_t>(
+			    stats.GetListCounter(name.substr(colon + 1), name.substr(0, colon)));
 		}
 		if (name == "elements_decoded") {
 			return NumericCast<int64_t>(stats.elements_decoded.load());

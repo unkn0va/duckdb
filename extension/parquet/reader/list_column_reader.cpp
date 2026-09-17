@@ -281,6 +281,7 @@ idx_t ListColumnReader::ReadFilteredInternal(uint64_t num_values, data_ptr_t def
 		if (kept > 0) {
 			ListVector::Append(result_out, read_vector, append_sel, kept, 0);
 			stats.elements_appended += kept;
+			prenest_filter->ListStats().elements_appended += kept;
 		}
 
 		if (child_idx < child_actual_num_values && result_offset == num_values) {

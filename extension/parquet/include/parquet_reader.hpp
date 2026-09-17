@@ -114,11 +114,11 @@ struct ParquetOptions {
 	vector<ParquetColumnDefinition> schema;
 	idx_t explicit_cardinality = 0;
 	bool can_have_nan = false; // if floats or doubles can contain NaN values
-	//! PROBE: element-level pre-nest predicate handed down from the bind phase.
-	//! Nothing fills this in yet; while it is empty the readers fall back to the
+	//! PROBE: element-level pre-nest predicates handed down from the bind phase, at most
+	//! one per LIST column of this scan. While empty the readers fall back to the
 	//! `parquet_prenest_filter` setting, i.e. behaviour is unchanged. Deliberately
 	//! not serialized (see parquet.json) - it never survives a plan round-trip.
-	PrenestFilterSpec prenest_filter;
+	vector<PrenestFilterSpec> prenest_filters;
 };
 
 struct ParquetOptionsSerialization {

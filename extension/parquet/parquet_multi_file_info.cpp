@@ -447,25 +447,26 @@ unique_ptr<TableFunctionData> ParquetMultiFileInfo::InitializeBindData(MultiFile
 	return std::move(result);
 }
 
-bool ParquetMultiFileInfo::TrySetPrenestFilter(MultiFileBindData &multi_file_data, const PrenestFilterSpec &spec) {
+bool ParquetMultiFileInfo::TrySetPrenestFilter(MultiFileBindData &multi_file_data,
+                                              const vector<PrenestFilterSpec> &specs) {
 	if (!multi_file_data.bind_data) {
 		return false;
 	}
 	auto &bind_data = multi_file_data.bind_data->Cast<ParquetReadBindData>();
-	bind_data.GetParquetOptions().prenest_filter = spec;
+	bind_data.GetParquetOptions().prenest_filters = specs;
 	// Readers opened while binding predate the optimizer but are reused for scanning,
 	// so they carry their own stale copy of the options - refresh those as well.
 	if (multi_file_data.initial_reader) {
-		multi_file_data.initial_reader->Cast<ParquetReader>().parquet_options.prenest_filter = spec;
+		multi_file_data.initial_reader->Cast<ParquetReader>().parquet_options.prenest_filters = specs;
 	}
 	for (auto &union_data_p : multi_file_data.union_readers) {
 		if (!union_data_p) {
 			continue;
 		}
 		auto &union_data = union_data_p->Cast<ParquetUnionData>();
-		union_data.options.prenest_filter = spec;
+		union_data.options.prenest_filters = specs;
 		if (union_data.reader) {
-			union_data.reader->Cast<ParquetReader>().parquet_options.prenest_filter = spec;
+			union_data.reader->Cast<ParquetReader>().parquet_options.prenest_filters = specs;
 		}
 	}
 	return true;

@@ -63,9 +63,10 @@ struct FunctionData {
 	DUCKDB_API virtual bool Equals(const FunctionData &other) const = 0;
 	DUCKDB_API static bool Equals(const FunctionData *left, const FunctionData *right);
 	DUCKDB_API virtual bool SupportStatementCache() const;
-	//! PROBE: hand an element-level pre-nest predicate to this bind data. Returns
-	//! false when the scan cannot make use of one, which is the default.
-	DUCKDB_API virtual bool TrySetPrenestFilter(const PrenestFilterSpec &spec);
+	//! PROBE: hand the element-level pre-nest predicates of one scan to this bind data,
+	//! at most one per LIST column. Returns false when the scan cannot make use of them,
+	//! which is the default.
+	DUCKDB_API virtual bool TrySetPrenestFilter(const vector<PrenestFilterSpec> &specs);
 
 	template <class TARGET>
 	TARGET &Cast() {

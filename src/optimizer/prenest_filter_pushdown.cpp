@@ -679,6 +679,14 @@ private:
 		return true;
 	}
 
+	//! One list's worth of extraction: the conditions to push, and the comprehensions they
+	//! came from. Kept together so a group that is later rejected can be undone as a unit.
+	struct PendingSpec {
+		string source;
+		PrenestFilterSpec spec;
+		vector<pair<LogicalOperator *, idx_t>> consumed;
+	};
+
 	bool Absorbed(unique_ptr<LogicalOperator> &op) {
 		vector<LogicalOperator *> filters;
 		optional_ptr<LogicalGet> get_ptr;
@@ -700,67 +708,89 @@ private:
 			return false;
 		}
 
-		// PrenestFilterSpec carries ONE list_name, so the reader pre-filters a single list per
-		// scan. When several lists reach the same scan we take the DEEPEST one: every nesting
-		// level multiplies the element count, so the innermost list is where the work is.
-		// Depth is a property of the path, not of the order we walk the plan in.
-		string list_source;
-		idx_t best_depth = 0;
-		for (auto &candidate : candidates) {
+		// Group the candidates by the list they name. DataFusion groups by a fingerprint of the
+		// parent element struct's field-name set (prenest_specs.rs, `fingerprint`), because a
+		// flattened leaf predicate there carries only a bare column name and the list has to be
+		// guessed back out of the file schema. We do not have that problem: `source` is the exact
+		// root-relative path, resolved through the plan's own bindings and already scoped to this
+		// scan. Keying on the path is a strict refinement of the fingerprint - it never merges two
+		// lists that happen to share an element struct shape, and never mis-attributes a field
+		// name that occurs in two structs.
+		vector<string> group_order;
+		unordered_map<string, vector<idx_t>> groups;
+		for (idx_t i = 0; i < candidates.size(); i++) {
 			auto &innermost =
-			    candidate.first->expressions[candidate.second]->Cast<BoundComprehensionExpression>().Innermost();
+			    candidates[i].first->expressions[candidates[i].second]->Cast<BoundComprehensionExpression>().Innermost();
 			if (!innermost.predicate) {
 				continue;
 			}
-			auto depth = ParsePath(innermost.source).size();
-			if (!list_source.empty() && depth <= best_depth) {
+			auto entry = groups.find(innermost.source);
+			if (entry == groups.end()) {
+				group_order.push_back(innermost.source);
+				groups.insert(make_pair(innermost.source, vector<idx_t> {i}));
+			} else {
+				entry->second.push_back(i);
+			}
+		}
+
+		// Decide first, move afterwards: nothing may be moved out of a Filter until the whole set
+		// of specs is known to be accepted, or an early return would leave null entries behind.
+		// Each group is judged on its own - an inexpressible or unsafe list costs only itself.
+		vector<PendingSpec> pending;
+		for (auto &source : group_order) {
+			PendingSpec entry;
+			entry.source = source;
+			for (auto i : groups[source]) {
+				auto &innermost = candidates[i]
+				                      .first->expressions[candidates[i].second]
+				                      ->Cast<BoundComprehensionExpression>()
+				                      .Innermost();
+				vector<PrenestRawCondition> extracted;
+				if (!ToRawConditions(*innermost.predicate, extracted) || extracted.empty()) {
+					continue;
+				}
+				entry.consumed.push_back(candidates[i]);
+				for (auto &condition : extracted) {
+					entry.spec.conditions.push_back(std::move(condition));
+				}
+			}
+			if (entry.spec.conditions.empty()) {
 				continue;
 			}
-			vector<PrenestRawCondition> probe;
-			if (!ToRawConditions(*innermost.predicate, probe) || probe.empty()) {
+			// Per spec, not per scan: dropping elements of one list says nothing about whether
+			// dropping elements of another is observable, so each target gets its own containment
+			// check. A list that fails is simply left out; the rest still go.
+			auto target_path = ParsePath(source);
+			if (!SafeToTruncate(get, target_path)) {
+				stats.refused_list_read_elsewhere++;
 				continue;
 			}
-			list_source = innermost.source;
-			best_depth = depth;
+			entry.spec.list_name = LastSegment(source);
+			pending.push_back(std::move(entry));
 		}
-		if (list_source.empty()) {
-			return false;
-		}
-		auto target_path = ParsePath(list_source);
-		if (!SafeToTruncate(get, target_path)) {
-			stats.refused_list_read_elsewhere++;
+
+		// The reader matches a spec to a list by the bare schema node name, so two specs whose
+		// paths differ but whose last segment is the same are indistinguishable down there - the
+		// search would attach the first one to both lists and silently drop elements the other
+		// spec never asked to drop. Refuse every member of such a collision rather than guess.
+		DropNameCollisions(pending);
+		if (pending.empty()) {
 			return false;
 		}
 
-		// Decide first, move afterwards: nothing may be moved out of a Filter until the spec is
-		// known to be accepted, or an early return would leave null entries behind.
-		vector<PrenestRawCondition> conditions;
+		vector<PrenestFilterSpec> specs;
 		vector<pair<LogicalOperator *, idx_t>> consumed;
-		for (auto &candidate : candidates) {
-			auto &innermost =
-			    candidate.first->expressions[candidate.second]->Cast<BoundComprehensionExpression>().Innermost();
-			if (innermost.source != list_source || !innermost.predicate) {
-				continue;
-			}
-			vector<PrenestRawCondition> extracted;
-			if (!ToRawConditions(*innermost.predicate, extracted) || extracted.empty()) {
-				continue;
-			}
-			consumed.push_back(candidate);
-			for (auto &condition : extracted) {
-				conditions.push_back(std::move(condition));
+		for (auto &entry : pending) {
+			specs.push_back(std::move(entry.spec));
+			for (auto &c : entry.consumed) {
+				consumed.push_back(c);
 			}
 		}
-		if (conditions.empty()) {
-			return false;
-		}
-		PrenestFilterSpec spec;
-		spec.list_name = LastSegment(list_source);
-		spec.conditions = std::move(conditions);
-		if (!get.bind_data->TrySetPrenestFilter(spec)) {
+		if (!get.bind_data->TrySetPrenestFilter(specs)) {
 			return false;
 		}
 		stats.absorbed_at_scan++;
+		stats.specs_pushed += specs.size();
 		// taking the consumed ones out keeps the roll-up from also claiming them, so the plan
 		// reports where each comprehension actually ended up
 		for (auto *filter : filters) {
@@ -781,6 +811,25 @@ private:
 		}
 		DropEmptyFilters(op);
 		return true;
+	}
+
+	//! Remove every spec that shares its reader-visible list_name with another. Nothing in the
+	//! TPC-H corpus triggers this - it is the guard for a schema that reuses a list name at two
+	//! depths, e.g. `items` and `orders[].items`.
+	void DropNameCollisions(vector<PendingSpec> &pending) {
+		unordered_map<string, idx_t> counts;
+		for (auto &entry : pending) {
+			counts[StringUtil::Lower(entry.spec.list_name)]++;
+		}
+		vector<PendingSpec> kept;
+		for (auto &entry : pending) {
+			if (counts[StringUtil::Lower(entry.spec.list_name)] > 1) {
+				stats.refused_name_collision++;
+				continue;
+			}
+			kept.push_back(std::move(entry));
+		}
+		pending = std::move(kept);
 	}
 
 	//! Remove Filters we emptied, anywhere in the chain we just processed.

@@ -411,21 +411,36 @@ ParquetColumnSchema ParquetReader::ParseColumnSchema(const SchemaElement &s_ele,
 //! would silently drop every element).
 //!
 //! The predicate comes from, in order:
-//!   (a) `injected` - a conjunction carried down from the bind phase,
+//!   (a) `injected` - the conjunctions carried down from the bind phase, at most one
+//!       per LIST column; the one whose list_name matches this schema node is taken,
 //!   (b) the manually set `parquet_prenest_filter` setting,
 //!   (c) neither, in which case the stock path is kept.
-static unique_ptr<PrenestFilter> TryBuildPrenestFilter(ClientContext &context, const PrenestFilterSpec &injected,
+//!
+//! Matching one spec per list mirrors DataFusion's PrenestArrayReaderBuilder, which
+//! likewise scans its spec vector and attaches at most one reader-side predicate per
+//! list node. The optimizer guarantees the list_names of one scan are distinct, so the
+//! search below cannot be ambiguous (see the LastSegment collision guard in
+//! PrenestFilterPushdown).
+static unique_ptr<PrenestFilter> TryBuildPrenestFilter(ClientContext &context,
+                                                       const vector<PrenestFilterSpec> &injected,
                                                        const ParquetColumnSchema &schema,
                                                        ColumnReader &child_reader) {
 	unique_ptr<PrenestFilter> filter;
 	bool from_injection = false;
 	if (!injected.empty()) {
-		// the optimizer resolved the predicate to one specific LIST, so require the name
+		// the optimizer resolved each predicate to one specific LIST, so require the name
 		// to match rather than relying on Bind() to sort the lists out by field names
-		if (!StringUtil::CIEquals(schema.name, injected.list_name)) {
+		optional_ptr<const PrenestFilterSpec> match;
+		for (auto &spec : injected) {
+			if (!spec.empty() && StringUtil::CIEquals(schema.name, spec.list_name)) {
+				match = spec;
+				break;
+			}
+		}
+		if (!match) {
 			return nullptr;
 		}
-		filter = PrenestFilter::FromConditions(injected.list_name, injected.conditions);
+		filter = PrenestFilter::FromConditions(match->list_name, match->conditions);
 		from_injection = true;
 	} else {
 		Value setting;
@@ -497,7 +512,7 @@ unique_ptr<ColumnReader> ParquetReader::CreateReaderRecursive(ClientContext &con
 			D_ASSERT(children.size() == 1);
 			unique_ptr<PrenestFilter> prenest;
 			if (children[0]) {
-				prenest = TryBuildPrenestFilter(context, parquet_options.prenest_filter, schema, *children[0]);
+				prenest = TryBuildPrenestFilter(context, parquet_options.prenest_filters, schema, *children[0]);
 			}
 			auto list_reader = make_uniq<ListColumnReader>(*this, schema, std::move(children[0]));
 			if (prenest) {

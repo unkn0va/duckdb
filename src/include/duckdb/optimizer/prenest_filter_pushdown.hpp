@@ -12,6 +12,12 @@
 // the reader can drop elements before the list is assembled; the rest are rolled
 // up into LogicalUnnest::filters, where nothing consumes them yet.
 //
+// One spec is produced per LIST column of a scan, grouped by the exact root-relative path
+// of the list (DataFusion groups by a fingerprint of the parent element struct's field
+// names; the path is a strict refinement of that). Predicates naming the same list are
+// AND-combined; each spec is safety-checked on its own, so an unsafe or inexpressible list
+// costs only itself.
+//
 // The binder is never removed from the Filter it came from, so the rule only ever
 // ADDS information: a mis-pushed predicate costs performance, never correctness.
 //
@@ -34,12 +40,17 @@ struct PrenestPushdownStats {
 	idx_t passthroughs = 0;
 	//! comprehensions wrapped in a generator level to pass an outer UNNEST (Recurse)
 	idx_t levels_lifted = 0;
-	//! scans that received a PrenestFilterSpec
+	//! scans that received at least one PrenestFilterSpec
 	idx_t absorbed_at_scan = 0;
+	//! specs handed to a scan in total - one per LIST column, so >= absorbed_at_scan
+	idx_t specs_pushed = 0;
 	//! comprehensions lifted onto LogicalUnnest::filters
 	idx_t rolled_up = 0;
 	//! comprehensions that reached a scan but whose list is read elsewhere too
 	idx_t refused_list_read_elsewhere = 0;
+	//! specs dropped because another spec of the same scan renders the same reader-visible
+	//! list name, which the reader cannot tell apart
+	idx_t refused_name_collision = 0;
 	//! comprehensions nothing claimed - dropped, which is always safe
 	idx_t dropped = 0;
 

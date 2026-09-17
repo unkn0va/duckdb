@@ -40,7 +40,7 @@ bool FunctionData::SupportStatementCache() const {
 	return true;
 }
 
-bool FunctionData::TrySetPrenestFilter(const PrenestFilterSpec &) {
+bool FunctionData::TrySetPrenestFilter(const vector<PrenestFilterSpec> &) {
 	// PROBE: most scans have no notion of a pre-nest predicate
 	return false;
 }

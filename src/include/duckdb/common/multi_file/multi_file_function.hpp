@@ -58,9 +58,10 @@ struct MultiFileReaderInterface {
 	virtual void GetVirtualColumns(ClientContext &context, MultiFileBindData &bind_data, virtual_column_map_t &result);
 	virtual unique_ptr<MultiFileReaderInterface> Copy();
 	virtual FileGlobInput GetGlobInput();
-	//! PROBE: hand an element-level pre-nest predicate to this format's bind data.
-	//! Returns false when the format does not support pre-nest filtering (the default).
-	virtual bool TrySetPrenestFilter(MultiFileBindData &bind_data, const PrenestFilterSpec &spec);
+	//! PROBE: hand the element-level pre-nest predicates of one scan to this format's bind
+	//! data. One spec per LIST column; a format that supports pre-nest filtering applies each
+	//! to its own list. Returns false when the format does not support it (the default).
+	virtual bool TrySetPrenestFilter(MultiFileBindData &bind_data, const vector<PrenestFilterSpec> &specs);
 };
 
 template <class OP>
