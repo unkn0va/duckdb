@@ -1,0 +1,45 @@
+# machine: apache10 | date: 2026-09-19 | data: /data/tpch-nested/1/ (SF1)
+# duckdb commit: 7618e48fb9 (prenest-3way, ExpressionExecutor predicates)
+# DuckDB: auto=false vs auto=true, default parallelism, median-5 (1 discarded)
+#
+# Predicate expressivity now matches DataFusion: the spec carries a
+# shared_ptr<Expression> evaluated by ExpressionExecutor in the reader,
+# instead of {field, cmp, literal} -> ConstantFilter. IN lists and
+# field-to-field comparisons now reach the scan; all 8 residual
+# comprehensions are gone.
+#
+# Counters are the SUM over all specs in a scan. Per-list values via
+# parquet_prenest_stat('elements_appended:<list>'). New specs this round:
+#   q4  o_lineitems  6828003 -> 3793296  (l_commitdate < l_receiptdate)
+#   q7  r_nations          50 ->       4  (n_name OR)
+#   q12 o_lineitems   914792 ->   31225  (IN + 2 field-to-field, 29.3x)
+#   q19 o_lineitems  1500048 ->  214377  (IN, 7.0x)
+#   q21 o_lineitems  6828003 -> 3793296  (l_receiptdate > l_commitdate)
+#       r_nations          25 ->       1
+q10a	7588935 1535939
+q10b	7588935 1535939
+q10	7588935 1535939
+q11	0 2
+q12	6045075 31225
+q13	0 0
+q14	6045075 69872
+q15	6045075 230590
+q16	0 0
+q17	0 0
+q18	0 0
+q19	6045075 214377
+q1	6045075 5916591
+q20	6045075 908722
+q21	7588935 4522710
+q22	0 0
+q2	0 0
+q3a	7588935 3969081
+q3b	7588935 3969081
+q3	7588935 3969081
+q4	7588935 3850413
+q5	1543860 227597
+q6	6045075 114160
+q7	6045075 1828454
+q8	1543860 457263
+q9b	0 0
+q9	0 0
