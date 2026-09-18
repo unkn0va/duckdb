@@ -144,3 +144,119 @@ query I
 SELECT parquet_prenest_stat('elements_appended')
 ----
 0
+
+# ------------------------------------------------------------------------------------------------
+# Statement wrappers must not change the decision. This is the same bug as the EXPLAIN one above,
+# not a separate one: LogicalOperator::GetColumnBindings() DEFAULTS to {ColumnBinding(0, 0)}, so
+# any statement-level operator that does not override it hands SafeToTruncate a binding that
+# belongs to nobody. It then resolved, via table index 0, to whichever scan held that index and
+# looked like an ancestor of the target list.
+#
+# CREATE TABLE AS and COPY (...) TO were losing the pushdown outright - measured elements_appended
+# 0 against the bare query's 23 - so this is a regression test for real statements, not only for
+# EXPLAIN. For those two forms descending to the child is also the semantically right question:
+# the wrapped query's output is what gets written, so the child's bindings are exactly what has
+# to stay observable.
+#
+# Both halves are asserted. The counter says the reader dropped elements; the content says it
+# dropped the RIGHT ones.
+# ------------------------------------------------------------------------------------------------
+
+statement ok
+SET parquet_prenest_auto=true
+
+# --- reference: the bare query ---
+
+statement ok
+SELECT parquet_prenest_stat('reset')
+
+query III
+SELECT count(*) AS n, sum(l.qty) AS sq, sum(l.price) AS sp FROM (
+    SELECT unnest(o.items) AS l
+    FROM (SELECT unnest(orders) AS o FROM '__TEST_DIR__/prenest_explain_plan.parquet') os
+) WHERE l.qty < 3
+----
+23	24	2200
+
+query I
+SELECT parquet_prenest_stat('elements_appended')
+----
+23
+
+# --- CREATE TABLE AS ---
+
+statement ok
+SELECT parquet_prenest_stat('reset')
+
+statement ok
+CREATE TABLE ctas_result AS
+SELECT count(*) AS n, sum(l.qty) AS sq, sum(l.price) AS sp FROM (
+    SELECT unnest(o.items) AS l
+    FROM (SELECT unnest(orders) AS o FROM '__TEST_DIR__/prenest_explain_plan.parquet') os
+) WHERE l.qty < 3
+
+# was 0 before the wrapper fix
+query I
+SELECT parquet_prenest_stat('elements_appended')
+----
+23
+
+query III
+SELECT n, sq, sp FROM ctas_result
+----
+23	24	2200
+
+# --- COPY (...) TO ---
+
+statement ok
+SELECT parquet_prenest_stat('reset')
+
+statement ok
+COPY (
+    SELECT count(*) AS n, sum(l.qty) AS sq, sum(l.price) AS sp FROM (
+        SELECT unnest(o.items) AS l
+        FROM (SELECT unnest(orders) AS o FROM '__TEST_DIR__/prenest_explain_plan.parquet') os
+    ) WHERE l.qty < 3
+) TO '__TEST_DIR__/prenest_wrapper_out.parquet' (FORMAT parquet)
+
+# was 0 before the wrapper fix
+query I
+SELECT parquet_prenest_stat('elements_appended')
+----
+23
+
+# the written file carries the same answer. HUGEINT has no parquet type, so the sums come back
+# as a wider numeric - cast before comparing rather than pinning the round-trip spelling.
+query III
+SELECT n, sq::BIGINT, sp::BIGINT FROM '__TEST_DIR__/prenest_wrapper_out.parquet'
+----
+23	24	2200
+
+# --- INSERT INTO ... SELECT ---
+# This form already worked, and is here so that a future change to the wrapper list cannot
+# silently make the four disagree.
+
+statement ok
+CREATE TABLE insert_result AS SELECT * FROM ctas_result WHERE false
+
+statement ok
+SELECT parquet_prenest_stat('reset')
+
+statement ok
+INSERT INTO insert_result
+SELECT * FROM (
+    SELECT count(*) AS n, sum(l.qty) AS sq, sum(l.price) AS sp FROM (
+        SELECT unnest(o.items) AS l
+        FROM (SELECT unnest(orders) AS o FROM '__TEST_DIR__/prenest_explain_plan.parquet') os
+    ) WHERE l.qty < 3
+)
+
+query I
+SELECT parquet_prenest_stat('elements_appended')
+----
+23
+
+query III
+SELECT n, sq, sp FROM insert_result
+----
+23	24	2200
