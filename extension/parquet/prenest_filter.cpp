@@ -3,8 +3,11 @@
 #include "column_reader.hpp"
 #include "duckdb/common/string_util.hpp"
 #include "duckdb/main/client_context.hpp"
-#include "duckdb/planner/filter/constant_filter.hpp"
-#include "duckdb/planner/table_filter_state.hpp"
+#include "duckdb/planner/expression/bound_comparison_expression.hpp"
+#include "duckdb/planner/expression/bound_conjunction_expression.hpp"
+#include "duckdb/planner/expression/bound_constant_expression.hpp"
+#include "duckdb/planner/expression/bound_reference_expression.hpp"
+#include "duckdb/planner/expression_iterator.hpp"
 
 namespace duckdb {
 
@@ -129,17 +132,18 @@ bool PrenestFilter::ParseSpec(const string &spec, PrenestFilterSpec &result) {
 }
 
 unique_ptr<PrenestFilter> PrenestFilter::FromSpec(const PrenestFilterSpec &spec) {
-	return FromConditions(spec.list_name, spec.conditions);
+	auto result = FromConditions(spec.list_name, spec.conditions);
+	if (result) {
+		result->injected_predicate = spec.predicate;
+	}
+	return result;
 }
 
-bool PrenestFilter::Bind(ClientContext &context, const LogicalType &element_type) {
-	if (element_type.id() != LogicalTypeId::STRUCT) {
-		return false;
-	}
+unique_ptr<Expression> PrenestFilter::BuildPredicateFromConditions(const LogicalType &element_type) {
+	// The setting speaks "<field> <op> <literal>"; the optimizer hands over an expression
+	// directly. Compiling the former into the latter keeps one execution path instead of two.
 	auto &children = StructType::GetChildTypes(element_type);
-	conditions.clear();
-	field_child_indexes.clear();
-
+	vector<unique_ptr<Expression>> terms;
 	for (auto &raw : raw_conditions) {
 		optional_idx match;
 		for (idx_t i = 0; i < children.size(); i++) {
@@ -149,45 +153,135 @@ bool PrenestFilter::Bind(ClientContext &context, const LogicalType &element_type
 			}
 		}
 		if (!match.IsValid()) {
-			return false;
+			return nullptr;
 		}
 		auto &child_type = children[match.GetIndex()].second;
 		Value constant;
 		try {
 			constant = Value(raw.literal).DefaultCastAs(child_type);
 		} catch (std::exception &) {
+			return nullptr;
+		}
+		auto reference = make_uniq<BoundReferenceExpression>(raw.field, child_type, match.GetIndex());
+		auto literal = make_uniq<BoundConstantExpression>(std::move(constant));
+		terms.push_back(make_uniq<BoundComparisonExpression>(raw.comparison, std::move(reference),
+		                                                     std::move(literal)));
+	}
+	if (terms.empty()) {
+		return nullptr;
+	}
+	if (terms.size() == 1) {
+		return std::move(terms[0]);
+	}
+	auto conjunction = make_uniq<BoundConjunctionExpression>(ExpressionType::CONJUNCTION_AND);
+	for (auto &term : terms) {
+		conjunction->children.push_back(std::move(term));
+	}
+	return std::move(conjunction);
+}
+
+//! Every BoundReferenceExpression index the predicate reads. These are positions in the element
+//! struct - PrenestFilterPushdown::Flatten indexes them that way, and StructColumnReader always
+//! materialises every child of the struct in that order, so no remapping is needed.
+static void CollectReferencedIndexes(const Expression &expr, vector<idx_t> &result) {
+	if (expr.GetExpressionClass() == ExpressionClass::BOUND_REF) {
+		auto index = expr.Cast<BoundReferenceExpression>().index;
+		for (auto existing : result) {
+			if (existing == index) {
+				return;
+			}
+		}
+		result.push_back(index);
+		return;
+	}
+	ExpressionIterator::EnumerateChildren(expr, [&](const Expression &child) {
+		CollectReferencedIndexes(child, result);
+	});
+}
+
+bool PrenestFilter::Bind(ClientContext &context, const LogicalType &element_type) {
+	if (element_type.id() != LogicalTypeId::STRUCT) {
+		return false;
+	}
+	auto &children = StructType::GetChildTypes(element_type);
+	field_child_indexes.clear();
+	predicate.reset();
+	executor.reset();
+	disabled = false;
+
+	if (injected_predicate) {
+		// the plan that built it is long gone by now, and each reader needs its own copy for
+		// the executor to hold state against
+		predicate = injected_predicate->Copy();
+	} else {
+		predicate = BuildPredicateFromConditions(element_type);
+	}
+	if (!predicate || predicate->return_type.id() != LogicalTypeId::BOOLEAN) {
+		return false;
+	}
+
+	vector<idx_t> referenced;
+	CollectReferencedIndexes(*predicate, referenced);
+	if (referenced.empty()) {
+		// nothing to read per element - a constant predicate is not worth a filtered read
+		return false;
+	}
+	for (auto index : referenced) {
+		if (index >= children.size()) {
+			// the predicate was built against a different element struct
 			return false;
 		}
-		PrenestCondition cond;
-		cond.child_idx = match.GetIndex();
-		cond.filter = make_uniq<ConstantFilter>(raw.comparison, std::move(constant));
-		cond.state = TableFilterState::Initialize(context, *cond.filter);
-		conditions.push_back(std::move(cond));
-		field_child_indexes.push_back(match.GetIndex());
 	}
+	field_child_indexes = std::move(referenced);
+
+	// the chunk mirrors the element struct one-to-one, so a BoundReferenceExpression index is
+	// already the right column; unreferenced children cost nothing, they are only Referenced
+	vector<LogicalType> chunk_types;
+	for (auto &child : children) {
+		chunk_types.push_back(child.second);
+	}
+	element_chunk.Destroy();
+	element_chunk.InitializeEmpty(chunk_types);
+	executor = make_uniq<ExpressionExecutor>(context, predicate.get());
 	return true;
 }
 
-idx_t PrenestFilter::Apply(Vector &element_vector, idx_t count, SelectionVector &sel, bool *keep) const {
-	for (idx_t i = 0; i < count; i++) {
-		sel.set_index(i, i);
-	}
-	idx_t approved = count;
-	auto &entries = StructVector::GetEntries(element_vector);
-	for (auto &cond : conditions) {
-		if (approved == 0) {
-			break;
-		}
-		auto &child = *entries[cond.child_idx];
-		ColumnReader::ApplyFilter(child, *cond.filter, *cond.state, count, sel, approved);
-	}
-	memset(keep, 0, sizeof(bool) * count);
-	for (idx_t i = 0; i < approved; i++) {
-		keep[sel.get_index(i)] = true;
-	}
+idx_t PrenestFilter::Apply(Vector &element_vector, idx_t count, SelectionVector &sel, bool *keep) {
 	PrenestStats::Get().predicate_elements += count;
 	ListStats().predicate_elements += count;
-	return approved;
+
+	if (!disabled) {
+		auto &entries = StructVector::GetEntries(element_vector);
+		if (entries.size() == element_chunk.ColumnCount()) {
+			for (idx_t i = 0; i < entries.size(); i++) {
+				element_chunk.data[i].Reference(*entries[i]);
+			}
+			element_chunk.SetCardinality(count);
+			try {
+				auto approved = executor->SelectExpression(element_chunk, sel);
+				memset(keep, 0, sizeof(bool) * count);
+				for (idx_t i = 0; i < approved; i++) {
+					keep[sel.get_index(i)] = true;
+				}
+				return approved;
+			} catch (std::exception &) {
+				// The predicate threw on some element - a cast or a function that the Filter
+				// above the UNNEST would only ever have seen for the rows it kept. Dropping the
+				// pre-nest filter is always sound: the conjunct was never removed from that
+				// Filter, so the rows are still filtered, just later.
+				disabled = true;
+			}
+		} else {
+			disabled = true;
+		}
+	}
+
+	// keep everything
+	for (idx_t i = 0; i < count; i++) {
+		sel.set_index(i, i);
+		keep[i] = true;
+	}
+	return count;
 }
 
 } // namespace duckdb

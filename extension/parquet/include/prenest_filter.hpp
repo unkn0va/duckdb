@@ -18,8 +18,8 @@
 #include "duckdb/common/types/selection_vector.hpp"
 #include "duckdb/common/types/vector.hpp"
 #include "duckdb/planner/filter/prenest_filter_spec.hpp"
-#include "duckdb/planner/table_filter.hpp"
-#include "duckdb/planner/table_filter_state.hpp"
+#include "duckdb/execution/expression_executor.hpp"
+#include "duckdb/planner/expression.hpp"
 
 namespace duckdb {
 class ClientContext;
@@ -80,14 +80,8 @@ struct PrenestReaderPlan {
 	bool from_injection = false;
 };
 
-struct PrenestCondition {
-	idx_t child_idx;
-	unique_ptr<TableFilter> filter;
-	unique_ptr<TableFilterState> state;
-};
-
-//! A conjunction of <struct field> <cmp> <constant> conditions over the element
-//! struct of one LIST column.
+//! A predicate over the element struct of one LIST column, evaluated with an
+//! ExpressionExecutor exactly the way the Filter above the UNNEST evaluates it.
 class PrenestFilter {
 public:
 	//! One "<field> <cmp> <literal>" term. The literal is still a string here -
@@ -109,8 +103,9 @@ public:
 	//! automatic extraction). Returns nullptr if `conditions` is empty.
 	static unique_ptr<PrenestFilter> FromConditions(const string &list_name, vector<RawCondition> conditions);
 
-	//! Resolve field names against a concrete element STRUCT type. Returns false
-	//! if any referenced field is absent - the caller then keeps the stock path.
+	//! Resolve the predicate against a concrete element STRUCT type and build the executor
+	//! that runs it. Returns false if any referenced field is absent or does not line up -
+	//! the caller then keeps the stock path. Never throws.
 	bool Bind(ClientContext &context, const LogicalType &element_type);
 
 	//! Names referenced by the conjunction, for the "is this the right list" test.
@@ -123,7 +118,9 @@ public:
 
 	//! Narrow `sel` to the surviving elements of `element_vector` and set keep[].
 	//! `element_vector` must be flat. Returns the number of survivors.
-	idx_t Apply(Vector &element_vector, idx_t count, SelectionVector &sel, bool *keep) const;
+	//! Not const: evaluation has executor state, and a predicate that throws disables this
+	//! filter for the rest of the scan.
+	idx_t Apply(Vector &element_vector, idx_t count, SelectionVector &sel, bool *keep);
 
 	//! The LIST column this conjunction was written for.
 	const string &ListName() const {
@@ -137,12 +134,28 @@ public:
 	}
 
 private:
+	//! Compile the parsed string conditions into the same expression shape the optimizer
+	//! produces, so both front-ends converge on one executor. Returns nullptr on any mismatch.
+	unique_ptr<Expression> BuildPredicateFromConditions(const LogicalType &element_type);
+
+private:
 	string list_name;
 	optional_ptr<PrenestListStats> list_stats;
+	//! set on the `parquet_prenest_filter` path; empty when a predicate was injected
 	vector<RawCondition> raw_conditions;
+	//! set on the injected path; null when the conditions above are the source
+	shared_ptr<Expression> injected_predicate;
 	vector<string> field_names;
 	vector<idx_t> field_child_indexes;
-	vector<PrenestCondition> conditions;
+
+	//! bound state, all built in Bind()
+	unique_ptr<Expression> predicate;
+	unique_ptr<ExpressionExecutor> executor;
+	//! the element struct's children, referenced (not copied) on each Apply
+	DataChunk element_chunk;
+	//! set when the predicate threw: every element is kept from then on, and the Filter above
+	//! the UNNEST - which was never relieved of this predicate - does the work instead
+	bool disabled = false;
 };
 
 } // namespace duckdb

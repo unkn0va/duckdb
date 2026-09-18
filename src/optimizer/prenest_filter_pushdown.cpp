@@ -684,6 +684,9 @@ private:
 	struct PendingSpec {
 		string source;
 		PrenestFilterSpec spec;
+		//! the per-level predicates behind spec.conditions, kept separately so they can be
+		//! AND-combined once the group is known to be accepted
+		vector<unique_ptr<Expression>> predicates;
 		vector<pair<LogicalOperator *, idx_t>> consumed;
 	};
 
@@ -753,6 +756,9 @@ private:
 				for (auto &condition : extracted) {
 					entry.spec.conditions.push_back(std::move(condition));
 				}
+				// The reader evaluates this, not the decomposed conditions above. It is a copy:
+				// the comprehension - and the plan holding it - is gone by the time a reader runs.
+				entry.predicates.push_back(innermost.predicate->Copy());
 			}
 			if (entry.spec.conditions.empty()) {
 				continue;
@@ -767,6 +773,7 @@ private:
 			}
 			entry.spec.list_path = source;
 			entry.spec.list_name = LastSegment(source);
+			entry.spec.predicate = CombineAnd(std::move(entry.predicates));
 			pending.push_back(std::move(entry));
 		}
 
@@ -824,6 +831,21 @@ private:
 		if (op->type == LogicalOperatorType::LOGICAL_FILTER && op->expressions.empty() && !op->children.empty()) {
 			op = std::move(op->children[0]);
 		}
+	}
+
+	//! AND the per-level predicates of one group into the single expression the reader runs.
+	static unique_ptr<Expression> CombineAnd(vector<unique_ptr<Expression>> predicates) {
+		if (predicates.empty()) {
+			return nullptr;
+		}
+		if (predicates.size() == 1) {
+			return std::move(predicates[0]);
+		}
+		auto conjunction = make_uniq<BoundConjunctionExpression>(ExpressionType::CONJUNCTION_AND);
+		for (auto &predicate : predicates) {
+			conjunction->children.push_back(std::move(predicate));
+		}
+		return std::move(conjunction);
 	}
 
 	//! Convert the flattened predicate into the reader's conjunction form.
