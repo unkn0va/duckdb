@@ -45,6 +45,9 @@ child read it stays 0 even though the filter ran. Assert on `elements_appended` 
 
 ## EXPLAIN changes the optimizer's decisions — do not measure through it
 
+> **RESOLVED 2026-09-18 (Layun), see the correction at the end of this section.** The text below
+> describes the behaviour up to and including 7618e48fb9 and is kept as written.
+
 `PrenestFilterPushdown::SafeToTruncate` walks `root->GetColumnBindings()` to check whether the
 plan's own output reads the target list or a value containing it. Under `EXPLAIN` the plan root is
 `LogicalExplain`, whose `GetColumnBindings()` returns the synthetic bindings `(0,0)` and `(0,1)`.
@@ -75,6 +78,33 @@ Consequences:
 Direction of the bug is "refuse", so it costs optimization, never correctness. Fix is separate:
 `ResolveBindingPath` should reject a binding whose table index it did not itself collect as a
 PROJECTION / UNNEST / GET, rather than trusting the index.
+
+### Correction — fixed, and the proposed fix above was the wrong one
+
+`SafeToTruncate` now takes the bindings from the operator that actually produces the statement's
+result, skipping statement-level wrappers (`IsStatementWrapper` / `ResultProducer` in
+`src/optimizer/prenest_filter_pushdown.cpp`). `EXPLAIN <query>` and `<query>` decide identically,
+so both bullets above no longer hold:
+
+  * `EXPLAIN` is now a valid way to read the optimizer's decision. It is still **not** a way to
+    read what the reader did - the counters remain the only source for that.
+  * Plan-shape assertions are now usable and are pinned in
+    `test/sql/optimizer/prenest/prenest_explain_plan.test`, together with the scan node's new
+    `Pre-nest Filters` line (list path + predicate, the counterpart of DataFusion's
+    `nested_filters=[...]`).
+
+Verified on the repro above: `EXPLAIN` now shows `Pre-nest Filters` on the PARQUET_SCAN, and
+`EXPLAIN ANALYZE` of q6 reports 114,160 rows out of the inner UNNEST instead of 6,001,215.
+
+The fix suggested in the paragraph above would NOT have worked. The synthetic binding is
+`(0, 0)`, and table index 0 is a perfectly legitimate index that a real `LogicalGet` can hold -
+`ResolveBindingPath` was not trusting an index it had never collected, it was resolving an index
+it HAD collected, for an operator that never owned it. The problem is that the binding does not
+belong to the wrapper at all, which is only visible at the wrapper, not at the binding. Nor is
+the problem specific to `EXPLAIN`: `LogicalOperator::GetColumnBindings()` **defaults** to
+`{ColumnBinding(0, 0)}`, so DML without RETURNING, `COPY ... TO`, and `CREATE TABLE AS` were all
+losing the pushdown the same way - and for those the wrapped query's output is written somewhere,
+so descending to the child is the semantically correct check rather than a workaround.
 
 ## The reader matches a spec to a list by bare name
 

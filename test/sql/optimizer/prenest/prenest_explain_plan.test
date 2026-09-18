@@ -1,0 +1,146 @@
+# name: test/sql/optimizer/prenest/prenest_explain_plan.test
+# description: The plan shows which lists the reader pre-filters, and EXPLAIN decides like the query
+# group: [prenest]
+
+# Two things are pinned here.
+#
+# 1. EXPLAIN <query> now makes the same extraction decision as <query>. SafeToTruncate asks the
+#    plan's own output whether it reads the target list or a value containing it; under EXPLAIN
+#    the root is a LogicalExplain, which does not override GetColumnBindings, so the default
+#    handed back the synthetic ColumnBinding(0, 0). That resolved - via FindDefiningOperator(0) -
+#    to whichever scan happened to hold table index 0, and its first column looked like an
+#    ancestor of the target, so every pushdown was refused under EXPLAIN. The check now skips
+#    statement-level wrappers and asks the operator that really produces the result.
+#
+# 2. `Pre-nest Filters` on the scan node reports the list path and the predicate, which is what
+#    makes these assertions possible at all. This complements the counters rather than repeating
+#    them: parquet_prenest_stat looks inside the reader, the plan shows the optimizer's decision.
+
+require parquet
+
+statement ok
+PRAGMA enable_verification
+
+statement ok
+COPY (
+    SELECT i AS cid,
+           [{'oid': i * 10 + k,
+             'items': [{'qty': (i + k + j) % 5, 'price': j * 100} FOR j IN range(3)]}
+            FOR k IN range(2)] AS orders
+    FROM range(6) t(i)
+) TO '__TEST_DIR__/prenest_explain_plan.parquet' (FORMAT parquet)
+
+# ------------------------------------------------------------------------------------------------
+# the q6 shape: a predicate on the innermost list, nothing else reading it
+# ------------------------------------------------------------------------------------------------
+
+statement ok
+SET parquet_prenest_auto=true
+
+# the spec reaches the scan, and the plan names the list by its full path
+query II
+EXPLAIN SELECT count(*) FROM (
+    SELECT unnest(o.items) AS l
+    FROM (SELECT unnest(orders) AS o FROM '__TEST_DIR__/prenest_explain_plan.parquet') os
+) WHERE l.qty < 3
+----
+physical_plan	<REGEX>:.*Pre-nest Filters.*orders\[\]\.items.*
+
+# ... and the predicate itself is shown, not just the list
+query II
+EXPLAIN SELECT count(*) FROM (
+    SELECT unnest(o.items) AS l
+    FROM (SELECT unnest(orders) AS o FROM '__TEST_DIR__/prenest_explain_plan.parquet') os
+) WHERE l.qty < 3
+----
+physical_plan	<REGEX>:.*qty.*
+
+# with the pass off there is nothing on the scan
+statement ok
+SET parquet_prenest_auto=false
+
+query II
+EXPLAIN SELECT count(*) FROM (
+    SELECT unnest(o.items) AS l
+    FROM (SELECT unnest(orders) AS o FROM '__TEST_DIR__/prenest_explain_plan.parquet') os
+) WHERE l.qty < 3
+----
+physical_plan	<!REGEX>:.*Pre-nest Filters.*
+
+# ------------------------------------------------------------------------------------------------
+# the safety counterexamples: the target list is also read whole, so nothing may be pushed.
+# Before the wrapper fix these passed for the wrong reason - EXPLAIN refused everything.
+# ------------------------------------------------------------------------------------------------
+
+statement ok
+SET parquet_prenest_auto=true
+
+# two-level: the inner list is read whole by len()
+query II
+EXPLAIN SELECT sum(len(o.items)), count(*) FROM (
+    SELECT o, unnest(o.items) AS l
+    FROM (SELECT unnest(orders) AS o FROM '__TEST_DIR__/prenest_explain_plan.parquet') os
+) WHERE l.qty < 3
+----
+physical_plan	<!REGEX>:.*Pre-nest Filters.*
+
+# one-level: the outer list is read whole, and it contains the inner one
+query II
+EXPLAIN SELECT sum(len(orders)), count(*) FROM (
+    SELECT orders, unnest(orders) AS o FROM '__TEST_DIR__/prenest_explain_plan.parquet'
+) WHERE o.oid < 30
+----
+physical_plan	<!REGEX>:.*Pre-nest Filters.*
+
+# output-only: the enclosing element reaches the result, where no expression reads it
+query II
+EXPLAIN SELECT o FROM (
+    SELECT o, unnest(o.items) AS l
+    FROM (SELECT unnest(orders) AS o FROM '__TEST_DIR__/prenest_explain_plan.parquet') os
+) WHERE l.qty < 3
+----
+physical_plan	<!REGEX>:.*Pre-nest Filters.*
+
+# the q22 shape: the list is read with no UNNEST at all
+query II
+EXPLAIN SELECT count(*) FROM '__TEST_DIR__/prenest_explain_plan.parquet' WHERE len(orders) = 0
+----
+physical_plan	<!REGEX>:.*Pre-nest Filters.*
+
+# ------------------------------------------------------------------------------------------------
+# EXPLAIN and the bare query agree - the point of the wrapper fix. The counter is what the reader
+# did; the plan above is what the optimizer decided. They have to say the same thing.
+# ------------------------------------------------------------------------------------------------
+
+statement ok
+PRAGMA disable_verification
+
+statement ok
+SELECT parquet_prenest_stat('reset')
+
+statement ok
+SELECT count(*) FROM (
+    SELECT unnest(o.items) AS l
+    FROM (SELECT unnest(orders) AS o FROM '__TEST_DIR__/prenest_explain_plan.parquet') os
+) WHERE l.qty < 3
+
+# 36 elements, 23 pass - the plan said it would push, and the reader did
+query I
+SELECT parquet_prenest_stat('elements_appended')
+----
+23
+
+statement ok
+SELECT parquet_prenest_stat('reset')
+
+statement ok
+SELECT sum(len(o.items)), count(*) FROM (
+    SELECT o, unnest(o.items) AS l
+    FROM (SELECT unnest(orders) AS o FROM '__TEST_DIR__/prenest_explain_plan.parquet') os
+) WHERE l.qty < 3
+
+# the plan showed no spec, and nothing was dropped
+query I
+SELECT parquet_prenest_stat('elements_appended')
+----
+0

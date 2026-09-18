@@ -1,5 +1,7 @@
 #include "duckdb/execution/operator/scan/physical_table_scan.hpp"
 
+#include "duckdb/planner/filter/prenest_filter_spec.hpp"
+
 #include "duckdb/catalog/catalog_entry/table_catalog_entry.hpp"
 #include "duckdb/common/mutex.hpp"
 #include "duckdb/common/optional_idx.hpp"
@@ -369,6 +371,26 @@ InsertionOrderPreservingMap<string> PhysicalTableScan::ParamsToString() const {
 	}
 	if (function.filter_pushdown && table_filters) {
 		result["Filters"] = GetFilterInfo(this, table_filters);
+	}
+
+	// PROBE: the element-level predicates the optimizer pushed into the scan. Shown so the plan
+	// alone answers "did the filter reach the reader" - the counterpart of DataFusion's
+	// `nested_filters=[...]` on its DataSourceExec.
+	if (bind_data) {
+		auto prenest_filters = bind_data->GetPrenestFilters();
+		string prenest_info;
+		for (auto &spec : prenest_filters) {
+			if (spec.empty() || !spec.predicate) {
+				continue;
+			}
+			if (!prenest_info.empty()) {
+				prenest_info += "\n";
+			}
+			prenest_info += spec.list_path + ": " + spec.predicate->ToString();
+		}
+		if (!prenest_info.empty()) {
+			result["Pre-nest Filters"] = prenest_info;
+		}
 	}
 
 	if (function.filter_pushdown && dynamic_filters && dynamic_filters->HasFilters()) {

@@ -1,3 +1,4 @@
+#include "duckdb/planner/filter/prenest_filter_spec.hpp"
 #include "duckdb/function/function.hpp"
 
 #include "duckdb/common/string_util.hpp"
@@ -43,6 +44,10 @@ bool FunctionData::SupportStatementCache() const {
 bool FunctionData::TrySetPrenestFilter(const vector<PrenestFilterSpec> &) {
 	// PROBE: most scans have no notion of a pre-nest predicate
 	return false;
+}
+
+vector<PrenestFilterSpec> FunctionData::GetPrenestFilters() const {
+	return vector<PrenestFilterSpec>();
 }
 
 Function::Function(string name_p) : name(std::move(name_p)) {

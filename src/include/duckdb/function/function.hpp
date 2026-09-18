@@ -67,6 +67,9 @@ struct FunctionData {
 	//! at most one per LIST column. Returns false when the scan cannot make use of them,
 	//! which is the default.
 	DUCKDB_API virtual bool TrySetPrenestFilter(const vector<PrenestFilterSpec> &specs);
+	//! PROBE: the pre-nest predicates this bind data accepted, for plan display. Empty unless
+	//! the scan supports pre-nest filtering and the optimizer pushed something.
+	DUCKDB_API virtual vector<PrenestFilterSpec> GetPrenestFilters() const;
 
 	template <class TARGET>
 	TARGET &Cast() {

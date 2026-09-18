@@ -234,6 +234,43 @@ bool HasColumnRef(const Expression &expr) {
 	return found;
 }
 
+//! A statement-level operator that wraps a query rather than being part of it. These do not
+//! override LogicalOperator::GetColumnBindings, so the default hands back the synthetic
+//! ColumnBinding(0, 0) - a binding that belongs to nobody but happens to resolve, via
+//! FindDefiningOperator(0), to whichever scan was given table index 0. SafeToTruncate would
+//! then read that scan's first column as "the query's output" and refuse every pushdown.
+//!
+//! Descending past them is not merely a workaround for EXPLAIN. For DML, COPY TO and CREATE
+//! TABLE AS the wrapped query's output is what gets written, so the child's bindings are
+//! exactly the set that has to stay observable; for EXPLAIN nothing is exposed at all, and
+//! using the child's bindings makes `EXPLAIN <query>` decide the same way as `<query>`, which
+//! is what makes a plan-shape test meaningful.
+bool IsStatementWrapper(const LogicalOperator &op) {
+	switch (op.type) {
+	case LogicalOperatorType::LOGICAL_EXPLAIN:
+	case LogicalOperatorType::LOGICAL_INSERT:
+	case LogicalOperatorType::LOGICAL_DELETE:
+	case LogicalOperatorType::LOGICAL_UPDATE:
+	case LogicalOperatorType::LOGICAL_MERGE_INTO:
+	case LogicalOperatorType::LOGICAL_CREATE_TABLE:
+	case LogicalOperatorType::LOGICAL_COPY_TO_FILE:
+		return true;
+	default:
+		// LOGICAL_PRAGMA and friends are leaves - they never wrap a query, so the synthetic
+		// binding they inherit has no scan under it to be mistaken for.
+		return false;
+	}
+}
+
+//! The operator whose output is what the statement actually produces.
+LogicalOperator &ResultProducer(LogicalOperator &plan) {
+	auto current = &plan;
+	while (IsStatementWrapper(*current) && current->children.size() == 1) {
+		current = current->children[0].get();
+	}
+	return *current;
+}
+
 //! The bare name of the list a source points at - this is what the reader matches against
 //! the parquet schema node, which knows nothing about paths.
 string LastSegment(const string &source) {
@@ -841,8 +878,9 @@ private:
 		}
 		// The plan's own output is read by whoever ran the query, and no expression in the
 		// plan reads it, so it has to be checked separately - otherwise a query that simply
-		// selects the enclosing value would see the truncation.
-		for (auto &binding : root->GetColumnBindings()) {
+		// selects the enclosing value would see the truncation. Ask the operator that really
+		// produces the result, not a statement wrapper above it (see IsStatementWrapper).
+		for (auto &binding : ResultProducer(*root).GetColumnBindings()) {
 			vector<PrenestPathEntry> path;
 			optional_ptr<LogicalGet> owner;
 			if (ResolveBindingPath(binding, path, &owner) && owner.get() == &get && IsAncestorOrSame(path, target)) {

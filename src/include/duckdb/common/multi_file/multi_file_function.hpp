@@ -62,6 +62,8 @@ struct MultiFileReaderInterface {
 	//! data. One spec per LIST column; a format that supports pre-nest filtering applies each
 	//! to its own list. Returns false when the format does not support it (the default).
 	virtual bool TrySetPrenestFilter(MultiFileBindData &bind_data, const vector<PrenestFilterSpec> &specs);
+	//! PROBE: the predicates stored by TrySetPrenestFilter, for plan display.
+	virtual vector<PrenestFilterSpec> GetPrenestFilters(const MultiFileBindData &bind_data) const;
 };
 
 template <class OP>

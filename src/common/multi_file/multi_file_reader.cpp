@@ -1,3 +1,4 @@
+#include "duckdb/planner/filter/prenest_filter_spec.hpp"
 #include "duckdb/common/multi_file/multi_file_reader.hpp"
 
 #include "duckdb/common/exception.hpp"
@@ -57,6 +58,13 @@ bool MultiFileBindData::TrySetPrenestFilter(const vector<PrenestFilterSpec> &spe
 		return false;
 	}
 	return interface->TrySetPrenestFilter(*this, specs);
+}
+
+vector<PrenestFilterSpec> MultiFileBindData::GetPrenestFilters() const {
+	if (!interface || !bind_data) {
+		return vector<PrenestFilterSpec>();
+	}
+	return interface->GetPrenestFilters(*this);
 }
 
 unique_ptr<FunctionData> MultiFileBindData::Copy() const {

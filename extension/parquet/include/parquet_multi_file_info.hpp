@@ -58,6 +58,8 @@ struct ParquetMultiFileInfo : MultiFileReaderInterface {
 	FileGlobInput GetGlobInput() override;
 	//! PROBE: store the automatically extracted pre-nest predicates on the parquet options
 	bool TrySetPrenestFilter(MultiFileBindData &bind_data, const vector<PrenestFilterSpec> &specs) override;
+	//! PROBE: hand them back so EXPLAIN can show what reached the scan
+	vector<PrenestFilterSpec> GetPrenestFilters(const MultiFileBindData &bind_data) const override;
 };
 
 class ParquetScanFunction {

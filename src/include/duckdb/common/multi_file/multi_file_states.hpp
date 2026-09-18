@@ -90,6 +90,8 @@ struct MultiFileBindData : public TableFunctionData {
 	}
 	//! PROBE: forward the pre-nest predicates to the format-specific bind data
 	bool TrySetPrenestFilter(const vector<PrenestFilterSpec> &specs) override;
+	//! PROBE: read them back for plan display
+	vector<PrenestFilterSpec> GetPrenestFilters() const override;
 
 	unique_ptr<FunctionData> Copy() const override;
 };

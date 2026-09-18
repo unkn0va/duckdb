@@ -1,3 +1,4 @@
+#include "duckdb/planner/filter/prenest_filter_spec.hpp"
 #include "parquet_multi_file_info.hpp"
 #include "duckdb/common/multi_file/multi_file_function.hpp"
 #include "duckdb/parser/parsed_data/create_table_function_info.hpp"
@@ -470,6 +471,13 @@ bool ParquetMultiFileInfo::TrySetPrenestFilter(MultiFileBindData &multi_file_dat
 		}
 	}
 	return true;
+}
+
+vector<PrenestFilterSpec> ParquetMultiFileInfo::GetPrenestFilters(const MultiFileBindData &multi_file_data) const {
+	if (!multi_file_data.bind_data) {
+		return vector<PrenestFilterSpec>();
+	}
+	return multi_file_data.bind_data->Cast<ParquetReadBindData>().GetParquetOptions().prenest_filters;
 }
 
 void ParquetMultiFileInfo::GetBindInfo(const TableFunctionData &bind_data_p, BindInfo &info) {
