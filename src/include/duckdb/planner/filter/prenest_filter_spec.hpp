@@ -20,8 +20,10 @@
 
 namespace duckdb {
 
-//! One "<field> <cmp> <literal>" term. The literal stays a string here - the
-//! reader casts it to the field's real type once it knows the element type.
+//! One "<field> <cmp> <literal>" term of the `parquet_prenest_filter` setting. The literal
+//! stays a string here - the reader casts it to the field's real type once it knows the element
+//! type, and compiles the term into the same expression shape `predicate` carries. The
+//! optimizer does not produce these: it has the bound expression already.
 struct PrenestRawCondition {
 	string field;
 	ExpressionType comparison;
@@ -42,6 +44,7 @@ struct PrenestFilterSpec {
 	//! Last segment of `list_path`. Not an identifier - two different lists can share it.
 	//! Kept because it is what the counters are keyed on and what the setting accepts.
 	string list_name;
+	//! set only on the `parquet_prenest_filter` path, which speaks strings
 	vector<PrenestRawCondition> conditions;
 	//! The predicate the reader actually evaluates, over the element STRUCT: its leaves are
 	//! BoundReferenceExpressions indexed by position in that struct, which is how
@@ -55,7 +58,7 @@ struct PrenestFilterSpec {
 	shared_ptr<Expression> predicate;
 
 	bool empty() const {
-		return conditions.empty();
+		return conditions.empty() && !predicate;
 	}
 };
 

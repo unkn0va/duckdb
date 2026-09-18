@@ -55,9 +55,9 @@
 //     correct; only the optimization is lost. That direction is covered by
 //     test/sql/optimizer/prenest/prenest_distributivity_dependency.test.
 //   * A factor lifted this way can still fail to reach the scan for an unrelated
-//     reason. q19's `l_shipmode IN ('AIR','AIR REG')` is lifted as a common factor,
-//     becomes a comprehension, and is then rejected by ToRawConditions because an
-//     IN list arrives as a CONJUNCTION_OR, which PrenestRawCondition cannot express.
+//     reason - see IsPushablePredicate. q19's `l_shipmode IN ('AIR','AIR REG')` is
+//     lifted as a common factor and does reach the scan: it arrives as a
+//     CONJUNCTION_OR of comparisons, which the reader evaluates directly.
 //===--------------------------------------------------------------------===//
 
 namespace duckdb {
@@ -133,54 +133,32 @@ private:
 	}
 };
 
-bool IsSupportedComparison(ExpressionType type) {
-	// NOTE: the DISTINCT FROM variants are excluded on purpose - the reader builds a
-	// ConstantFilter, whose NULL handling does not match them.
-	switch (type) {
-	case ExpressionType::COMPARE_EQUAL:
-	case ExpressionType::COMPARE_NOTEQUAL:
-	case ExpressionType::COMPARE_LESSTHAN:
-	case ExpressionType::COMPARE_GREATERTHAN:
-	case ExpressionType::COMPARE_LESSTHANOREQUALTO:
-	case ExpressionType::COMPARE_GREATERTHANOREQUALTO:
-		return true;
+//! Whether the reader may evaluate this predicate. IsElementEvaluable below decides what has a
+//! per-element MEANING; this decides what is safe to move EARLIER. The pre-nest filter runs
+//! during list assembly, so it sees elements of rows a row-level filter would have removed
+//! first - a predicate that throws on one of those would turn a working query into an error.
+//! PrenestFilter::Apply also catches, but that is the net, not the design: these classes are
+//! the ones that cannot throw on their own, so a CAST or a FUNCTION stays above the UNNEST.
+bool IsPushablePredicate(const Expression &expr) {
+	switch (expr.GetExpressionClass()) {
+	case ExpressionClass::BOUND_BETWEEN:
+	case ExpressionClass::BOUND_COMPARISON:
+	case ExpressionClass::BOUND_CONJUNCTION:
+	case ExpressionClass::BOUND_CONSTANT:
+	case ExpressionClass::BOUND_OPERATOR:
+	case ExpressionClass::BOUND_REF:
+		break;
 	default:
+		// BOUND_CAST and BOUND_FUNCTION in particular: both can throw at evaluation time
 		return false;
 	}
-}
-
-//! Only values whose string form is understood again by Value::DefaultCastAs are
-//! pushed - the literal travels to the reader as a string.
-bool IsSupportedLiteralType(const LogicalType &type) {
-	if (type.IsNested() || type.HasAlias()) {
-		return false;
-	}
-	switch (type.id()) {
-	case LogicalTypeId::BOOLEAN:
-	case LogicalTypeId::TINYINT:
-	case LogicalTypeId::SMALLINT:
-	case LogicalTypeId::INTEGER:
-	case LogicalTypeId::BIGINT:
-	case LogicalTypeId::HUGEINT:
-	case LogicalTypeId::UTINYINT:
-	case LogicalTypeId::USMALLINT:
-	case LogicalTypeId::UINTEGER:
-	case LogicalTypeId::UBIGINT:
-	case LogicalTypeId::UHUGEINT:
-	case LogicalTypeId::FLOAT:
-	case LogicalTypeId::DOUBLE:
-	case LogicalTypeId::DECIMAL:
-	case LogicalTypeId::VARCHAR:
-	case LogicalTypeId::DATE:
-	case LogicalTypeId::TIME:
-	case LogicalTypeId::TIMESTAMP:
-	case LogicalTypeId::TIMESTAMP_SEC:
-	case LogicalTypeId::TIMESTAMP_MS:
-	case LogicalTypeId::TIMESTAMP_NS:
-		return true;
-	default:
-		return false;
-	}
+	auto pushable = true;
+	ExpressionIterator::EnumerateChildren(expr, [&](const Expression &child) {
+		if (!IsPushablePredicate(child)) {
+			pushable = false;
+		}
+	});
+	return pushable;
 }
 
 //! Whether an expression means anything when evaluated against a single list element.
@@ -748,19 +726,15 @@ private:
 				                      .first->expressions[candidates[i].second]
 				                      ->Cast<BoundComprehensionExpression>()
 				                      .Innermost();
-				vector<PrenestRawCondition> extracted;
-				if (!ToRawConditions(*innermost.predicate, extracted) || extracted.empty()) {
+				if (!IsPushablePredicate(*innermost.predicate)) {
 					continue;
 				}
 				entry.consumed.push_back(candidates[i]);
-				for (auto &condition : extracted) {
-					entry.spec.conditions.push_back(std::move(condition));
-				}
-				// The reader evaluates this, not the decomposed conditions above. It is a copy:
-				// the comprehension - and the plan holding it - is gone by the time a reader runs.
+				// A copy: the comprehension - and the plan holding it - is gone by the time a
+				// reader runs.
 				entry.predicates.push_back(innermost.predicate->Copy());
 			}
-			if (entry.spec.conditions.empty()) {
+			if (entry.predicates.empty()) {
 				continue;
 			}
 			// Per spec, not per scan: dropping elements of one list says nothing about whether
@@ -846,69 +820,6 @@ private:
 			conjunction->children.push_back(std::move(predicate));
 		}
 		return std::move(conjunction);
-	}
-
-	//! Convert the flattened predicate into the reader's conjunction form.
-	bool ToRawConditions(const Expression &expr, vector<PrenestRawCondition> &result) {
-		switch (expr.GetExpressionClass()) {
-		case ExpressionClass::BOUND_CONJUNCTION: {
-			auto &conj = expr.Cast<BoundConjunctionExpression>();
-			if (conj.GetExpressionType() != ExpressionType::CONJUNCTION_AND) {
-				return false;
-			}
-			for (auto &child : conj.children) {
-				if (!ToRawConditions(*child, result)) {
-					return false;
-				}
-			}
-			return true;
-		}
-		case ExpressionClass::BOUND_COMPARISON: {
-			auto &cmp = expr.Cast<BoundComparisonExpression>();
-			auto type = cmp.GetExpressionType();
-			if (!IsSupportedComparison(type)) {
-				return false;
-			}
-			if (AddCondition(*cmp.left, *cmp.right, type, result)) {
-				return true;
-			}
-			return AddCondition(*cmp.right, *cmp.left, FlipComparisonExpression(type), result);
-		}
-		case ExpressionClass::BOUND_BETWEEN: {
-			// x BETWEEN a AND b is x >= a AND x <= b, and both halves reject a NULL x exactly
-			// like BETWEEN does
-			auto &between = expr.Cast<BoundBetweenExpression>();
-			return AddCondition(*between.input, *between.lower, between.LowerComparisonType(), result) &&
-			       AddCondition(*between.input, *between.upper, between.UpperComparisonType(), result);
-		}
-		default:
-			return false;
-		}
-	}
-
-	bool AddCondition(const Expression &field, const Expression &constant, ExpressionType comparison,
-	                  vector<PrenestRawCondition> &result) {
-		if (field.GetExpressionClass() != ExpressionClass::BOUND_REF ||
-		    constant.GetExpressionClass() != ExpressionClass::BOUND_CONSTANT) {
-			return false;
-		}
-		auto &value = constant.Cast<BoundConstantExpression>().value;
-		if (value.IsNull()) {
-			// comparing against NULL is never a plain ConstantFilter
-			return false;
-		}
-		auto &ref = field.Cast<BoundReferenceExpression>();
-		if (!IsSupportedLiteralType(ref.return_type) || value.type() != ref.return_type) {
-			// a cast between the field and the comparison would mean the comparison happens at a
-			// type other than the field's, while the reader casts the literal to the FIELD type
-			return false;
-		}
-		PrenestRawCondition condition;
-		condition.field = ref.GetName();
-		condition.comparison = comparison;
-		condition.literal = value.ToString();
-		result.push_back(std::move(condition));
-		return true;
 	}
 
 	//! Dropping elements changes the list itself, so every value that CONTAINS that list

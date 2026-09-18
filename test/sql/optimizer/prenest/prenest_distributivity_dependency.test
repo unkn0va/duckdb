@@ -6,7 +6,11 @@
 # (A AND C) OR (B AND C) is extracted only because DuckDB's DistributivityRule
 # (EXPRESSION_REWRITER) lifted C out first. These tests pin both halves of that:
 #   - with the rewriter off, nothing is extracted and the answer is still right
-#   - a factor missing from one branch is never lifted, so never extracted
+#   - a factor missing from one branch is never lifted
+#
+# Since the reader evaluates the predicate with an ExpressionExecutor, a disjunction is itself
+# pushable, so "extracted" no longer means "only the lifted factor" - what DistributivityRule
+# changes is which conjuncts exist at the top level, not whether an OR can be pushed.
 #
 # Asserted on elements_appended / predicate_elements. NOT on elements_decoded:
 # that counter skips the decode of any iteration entered with carried-over values,
@@ -51,11 +55,15 @@ WHERE (l.lq >= 0  AND l.lq <= 9  AND l.linstruct = 'DELIVER IN PERSON' AND l.lmo
 ----
 55
 
-# the reader saw all 360 elements and kept 90: extraction really happened
+# the reader saw all 360 elements and kept 55: extraction really happened. Once the reader
+# evaluates the predicate with an ExpressionExecutor this is the whole WHERE clause, not just the
+# lifted factor - DistributivityRule leaves `C AND (A1 OR A2 OR A3)`, and both conjuncts are
+# pushable now, so the count matches the query's own result exactly. It was 90 while an IN list
+# and a disjunction of ranges could not be expressed as ConstantFilters.
 query II
 SELECT parquet_prenest_stat('predicate_elements'), parquet_prenest_stat('elements_appended')
 ----
-360	90
+360	55
 
 # ------------------------------------------------------------------------------------------------
 # rewriter disabled: the OR stays intact, nothing is extracted, the answer is unchanged.
@@ -89,8 +97,14 @@ SET disabled_optimizers=''
 
 # ------------------------------------------------------------------------------------------------
 # counterexample: l_shipinstruct is absent from the third branch, so DistributivityRule's
-# all-branch intersection refuses to lift it and no spec is ever built.
+# all-branch intersection refuses to lift it.
 # (A AND C) OR (B AND C) OR (D)  =/=>  C
+#
+# `lmode` IS in all three branches and is lifted, and since the reader evaluates expressions it
+# is now pushed - so the counter below is no longer 0. What pins the counterexample is the
+# ANSWER: 72 rows here against 55 in the baseline above. Had `linstruct` been lifted too, rows
+# matching only the third branch would have been dropped and the answer would be wrong. The
+# repeat with the pass switched off at the end of this file is the other half of that.
 # ------------------------------------------------------------------------------------------------
 
 statement ok
@@ -107,10 +121,11 @@ WHERE (l.lq >= 0  AND l.lq <= 9  AND l.linstruct = 'DELIVER IN PERSON' AND l.lmo
 ----
 72
 
+# the lifted `lmode` factor and the surviving disjunction are both pushed; `linstruct` is not
 query II
 SELECT parquet_prenest_stat('predicate_elements'), parquet_prenest_stat('elements_appended')
 ----
-0	0
+360	72
 
 # and the same answer with the pass switched off entirely
 statement ok

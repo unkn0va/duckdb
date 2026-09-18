@@ -98,20 +98,13 @@ public:
 	//! Build from an already-resolved spec. Returns nullptr if it carries no conditions.
 	static unique_ptr<PrenestFilter> FromSpec(const PrenestFilterSpec &spec);
 
-	//! Build straight from conditions, bypassing the string spec. This is the path
-	//! for predicates handed over by something other than the setting (e.g. an
-	//! automatic extraction). Returns nullptr if `conditions` is empty.
-	static unique_ptr<PrenestFilter> FromConditions(const string &list_name, vector<RawCondition> conditions);
-
 	//! Resolve the predicate against a concrete element STRUCT type and build the executor
 	//! that runs it. Returns false if any referenced field is absent or does not line up -
 	//! the caller then keeps the stock path. Never throws.
 	bool Bind(ClientContext &context, const LogicalType &element_type);
 
-	//! Names referenced by the conjunction, for the "is this the right list" test.
-	const vector<string> &FieldNames() const {
-		return field_names;
-	}
+	//! Element-struct positions the predicate reads, for the "are those columns projected"
+	//! test - an unprojected child is a constant NULL vector.
 	const vector<idx_t> &FieldChildIndexes() const {
 		return field_child_indexes;
 	}
@@ -145,7 +138,6 @@ private:
 	vector<RawCondition> raw_conditions;
 	//! set on the injected path; null when the conditions above are the source
 	shared_ptr<Expression> injected_predicate;
-	vector<string> field_names;
 	vector<idx_t> field_child_indexes;
 
 	//! bound state, all built in Bind()

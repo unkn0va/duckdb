@@ -73,30 +73,6 @@ static bool ParseComparison(const string &term, string &field, ExpressionType &c
 	return false;
 }
 
-unique_ptr<PrenestFilter> PrenestFilter::FromConditions(const string &list_name, vector<RawCondition> conditions) {
-	if (conditions.empty()) {
-		return nullptr;
-	}
-	auto result = make_uniq<PrenestFilter>();
-	result->list_name = list_name;
-	StringUtil::Trim(result->list_name);
-	result->list_stats = PrenestStats::Get().ForList(result->list_name);
-	result->raw_conditions = std::move(conditions);
-	for (auto &cond : result->raw_conditions) {
-		bool seen = false;
-		for (auto &name : result->field_names) {
-			if (name == cond.field) {
-				seen = true;
-				break;
-			}
-		}
-		if (!seen) {
-			result->field_names.push_back(cond.field);
-		}
-	}
-	return result;
-}
-
 bool PrenestFilter::ParseSpec(const string &spec, PrenestFilterSpec &result) {
 	auto trimmed = spec;
 	StringUtil::Trim(trimmed);
@@ -132,10 +108,17 @@ bool PrenestFilter::ParseSpec(const string &spec, PrenestFilterSpec &result) {
 }
 
 unique_ptr<PrenestFilter> PrenestFilter::FromSpec(const PrenestFilterSpec &spec) {
-	auto result = FromConditions(spec.list_name, spec.conditions);
-	if (result) {
-		result->injected_predicate = spec.predicate;
+	if (spec.empty()) {
+		return nullptr;
 	}
+	auto result = make_uniq<PrenestFilter>();
+	result->list_name = spec.list_name;
+	StringUtil::Trim(result->list_name);
+	result->list_stats = PrenestStats::Get().ForList(result->list_name);
+	// exactly one of the two is set: an injected predicate is already bound, the setting's
+	// conditions are compiled into the same shape by Bind()
+	result->raw_conditions = spec.conditions;
+	result->injected_predicate = spec.predicate;
 	return result;
 }
 
