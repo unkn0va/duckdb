@@ -86,3 +86,26 @@ setting as well as from the automatic path; not exercised by TPC-H, which has no
 The optimizer's collision guard (`DropNameCollisions`) only covers the case where two specs of one
 scan collide, not a single spec whose bare name is ambiguous against the file schema. Real fix is
 to carry the full root-relative path in the spec and match on it.
+
+## Path encoding is not injective (recorded 2026-09-18)
+
+`RenderPath` joins segments with `.` and marks element steps with `[]`.
+When a field name itself contains `.` or `[]`, distinct nodes render to the
+same string:
+
+- column `"a.b"` (LIST) vs field `b` of struct `a` (LIST) -> both render `a.b`
+- column `"a[]"` (STRUCT) vs the element node of list `a` -> both render `a[]`
+
+Handled by requiring a unique match in the reader: a spec is attached only
+when its path matches exactly one LIST/MAP node in the file schema. Ambiguous
+paths are refused (no pushdown, correct results, `elements_appended=0`).
+Escaping the encoding was rejected because `SafeToTruncate` / `IsAncestorOrSame`
+in the optimizer all depend on the current form.
+
+The optimizer round-trip is separately broken for such names: `ParsePath("a.b")`
+splits on `.` and yields two levels, so `SafeToTruncate`'s `iterated` lookup
+misses. It fails in the safe direction (no spec), so it is left as is.
+
+Fixed in cf84e2b368; regression cases in
+`test/sql/optimizer/prenest/prenest_name_collision.test` (with controls proving
+the refusal is the uniqueness check, not a missing spec).
