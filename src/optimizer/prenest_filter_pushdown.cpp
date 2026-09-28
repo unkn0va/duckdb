@@ -312,9 +312,10 @@ string LastSegment(const string &source) {
 }
 
 //! "c_orders[].o_lineitems": a field step is its name, an element step is "[]" appended to
-//! the field it descends into. Spelling the element steps out keeps the path round-trippable,
-//! which matters because a plain struct field produces two adjacent names with no element
-//! step between them.
+//! the field it descends into. Spelling the element steps out keeps the path round-trippable
+//! AT THE STRING LEVEL, which matters because a plain struct field produces two adjacent
+//! names with no element step between them. It is not round-trippable at the STEP level -
+//! see ParsePath.
 string RenderPath(const vector<PrenestPathEntry> &path) {
 	string result;
 	for (auto &step : path) {
@@ -330,6 +331,19 @@ string RenderPath(const vector<PrenestPathEntry> &path) {
 	return result;
 }
 
+//! The inverse of RenderPath, and not a faithful one: the encoding is not injective. A field
+//! whose own name contains '.' or ends in "[]" renders to a string another node also renders
+//! to, and parsing that string back splits it at the wrong places - a column literally named
+//! "a.b" comes back as two steps. Escaping would fix it and is deliberately not done; the two
+//! consumers are expected to notice instead, and both do:
+//!
+//!   - the reader counts how many schema nodes a path matches and attaches nothing unless
+//!     there is exactly one (parquet_reader.cpp, CountPathMatches)
+//!   - SafeToTruncate compares STEP LISTS, so a mis-split target matches no UNNEST, nothing
+//!     lands in `iterated`, and the lookup at the end of the function refuses
+//!
+//! Both halves are covered by prenest_schema_shapes.test (s3a refused by the optimizer, s3b by
+//! the reader) and by prenest_name_collision.test.
 vector<PrenestPathEntry> ParsePath(const string &rendered) {
 	vector<PrenestPathEntry> result;
 	for (auto &segment : StringUtil::Split(rendered, ".")) {
@@ -1100,6 +1114,12 @@ private:
 
 	//===------------------------------------------------------------------===//
 	// Pass 4 - nothing evaluates a comprehension, so none may survive
+	//
+	// Dropping one costs an optimization and never an answer, because Classify does not remove
+	// the predicate it formed the comprehension from - see the comment at "The binder itself is
+	// deliberately NOT removed from the Filter above". The rows are still filtered up there,
+	// just later. That is also why this only has to sweep Filters: comprehensions are created
+	// into a LogicalFilter and moved out to LogicalUnnest::filters, nowhere else.
 	//===------------------------------------------------------------------===//
 	void StripLeftovers(unique_ptr<LogicalOperator> &op) {
 		for (auto &child : op->children) {
