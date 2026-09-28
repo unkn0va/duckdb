@@ -70,6 +70,13 @@ statement ok
 COPY (SELECT id, [{'qty': ((id + j) % 5)::INTEGER} FOR j IN range(3)] AS items
       FROM range(30000) t(id)) TO '__TEST_DIR__/prenest_ss_s8.parquet' (FORMAT parquet, ROW_GROUP_SIZE 5000)
 
+statement ok
+COPY (SELECT id, [{'f0': j::INTEGER, 'f1': j::INTEGER, 'f2': j::INTEGER, 'f3': j::INTEGER,
+                   'f4': (id * 10 + j)::INTEGER, 'f5': j::INTEGER, 'f6': j::INTEGER,
+                   'f7': j::INTEGER, 'f8': j::INTEGER,
+                   'f9': ('m' || ((id + j) % 3)::VARCHAR)} FOR j IN range(4)] AS items
+      FROM range(8) t(id)) TO '__TEST_DIR__/prenest_ss_s9.parquet' (FORMAT parquet)
+
 
 # ------------------------------------------------------------------------------------------------
 # s1 - three levels of nesting, predicate on the innermost list
@@ -487,3 +494,48 @@ true
 # elements_decoded is NOT asserted: it undercounts by one vector per row group, because
 # ListColumnReader::ApplyPendingSkips has no pending_skips == 0 guard and the zero-length
 # skip read it performs is not counted. elements_appended is exact.
+
+# ------------------------------------------------------------------------------------------------
+# s9 - predicate on a late field, and only a different field read
+# The element struct has ten fields. The predicate names f9 (the last) and the query reads only
+# f4, so the fields between them are never projected. Flatten indexes the predicate's leaf by
+# position in the element struct, and the reader lays the element's columns out by the same
+# positions - if the two ever disagreed, this compares the wrong column and both the row count
+# and the sum move. 11 elements pass and their f4 sums to 387, counted with the pass off.
+# ------------------------------------------------------------------------------------------------
+
+statement ok
+SET parquet_prenest_auto=false
+
+statement ok
+CREATE TABLE s9_off AS SELECT count(*) AS n, sum(l.f4) AS s4 FROM
+    (SELECT unnest(items) AS l FROM '__TEST_DIR__/prenest_ss_s9.parquet')
+WHERE l.f9 = 'm0'
+
+statement ok
+SET parquet_prenest_auto=true
+
+statement ok
+SELECT parquet_prenest_stat('reset')
+
+statement ok
+CREATE TABLE s9_on AS SELECT count(*) AS n, sum(l.f4) AS s4 FROM
+    (SELECT unnest(items) AS l FROM '__TEST_DIR__/prenest_ss_s9.parquet')
+WHERE l.f9 = 'm0'
+
+query II
+SELECT (SELECT count(*) FROM (SELECT * FROM s9_on EXCEPT ALL SELECT * FROM s9_off)),
+       (SELECT count(*) FROM (SELECT * FROM s9_off EXCEPT ALL SELECT * FROM s9_on))
+----
+0	0
+
+query I
+SELECT parquet_prenest_stat('elements_appended:items')
+----
+11
+
+# and the values themselves, so a wrong column would not pass by returning the right count
+query II
+SELECT n, s4 FROM s9_on
+----
+11	387
