@@ -1,0 +1,537 @@
+# name: test/sql/optimizer/prenest/prenest_untraceable_reads.test
+# description: A read the optimizer cannot trace back to the scan must refuse the truncation
+# group: [prenest]
+
+# SafeToTruncate resolves every read to a root-relative path and compares it against the target
+# list. ResolveBindingPath walks that path through GET, PROJECTION and UNNEST and gives up at
+# anything else, so a value that crosses an operator re-binding it under its own table index -
+# a set operation, a materialised or recursive CTE reference - cannot be traced. Before the fix
+# every check then went quiet at once and the list was truncated under a reader that could see
+# it: on TPC-H SF1, sum(len(o.o_lineitems)) over the q6 predicate read 571,126 with the pass off
+# and 165,582 with it on.
+#
+# Each case asserts twice: the result against the same query with the pass off, both directions
+# with EXCEPT ALL, and elements_appended for the target list. The counter is what separates
+# "refused" from "ran and happened to agree".
+#
+# Verification is off: PRAGMA enable_verification re-runs with the optimizer disabled and reports
+# THAT result, so the assertions would pass without the pre-nest path having run, and the
+# process-global counters would accumulate across the repeats.
+
+require parquet
+
+statement ok
+PRAGMA disable_verification
+
+statement ok
+COPY (
+    SELECT cid,
+           [{'oid': (cid * 10 + k)::INTEGER,
+             'items': [{'qty': ((cid + k + j) % 5)::INTEGER, 'price': (j * 100)::INTEGER}
+                       FOR j IN range(3)]}
+            FOR k IN range(2)] AS orders
+    FROM range(6) t(cid)
+) TO '__TEST_DIR__/prenest_untraceable.parquet' (FORMAT parquet)
+
+
+# ------------------------------------------------------------------------------------------------
+# ctl - control: the q6 shape, nothing reads the list whole
+# 6 cids x 2 orders x 3 items = 36 elements, 23 pass. If this ever reads 0 the rest of the
+# file is asserting nothing - every other case here expects 0, which a pass that never runs
+# would also produce.
+# ------------------------------------------------------------------------------------------------
+
+statement ok
+SET parquet_prenest_auto=false
+
+statement ok
+CREATE TABLE ctl_off AS SELECT count(*) AS n FROM (
+    SELECT unnest(o.items) AS l
+    FROM (SELECT unnest(orders) AS o FROM '__TEST_DIR__/prenest_untraceable.parquet') os
+) WHERE l.qty < 3
+
+statement ok
+SET parquet_prenest_auto=true
+
+statement ok
+SELECT parquet_prenest_stat('reset')
+
+statement ok
+CREATE TABLE ctl_on AS SELECT count(*) AS n FROM (
+    SELECT unnest(o.items) AS l
+    FROM (SELECT unnest(orders) AS o FROM '__TEST_DIR__/prenest_untraceable.parquet') os
+) WHERE l.qty < 3
+
+query II
+SELECT (SELECT count(*) FROM (SELECT * FROM ctl_on EXCEPT ALL SELECT * FROM ctl_off)),
+       (SELECT count(*) FROM (SELECT * FROM ctl_off EXCEPT ALL SELECT * FROM ctl_on))
+----
+0	0
+
+query I
+SELECT parquet_prenest_stat('elements_appended:items')
+----
+23
+
+# ------------------------------------------------------------------------------------------------
+# c0 - the list read whole in the same query - caught before the fix too
+# ------------------------------------------------------------------------------------------------
+
+statement ok
+SET parquet_prenest_auto=false
+
+statement ok
+CREATE TABLE c0_off AS SELECT sum(len(u.o.items)) AS t, count(*) AS n FROM (
+    SELECT o FROM (SELECT o, unnest(o.items) AS l
+              FROM (SELECT unnest(orders) AS o FROM '__TEST_DIR__/prenest_untraceable.parquet') os)
+WHERE l.qty < 3
+) u
+
+statement ok
+SET parquet_prenest_auto=true
+
+statement ok
+SELECT parquet_prenest_stat('reset')
+
+statement ok
+CREATE TABLE c0_on AS SELECT sum(len(u.o.items)) AS t, count(*) AS n FROM (
+    SELECT o FROM (SELECT o, unnest(o.items) AS l
+              FROM (SELECT unnest(orders) AS o FROM '__TEST_DIR__/prenest_untraceable.parquet') os)
+WHERE l.qty < 3
+) u
+
+query II
+SELECT (SELECT count(*) FROM (SELECT * FROM c0_on EXCEPT ALL SELECT * FROM c0_off)),
+       (SELECT count(*) FROM (SELECT * FROM c0_off EXCEPT ALL SELECT * FROM c0_on))
+----
+0	0
+
+query I
+SELECT parquet_prenest_stat('elements_appended:items')
+----
+0
+
+# ------------------------------------------------------------------------------------------------
+# c1 - across a MATERIALIZED CTE
+# CTE_REF. Was 23 and wrong before the fix.
+# ------------------------------------------------------------------------------------------------
+
+statement ok
+SET parquet_prenest_auto=false
+
+statement ok
+CREATE TABLE c1_off AS WITH x AS MATERIALIZED (
+    SELECT o FROM (SELECT o, unnest(o.items) AS l
+              FROM (SELECT unnest(orders) AS o FROM '__TEST_DIR__/prenest_untraceable.parquet') os)
+WHERE l.qty < 3
+)
+SELECT sum(len(x.o.items)) AS t, count(*) AS n FROM x
+
+statement ok
+SET parquet_prenest_auto=true
+
+statement ok
+SELECT parquet_prenest_stat('reset')
+
+statement ok
+CREATE TABLE c1_on AS WITH x AS MATERIALIZED (
+    SELECT o FROM (SELECT o, unnest(o.items) AS l
+              FROM (SELECT unnest(orders) AS o FROM '__TEST_DIR__/prenest_untraceable.parquet') os)
+WHERE l.qty < 3
+)
+SELECT sum(len(x.o.items)) AS t, count(*) AS n FROM x
+
+query II
+SELECT (SELECT count(*) FROM (SELECT * FROM c1_on EXCEPT ALL SELECT * FROM c1_off)),
+       (SELECT count(*) FROM (SELECT * FROM c1_off EXCEPT ALL SELECT * FROM c1_on))
+----
+0	0
+
+query I
+SELECT parquet_prenest_stat('elements_appended:items')
+----
+0
+
+# ------------------------------------------------------------------------------------------------
+# c2 - across an inline CTE referenced twice - DuckDB materialises it
+# No MATERIALIZED keyword: two references are enough. The plan carries one CTE node and two
+# CTE_SCANs over a single PARQUET_SCAN.
+# ------------------------------------------------------------------------------------------------
+
+statement ok
+SET parquet_prenest_auto=false
+
+statement ok
+CREATE TABLE c2_off AS WITH x AS (
+    SELECT o FROM (SELECT o, unnest(o.items) AS l
+              FROM (SELECT unnest(orders) AS o FROM '__TEST_DIR__/prenest_untraceable.parquet') os)
+WHERE l.qty < 3
+)
+SELECT sum(len(a.o.items)) AS t, count(*) AS n
+FROM (SELECT o FROM x UNION ALL SELECT o FROM x) a
+
+statement ok
+SET parquet_prenest_auto=true
+
+statement ok
+SELECT parquet_prenest_stat('reset')
+
+statement ok
+CREATE TABLE c2_on AS WITH x AS (
+    SELECT o FROM (SELECT o, unnest(o.items) AS l
+              FROM (SELECT unnest(orders) AS o FROM '__TEST_DIR__/prenest_untraceable.parquet') os)
+WHERE l.qty < 3
+)
+SELECT sum(len(a.o.items)) AS t, count(*) AS n
+FROM (SELECT o FROM x UNION ALL SELECT o FROM x) a
+
+query II
+SELECT (SELECT count(*) FROM (SELECT * FROM c2_on EXCEPT ALL SELECT * FROM c2_off)),
+       (SELECT count(*) FROM (SELECT * FROM c2_off EXCEPT ALL SELECT * FROM c2_on))
+----
+0	0
+
+query I
+SELECT parquet_prenest_stat('elements_appended:items')
+----
+0
+
+# ------------------------------------------------------------------------------------------------
+# u1 - across UNION ALL, the chain in one branch only
+# `orders` also expects 0, and that one is over-refusal: the second branch's spec was never
+# at risk. The rule is about the untraceable value, not about which spec it endangers, so a
+# query containing one refuses all of them. Performance, not correctness.
+# ------------------------------------------------------------------------------------------------
+
+statement ok
+SET parquet_prenest_auto=false
+
+statement ok
+CREATE TABLE u1_off AS SELECT sum(len(u.o.items)) AS t, count(*) AS n FROM (
+    SELECT o FROM (SELECT o, unnest(o.items) AS l
+              FROM (SELECT unnest(orders) AS o FROM '__TEST_DIR__/prenest_untraceable.parquet') os)
+WHERE l.qty < 3
+  UNION ALL
+    SELECT o FROM (SELECT unnest(orders) AS o FROM '__TEST_DIR__/prenest_untraceable.parquet') os2 WHERE o.oid < 35
+) u
+
+statement ok
+SET parquet_prenest_auto=true
+
+statement ok
+SELECT parquet_prenest_stat('reset')
+
+statement ok
+CREATE TABLE u1_on AS SELECT sum(len(u.o.items)) AS t, count(*) AS n FROM (
+    SELECT o FROM (SELECT o, unnest(o.items) AS l
+              FROM (SELECT unnest(orders) AS o FROM '__TEST_DIR__/prenest_untraceable.parquet') os)
+WHERE l.qty < 3
+  UNION ALL
+    SELECT o FROM (SELECT unnest(orders) AS o FROM '__TEST_DIR__/prenest_untraceable.parquet') os2 WHERE o.oid < 35
+) u
+
+query II
+SELECT (SELECT count(*) FROM (SELECT * FROM u1_on EXCEPT ALL SELECT * FROM u1_off)),
+       (SELECT count(*) FROM (SELECT * FROM u1_off EXCEPT ALL SELECT * FROM u1_on))
+----
+0	0
+
+query I
+SELECT parquet_prenest_stat('elements_appended:items')
+----
+0
+
+# ------------------------------------------------------------------------------------------------
+# u2 - across UNION ALL, both branches carry the chain
+# Each branch has its own scan, so `iterated` stays at 1 per level and the exactly-once check
+# does not fire - this is caught by the untraceable read above the UNION, not by that check.
+# ------------------------------------------------------------------------------------------------
+
+statement ok
+SET parquet_prenest_auto=false
+
+statement ok
+CREATE TABLE u2_off AS SELECT sum(len(u.o.items)) AS t, count(*) AS n FROM (
+    SELECT o FROM (SELECT o, unnest(o.items) AS l
+              FROM (SELECT unnest(orders) AS o FROM '__TEST_DIR__/prenest_untraceable.parquet') os)
+WHERE l.qty < 3
+  UNION ALL
+    SELECT o FROM (SELECT o, unnest(o.items) AS l
+                   FROM (SELECT unnest(orders) AS o FROM '__TEST_DIR__/prenest_untraceable.parquet') os2)
+    WHERE l.qty >= 3
+) u
+
+statement ok
+SET parquet_prenest_auto=true
+
+statement ok
+SELECT parquet_prenest_stat('reset')
+
+statement ok
+CREATE TABLE u2_on AS SELECT sum(len(u.o.items)) AS t, count(*) AS n FROM (
+    SELECT o FROM (SELECT o, unnest(o.items) AS l
+              FROM (SELECT unnest(orders) AS o FROM '__TEST_DIR__/prenest_untraceable.parquet') os)
+WHERE l.qty < 3
+  UNION ALL
+    SELECT o FROM (SELECT o, unnest(o.items) AS l
+                   FROM (SELECT unnest(orders) AS o FROM '__TEST_DIR__/prenest_untraceable.parquet') os2)
+    WHERE l.qty >= 3
+) u
+
+query II
+SELECT (SELECT count(*) FROM (SELECT * FROM u2_on EXCEPT ALL SELECT * FROM u2_off)),
+       (SELECT count(*) FROM (SELECT * FROM u2_off EXCEPT ALL SELECT * FROM u2_on))
+----
+0	0
+
+query I
+SELECT parquet_prenest_stat('elements_appended:items')
+----
+0
+
+# ------------------------------------------------------------------------------------------------
+# r1 - across a recursive CTE
+# RECURSIVE_CTE was never enumerated anywhere in the fix - it is covered because the rule is
+# about the walk stopping, not about which operator stopped it. Measured broken before the
+# fix on TPC-H SF1 (571,126 -> 165,582) and refused after.
+# ------------------------------------------------------------------------------------------------
+
+statement ok
+SET parquet_prenest_auto=false
+
+statement ok
+CREATE TABLE r1_off AS WITH RECURSIVE r(o, depth) AS (
+    SELECT o, 0 AS depth FROM (
+        SELECT o FROM (SELECT o, unnest(o.items) AS l
+              FROM (SELECT unnest(orders) AS o FROM '__TEST_DIR__/prenest_untraceable.parquet') os)
+WHERE l.qty < 3
+    ) b
+  UNION ALL
+    SELECT o, depth + 1 FROM r WHERE depth < 0
+)
+SELECT sum(len(r.o.items)) AS t, count(*) AS n FROM r
+
+statement ok
+SET parquet_prenest_auto=true
+
+statement ok
+SELECT parquet_prenest_stat('reset')
+
+statement ok
+CREATE TABLE r1_on AS WITH RECURSIVE r(o, depth) AS (
+    SELECT o, 0 AS depth FROM (
+        SELECT o FROM (SELECT o, unnest(o.items) AS l
+              FROM (SELECT unnest(orders) AS o FROM '__TEST_DIR__/prenest_untraceable.parquet') os)
+WHERE l.qty < 3
+    ) b
+  UNION ALL
+    SELECT o, depth + 1 FROM r WHERE depth < 0
+)
+SELECT sum(len(r.o.items)) AS t, count(*) AS n FROM r
+
+query II
+SELECT (SELECT count(*) FROM (SELECT * FROM r1_on EXCEPT ALL SELECT * FROM r1_off)),
+       (SELECT count(*) FROM (SELECT * FROM r1_off EXCEPT ALL SELECT * FROM r1_on))
+----
+0	0
+
+query I
+SELECT parquet_prenest_stat('elements_appended:items')
+----
+0
+
+# ------------------------------------------------------------------------------------------------
+# p1 - a lambda over the list
+# ------------------------------------------------------------------------------------------------
+
+statement ok
+SET parquet_prenest_auto=false
+
+statement ok
+CREATE TABLE p1_off AS SELECT sum(len(list_filter(u.o.items, x -> x.qty < 100))) AS t, count(*) AS n FROM (
+    SELECT o FROM (SELECT o, unnest(o.items) AS l
+              FROM (SELECT unnest(orders) AS o FROM '__TEST_DIR__/prenest_untraceable.parquet') os)
+WHERE l.qty < 3
+) u
+
+statement ok
+SET parquet_prenest_auto=true
+
+statement ok
+SELECT parquet_prenest_stat('reset')
+
+statement ok
+CREATE TABLE p1_on AS SELECT sum(len(list_filter(u.o.items, x -> x.qty < 100))) AS t, count(*) AS n FROM (
+    SELECT o FROM (SELECT o, unnest(o.items) AS l
+              FROM (SELECT unnest(orders) AS o FROM '__TEST_DIR__/prenest_untraceable.parquet') os)
+WHERE l.qty < 3
+) u
+
+query II
+SELECT (SELECT count(*) FROM (SELECT * FROM p1_on EXCEPT ALL SELECT * FROM p1_off)),
+       (SELECT count(*) FROM (SELECT * FROM p1_off EXCEPT ALL SELECT * FROM p1_on))
+----
+0	0
+
+query I
+SELECT parquet_prenest_stat('elements_appended:items')
+----
+0
+
+# ------------------------------------------------------------------------------------------------
+# p2 - list indexing
+# ------------------------------------------------------------------------------------------------
+
+statement ok
+SET parquet_prenest_auto=false
+
+statement ok
+CREATE TABLE p2_off AS SELECT count(*) FILTER (WHERE u.o.items[1].qty < 3) AS f,
+       sum(len(u.o.items)) AS t, count(*) AS n FROM (
+    SELECT o FROM (SELECT o, unnest(o.items) AS l
+              FROM (SELECT unnest(orders) AS o FROM '__TEST_DIR__/prenest_untraceable.parquet') os)
+WHERE l.qty < 3
+) u
+
+statement ok
+SET parquet_prenest_auto=true
+
+statement ok
+SELECT parquet_prenest_stat('reset')
+
+statement ok
+CREATE TABLE p2_on AS SELECT count(*) FILTER (WHERE u.o.items[1].qty < 3) AS f,
+       sum(len(u.o.items)) AS t, count(*) AS n FROM (
+    SELECT o FROM (SELECT o, unnest(o.items) AS l
+              FROM (SELECT unnest(orders) AS o FROM '__TEST_DIR__/prenest_untraceable.parquet') os)
+WHERE l.qty < 3
+) u
+
+query II
+SELECT (SELECT count(*) FROM (SELECT * FROM p2_on EXCEPT ALL SELECT * FROM p2_off)),
+       (SELECT count(*) FROM (SELECT * FROM p2_off EXCEPT ALL SELECT * FROM p2_on))
+----
+0	0
+
+query I
+SELECT parquet_prenest_stat('elements_appended:items')
+----
+0
+
+# ------------------------------------------------------------------------------------------------
+# p3 - GROUP BY on a value derived from the list
+# ------------------------------------------------------------------------------------------------
+
+statement ok
+SET parquet_prenest_auto=false
+
+statement ok
+CREATE TABLE p3_off AS SELECT len(u.o.items) AS k, count(*) AS c FROM (
+    SELECT o FROM (SELECT o, unnest(o.items) AS l
+              FROM (SELECT unnest(orders) AS o FROM '__TEST_DIR__/prenest_untraceable.parquet') os)
+WHERE l.qty < 3
+) u GROUP BY 1
+
+statement ok
+SET parquet_prenest_auto=true
+
+statement ok
+SELECT parquet_prenest_stat('reset')
+
+statement ok
+CREATE TABLE p3_on AS SELECT len(u.o.items) AS k, count(*) AS c FROM (
+    SELECT o FROM (SELECT o, unnest(o.items) AS l
+              FROM (SELECT unnest(orders) AS o FROM '__TEST_DIR__/prenest_untraceable.parquet') os)
+WHERE l.qty < 3
+) u GROUP BY 1
+
+query II
+SELECT (SELECT count(*) FROM (SELECT * FROM p3_on EXCEPT ALL SELECT * FROM p3_off)),
+       (SELECT count(*) FROM (SELECT * FROM p3_off EXCEPT ALL SELECT * FROM p3_on))
+----
+0	0
+
+query I
+SELECT parquet_prenest_stat('elements_appended:items')
+----
+0
+
+# ------------------------------------------------------------------------------------------------
+# p4 - a correlated subquery reading the list
+# ------------------------------------------------------------------------------------------------
+
+statement ok
+SET parquet_prenest_auto=false
+
+statement ok
+CREATE TABLE p4_off AS SELECT sum((SELECT len(u.o.items))) AS t, count(*) AS n FROM (
+    SELECT o FROM (SELECT o, unnest(o.items) AS l
+              FROM (SELECT unnest(orders) AS o FROM '__TEST_DIR__/prenest_untraceable.parquet') os)
+WHERE l.qty < 3
+) u
+
+statement ok
+SET parquet_prenest_auto=true
+
+statement ok
+SELECT parquet_prenest_stat('reset')
+
+statement ok
+CREATE TABLE p4_on AS SELECT sum((SELECT len(u.o.items))) AS t, count(*) AS n FROM (
+    SELECT o FROM (SELECT o, unnest(o.items) AS l
+              FROM (SELECT unnest(orders) AS o FROM '__TEST_DIR__/prenest_untraceable.parquet') os)
+WHERE l.qty < 3
+) u
+
+query II
+SELECT (SELECT count(*) FROM (SELECT * FROM p4_on EXCEPT ALL SELECT * FROM p4_off)),
+       (SELECT count(*) FROM (SELECT * FROM p4_off EXCEPT ALL SELECT * FROM p4_on))
+----
+0	0
+
+query I
+SELECT parquet_prenest_stat('elements_appended:items')
+----
+0
+
+# ------------------------------------------------------------------------------------------------
+# p5 - reading the list above a window operator
+# A window passes its input columns through under the child's bindings, so this one resolves
+# and is caught the ordinary way - it is here to pin that it is NOT collateral of the fix.
+# ------------------------------------------------------------------------------------------------
+
+statement ok
+SET parquet_prenest_auto=false
+
+statement ok
+CREATE TABLE p5_off AS SELECT sum(len(w.o.items)) AS t, count(*) AS n
+FROM (SELECT o, row_number() OVER (ORDER BY o.oid) AS rn FROM (
+    SELECT o FROM (SELECT o, unnest(o.items) AS l
+              FROM (SELECT unnest(orders) AS o FROM '__TEST_DIR__/prenest_untraceable.parquet') os)
+WHERE l.qty < 3
+) b) w
+
+statement ok
+SET parquet_prenest_auto=true
+
+statement ok
+SELECT parquet_prenest_stat('reset')
+
+statement ok
+CREATE TABLE p5_on AS SELECT sum(len(w.o.items)) AS t, count(*) AS n
+FROM (SELECT o, row_number() OVER (ORDER BY o.oid) AS rn FROM (
+    SELECT o FROM (SELECT o, unnest(o.items) AS l
+              FROM (SELECT unnest(orders) AS o FROM '__TEST_DIR__/prenest_untraceable.parquet') os)
+WHERE l.qty < 3
+) b) w
+
+query II
+SELECT (SELECT count(*) FROM (SELECT * FROM p5_on EXCEPT ALL SELECT * FROM p5_off)),
+       (SELECT count(*) FROM (SELECT * FROM p5_off EXCEPT ALL SELECT * FROM p5_on))
+----
+0	0
+
+query I
+SELECT parquet_prenest_stat('elements_appended:items')
+----
+0
