@@ -1,0 +1,351 @@
+# name: test/sql/optimizer/prenest/prenest_boundary_shapes.test
+# description: Boundary list shapes on the automatic path - empty, NULL, NULL elements, carry-over
+# group: [prenest]
+
+# The shapes where dropping elements during list assembly could go wrong, exercised through the
+# OPTIMIZER path (parquet_prenest_auto) rather than the parquet_prenest_filter setting, and over
+# real parquet files - a DuckDB base table never reaches the pre-nest reader at all, so a test
+# built on CREATE TABLE asserts the optimizer's classification and nothing about the reader.
+#
+# Every case asserts twice:
+#   result - the same query run with the pass off, compared both directions with EXCEPT ALL
+#   path   - elements_appended for the target list, so a case cannot pass by not running
+#
+# Verification is off throughout: PRAGMA enable_verification re-runs the statement with the
+# optimizer disabled and reports THAT result, so the assertions would pass without the pre-nest
+# path having run, and the process-global counters would accumulate across the repeats.
+
+require parquet
+
+statement ok
+PRAGMA disable_verification
+
+# ------------------------------------------------------------------------------------------------
+# 1. rows whose list is empty
+# ------------------------------------------------------------------------------------------------
+
+statement ok
+COPY (
+    SELECT id,
+           CASE WHEN id % 3 = 0 THEN []::STRUCT(v INTEGER, w INTEGER)[]
+                ELSE [{'v': ((id * 7 + j) % 20)::INTEGER, 'w': j::INTEGER} FOR j IN range(1 + id % 3)]
+           END AS items
+    FROM range(12) t(id)
+) TO '__TEST_DIR__/prenest_bs_empty.parquet' (FORMAT parquet)
+
+statement ok
+SET parquet_prenest_auto=false
+
+statement ok
+CREATE TABLE c1_off AS
+SELECT id, e.v, e.w FROM (SELECT id, unnest(items) AS e FROM '__TEST_DIR__/prenest_bs_empty.parquet')
+WHERE e.v >= 10
+
+statement ok
+SET parquet_prenest_auto=true
+
+statement ok
+CREATE TABLE c1_on AS
+SELECT id, e.v, e.w FROM (SELECT id, unnest(items) AS e FROM '__TEST_DIR__/prenest_bs_empty.parquet')
+WHERE e.v >= 10
+
+query I
+SELECT count(*) FROM (SELECT * FROM c1_on EXCEPT ALL SELECT * FROM c1_off)
+----
+0
+
+query I
+SELECT count(*) FROM (SELECT * FROM c1_off EXCEPT ALL SELECT * FROM c1_on)
+----
+0
+
+statement ok
+SELECT parquet_prenest_stat('reset')
+
+statement ok
+SELECT count(*) FROM (SELECT id, unnest(items) AS e FROM '__TEST_DIR__/prenest_bs_empty.parquet')
+WHERE e.v >= 10
+
+query I
+SELECT parquet_prenest_stat('elements_appended:items')
+----
+15
+
+# ------------------------------------------------------------------------------------------------
+# 2. rows whose list is NULL
+# ------------------------------------------------------------------------------------------------
+
+statement ok
+COPY (
+    SELECT id,
+           CASE WHEN id % 3 = 0 THEN NULL
+                ELSE [{'v': ((id * 7 + j) % 20)::INTEGER, 'w': j::INTEGER} FOR j IN range(1 + id % 3)]
+           END AS items
+    FROM range(12) t(id)
+) TO '__TEST_DIR__/prenest_bs_null.parquet' (FORMAT parquet)
+
+statement ok
+SET parquet_prenest_auto=false
+
+statement ok
+CREATE TABLE c2_off AS
+SELECT id, e.v, e.w FROM (SELECT id, unnest(items) AS e FROM '__TEST_DIR__/prenest_bs_null.parquet')
+WHERE e.v >= 10
+
+statement ok
+SET parquet_prenest_auto=true
+
+statement ok
+CREATE TABLE c2_on AS
+SELECT id, e.v, e.w FROM (SELECT id, unnest(items) AS e FROM '__TEST_DIR__/prenest_bs_null.parquet')
+WHERE e.v >= 10
+
+query I
+SELECT count(*) FROM (SELECT * FROM c2_on EXCEPT ALL SELECT * FROM c2_off)
+----
+0
+
+query I
+SELECT count(*) FROM (SELECT * FROM c2_off EXCEPT ALL SELECT * FROM c2_on)
+----
+0
+
+statement ok
+SELECT parquet_prenest_stat('reset')
+
+statement ok
+SELECT count(*) FROM (SELECT id, unnest(items) AS e FROM '__TEST_DIR__/prenest_bs_null.parquet')
+WHERE e.v >= 10
+
+query I
+SELECT parquet_prenest_stat('elements_appended:items')
+----
+15
+
+# ------------------------------------------------------------------------------------------------
+# 3. NULL inside the list - the element itself is NULL, and the predicate's field is NULL
+# ------------------------------------------------------------------------------------------------
+
+statement ok
+COPY (
+    SELECT * FROM (VALUES
+        (0, [{'v': 1, 'w': 1}, NULL, {'v': 30, 'w': 3}]::STRUCT(v INTEGER, w INTEGER)[]),
+        (1, [{'v': NULL, 'w': 1}, {'v': 20, 'w': 2}]::STRUCT(v INTEGER, w INTEGER)[]),
+        (2, [{'v': 5, 'w': 1}, {'v': 40, 'w': 2}, NULL]::STRUCT(v INTEGER, w INTEGER)[]),
+        (3, [{'v': NULL, 'w': 9}]::STRUCT(v INTEGER, w INTEGER)[])
+    ) t(id, items)
+) TO '__TEST_DIR__/prenest_bs_nullelem.parquet' (FORMAT parquet)
+
+statement ok
+SET parquet_prenest_auto=false
+
+statement ok
+CREATE TABLE c3_off AS
+SELECT id, e.v, e.w FROM (SELECT id, unnest(items) AS e FROM '__TEST_DIR__/prenest_bs_nullelem.parquet')
+WHERE e.v >= 10
+
+statement ok
+SET parquet_prenest_auto=true
+
+statement ok
+CREATE TABLE c3_on AS
+SELECT id, e.v, e.w FROM (SELECT id, unnest(items) AS e FROM '__TEST_DIR__/prenest_bs_nullelem.parquet')
+WHERE e.v >= 10
+
+query I
+SELECT count(*) FROM (SELECT * FROM c3_on EXCEPT ALL SELECT * FROM c3_off)
+----
+0
+
+query I
+SELECT count(*) FROM (SELECT * FROM c3_off EXCEPT ALL SELECT * FROM c3_on)
+----
+0
+
+statement ok
+SELECT parquet_prenest_stat('reset')
+
+statement ok
+SELECT count(*) FROM (SELECT id, unnest(items) AS e FROM '__TEST_DIR__/prenest_bs_nullelem.parquet')
+WHERE e.v >= 10
+
+query I
+SELECT parquet_prenest_stat('elements_appended:items')
+----
+3
+
+# ------------------------------------------------------------------------------------------------
+# 4. all of the above in one file
+# ------------------------------------------------------------------------------------------------
+
+statement ok
+COPY (
+    SELECT id,
+           CASE WHEN id % 7 = 0  THEN NULL
+                WHEN id % 5 = 0  THEN []::STRUCT(v INTEGER, w INTEGER)[]
+                WHEN id % 11 = 3 THEN [{'v': 1, 'w': 1}, NULL, {'v': 30, 'w': 3}]::STRUCT(v INTEGER, w INTEGER)[]
+                WHEN id % 11 = 4 THEN [{'v': NULL, 'w': 1}, {'v': 20, 'w': 2}]::STRUCT(v INTEGER, w INTEGER)[]
+                ELSE [{'v': ((id * 7 + j) % 20)::INTEGER, 'w': j::INTEGER} FOR j IN range(1 + id % 3)]
+           END AS items
+    FROM range(60) t(id)
+) TO '__TEST_DIR__/prenest_bs_mixed.parquet' (FORMAT parquet)
+
+statement ok
+SET parquet_prenest_auto=false
+
+statement ok
+CREATE TABLE c4_off AS
+SELECT id, e.v, e.w FROM (SELECT id, unnest(items) AS e FROM '__TEST_DIR__/prenest_bs_mixed.parquet')
+WHERE e.v >= 10
+
+statement ok
+SET parquet_prenest_auto=true
+
+statement ok
+CREATE TABLE c4_on AS
+SELECT id, e.v, e.w FROM (SELECT id, unnest(items) AS e FROM '__TEST_DIR__/prenest_bs_mixed.parquet')
+WHERE e.v >= 10
+
+query I
+SELECT count(*) FROM (SELECT * FROM c4_on EXCEPT ALL SELECT * FROM c4_off)
+----
+0
+
+query I
+SELECT count(*) FROM (SELECT * FROM c4_off EXCEPT ALL SELECT * FROM c4_on)
+----
+0
+
+statement ok
+SELECT parquet_prenest_stat('reset')
+
+statement ok
+SELECT count(*) FROM (SELECT id, unnest(items) AS e FROM '__TEST_DIR__/prenest_bs_mixed.parquet')
+WHERE e.v >= 10
+
+query I
+SELECT parquet_prenest_stat('elements_appended:items')
+----
+40
+
+# ------------------------------------------------------------------------------------------------
+# 5. the list crosses the read-unit boundary
+#
+# ListColumnReader::ReadFilteredInternal carries values over when the OUTPUT vector fills while
+# child values from the current read remain (list_column_reader.cpp:287). One child read yields at
+# most STANDARD_VECTOR_SIZE values, so with lists of length L > 1 it takes ~L reads to fill 2048
+# output rows, and the fill lands mid-read. 6000 rows x 3 elements clears that with margin.
+# ------------------------------------------------------------------------------------------------
+
+statement ok
+COPY (
+    SELECT id, [{'v': ((id * 7 + j) % 20)::INTEGER, 'w': j::INTEGER} FOR j IN range(3)] AS items
+    FROM range(6000) t(id)
+) TO '__TEST_DIR__/prenest_bs_carry.parquet' (FORMAT parquet)
+
+statement ok
+SET parquet_prenest_auto=false
+
+statement ok
+CREATE TABLE c5_off AS
+SELECT id, e.v, e.w FROM (SELECT id, unnest(items) AS e FROM '__TEST_DIR__/prenest_bs_carry.parquet')
+WHERE e.v >= 10
+
+statement ok
+SET parquet_prenest_auto=true
+
+statement ok
+CREATE TABLE c5_on AS
+SELECT id, e.v, e.w FROM (SELECT id, unnest(items) AS e FROM '__TEST_DIR__/prenest_bs_carry.parquet')
+WHERE e.v >= 10
+
+query I
+SELECT count(*) FROM (SELECT * FROM c5_on EXCEPT ALL SELECT * FROM c5_off)
+----
+0
+
+query I
+SELECT count(*) FROM (SELECT * FROM c5_off EXCEPT ALL SELECT * FROM c5_on)
+----
+0
+
+statement ok
+SELECT parquet_prenest_stat('reset')
+
+statement ok
+SELECT count(*) FROM (SELECT id, unnest(items) AS e FROM '__TEST_DIR__/prenest_bs_carry.parquet')
+WHERE e.v >= 10
+
+query I
+SELECT parquet_prenest_stat('elements_appended:items')
+----
+9000
+
+query I
+SELECT parquet_prenest_stat('carryovers') > 0
+----
+true
+
+# ------------------------------------------------------------------------------------------------
+# 6. two-level nesting with a predicate on the OUTER list only
+#
+# `orders` is filtered; `items` carries no predicate, so its reader gets no spec and appends
+# nothing. Reading `o.items` does not read `orders` as a list, so the outer spec is still safe.
+# ------------------------------------------------------------------------------------------------
+
+statement ok
+COPY (
+    SELECT cid,
+           [{'oid': (cid * 10 + k)::INTEGER,
+             'items': [{'qty': ((cid + k + j) % 5)::INTEGER, 'price': (j * 100)::INTEGER}
+                       FOR j IN range(3)]}
+            FOR k IN range(2)] AS orders
+    FROM range(6) t(cid)
+) TO '__TEST_DIR__/prenest_bs_outer.parquet' (FORMAT parquet)
+
+statement ok
+SET parquet_prenest_auto=false
+
+statement ok
+CREATE TABLE c6_off AS
+SELECT l.qty, l.price FROM (
+    SELECT unnest(o.items) AS l
+    FROM (SELECT unnest(orders) AS o FROM '__TEST_DIR__/prenest_bs_outer.parquet') os
+    WHERE o.oid < 35
+)
+
+statement ok
+SET parquet_prenest_auto=true
+
+statement ok
+CREATE TABLE c6_on AS
+SELECT l.qty, l.price FROM (
+    SELECT unnest(o.items) AS l
+    FROM (SELECT unnest(orders) AS o FROM '__TEST_DIR__/prenest_bs_outer.parquet') os
+    WHERE o.oid < 35
+)
+
+query I
+SELECT count(*) FROM (SELECT * FROM c6_on EXCEPT ALL SELECT * FROM c6_off)
+----
+0
+
+query I
+SELECT count(*) FROM (SELECT * FROM c6_off EXCEPT ALL SELECT * FROM c6_on)
+----
+0
+
+statement ok
+SELECT parquet_prenest_stat('reset')
+
+statement ok
+SELECT count(*) FROM (
+    SELECT unnest(o.items) AS l
+    FROM (SELECT unnest(orders) AS o FROM '__TEST_DIR__/prenest_bs_outer.parquet') os
+    WHERE o.oid < 35
+)
+
+query II
+SELECT parquet_prenest_stat('elements_appended:orders'), parquet_prenest_stat('elements_appended:items')
+----
+8	0
