@@ -1,0 +1,489 @@
+# name: test/sql/optimizer/prenest/prenest_schema_shapes.test
+# description: Pre-nest across schema shapes - depth, letter case, dotted names, multi-file, siblings
+# group: [prenest]
+
+# Every case asserts twice: the result against the same query with the pass off, both directions
+# with EXCEPT ALL, and elements_appended for the target list.
+#
+# Every non-zero expected counter was obtained by COUNTING THE PASSING ELEMENTS under
+# parquet_prenest_auto=false - the same query's row count - not by copying what the pass produced.
+# The zero ones each carry the reason they are zero.
+#
+# Verification is off, and here that matters more than usual: PRAGMA enable_verification also sets
+# verify_serializer, and ParquetOptionsSerialization does not carry prenest_filters, so the plan
+# that actually runs comes back from the round trip with no spec at all and the pass is silently
+# off. Measured on TPC-H q6: elements_appended 0 under enable_verification, 114,160 under disable.
+
+require parquet
+
+statement ok
+PRAGMA disable_verification
+
+
+statement ok
+COPY (SELECT id,
+             [{'b': [{'c': [{'v': ((id * 7 + m * 3 + j * 2 + k) % 7)::INTEGER} FOR k IN range(3)]}
+                     FOR j IN range(2)]}
+              FOR m IN range(2)] AS a
+      FROM range(5) t(id)) TO '__TEST_DIR__/prenest_ss_s1.parquet' (FORMAT parquet)
+
+statement ok
+COPY (SELECT id,
+             [{'LineItems': [{'Qty': ((id + k + j) % 5)::INTEGER} FOR j IN range(3)]}
+              FOR k IN range(2)] AS "Orders"
+      FROM range(6) t(id)) TO '__TEST_DIR__/prenest_ss_s2.parquet' (FORMAT parquet)
+
+statement ok
+COPY (SELECT [{'q': 1}, {'q': 7}] AS "a.b", {'b': [{'q': 2}, {'q': 8}]} AS a) TO '__TEST_DIR__/prenest_ss_s3.parquet' (FORMAT parquet)
+
+statement ok
+COPY (SELECT id, [{'items': [{'qty': ((id + k + j) % 5)::INTEGER} FOR j IN range(3)]}
+                  FOR k IN range(2)] AS orders
+      FROM range(4) t(id)) TO '__TEST_DIR__/prenest_ss_s4a.parquet' (FORMAT parquet)
+
+statement ok
+COPY (SELECT id + 100 AS id, [{'items': [{'qty': ((id + k + j) % 5)::INTEGER} FOR j IN range(3)]}
+                              FOR k IN range(2)] AS orders
+      FROM range(3) t(id)) TO '__TEST_DIR__/prenest_ss_s4b.parquet' (FORMAT parquet)
+
+statement ok
+COPY (SELECT id + 200 AS id, 'x' AS other FROM range(2) t(id)) TO '__TEST_DIR__/prenest_ss_s4c.parquet' (FORMAT parquet)
+
+statement ok
+COPY (SELECT id,
+             [{'oid': (id * 10 + k)::INTEGER,
+               'items': [{'qty': ((id + k + j) % 5)::INTEGER} FOR j IN range(3)],
+               'tags':  [{'t': ('t' || ((id + k + j) % 2)::VARCHAR)} FOR j IN range(2)]}
+              FOR k IN range(2)] AS o
+      FROM range(6) t(id)) TO '__TEST_DIR__/prenest_ss_s5.parquet' (FORMAT parquet)
+
+statement ok
+COPY (SELECT id, [((id * 3 + j) % 7)::INTEGER FOR j IN range(4)] AS nums
+      FROM range(5) t(id)) TO '__TEST_DIR__/prenest_ss_s6.parquet' (FORMAT parquet)
+
+statement ok
+COPY (SELECT id, [{'qty': ((id + j) % 5)::INTEGER} FOR j IN range(3)] AS items,
+                 MAP{'k1': id, 'k2': id * 2} AS m
+      FROM range(6) t(id)) TO '__TEST_DIR__/prenest_ss_s7.parquet' (FORMAT parquet)
+
+statement ok
+COPY (SELECT id, [{'qty': ((id + j) % 5)::INTEGER} FOR j IN range(3)] AS items
+      FROM range(30000) t(id)) TO '__TEST_DIR__/prenest_ss_s8.parquet' (FORMAT parquet, ROW_GROUP_SIZE 5000)
+
+
+# ------------------------------------------------------------------------------------------------
+# s1 - three levels of nesting, predicate on the innermost list
+# 5 rows x 2 x 2 x 3 = 60 innermost elements; 25 satisfy v < 3, counted with the pass off.
+# The outer two lists carry no predicate, so only `c` gets a spec.
+# ------------------------------------------------------------------------------------------------
+
+statement ok
+SET parquet_prenest_auto=false
+
+statement ok
+CREATE TABLE s1_off AS SELECT count(*) AS n, sum(z.v) AS sv FROM (
+    SELECT unnest(y.c) AS z FROM (
+        SELECT unnest(x.b) AS y FROM (SELECT unnest(a) AS x FROM '__TEST_DIR__/prenest_ss_s1.parquet') s1) s2) s3
+WHERE z.v < 3
+
+statement ok
+SET parquet_prenest_auto=true
+
+statement ok
+SELECT parquet_prenest_stat('reset')
+
+statement ok
+CREATE TABLE s1_on AS SELECT count(*) AS n, sum(z.v) AS sv FROM (
+    SELECT unnest(y.c) AS z FROM (
+        SELECT unnest(x.b) AS y FROM (SELECT unnest(a) AS x FROM '__TEST_DIR__/prenest_ss_s1.parquet') s1) s2) s3
+WHERE z.v < 3
+
+query II
+SELECT (SELECT count(*) FROM (SELECT * FROM s1_on EXCEPT ALL SELECT * FROM s1_off)),
+       (SELECT count(*) FROM (SELECT * FROM s1_off EXCEPT ALL SELECT * FROM s1_on))
+----
+0	0
+
+query I
+SELECT parquet_prenest_stat('elements_appended:c')
+----
+25
+
+# ------------------------------------------------------------------------------------------------
+# s2a - mixed-case field names, query spelled the same way as the file
+# 23 of 36 pass, counted with the pass off.
+# ------------------------------------------------------------------------------------------------
+
+statement ok
+SET parquet_prenest_auto=false
+
+statement ok
+CREATE TABLE s2a_off AS SELECT count(*) AS n, sum(l."Qty") AS sq FROM (
+    SELECT unnest(p."LineItems") AS l FROM (SELECT unnest("Orders") AS p FROM '__TEST_DIR__/prenest_ss_s2.parquet') s)
+WHERE l."Qty" < 3
+
+statement ok
+SET parquet_prenest_auto=true
+
+statement ok
+SELECT parquet_prenest_stat('reset')
+
+statement ok
+CREATE TABLE s2a_on AS SELECT count(*) AS n, sum(l."Qty") AS sq FROM (
+    SELECT unnest(p."LineItems") AS l FROM (SELECT unnest("Orders") AS p FROM '__TEST_DIR__/prenest_ss_s2.parquet') s)
+WHERE l."Qty" < 3
+
+query II
+SELECT (SELECT count(*) FROM (SELECT * FROM s2a_on EXCEPT ALL SELECT * FROM s2a_off)),
+       (SELECT count(*) FROM (SELECT * FROM s2a_off EXCEPT ALL SELECT * FROM s2a_on))
+----
+0	0
+
+query I
+SELECT parquet_prenest_stat('elements_appended:LineItems')
+----
+23
+
+# ------------------------------------------------------------------------------------------------
+# s2b - the same file read with the query spelled in lower case
+# Same 23. The counter is keyed on the FILE's spelling either way: the path is rendered from
+# the scan's own column names and the element struct's field names, not from how the query
+# spelled them. So the reader's exact by_path lookup (parquet_reader.cpp:560) still hits, and
+# the case-insensitive count at 543 is not what saves it here.
+# ------------------------------------------------------------------------------------------------
+
+statement ok
+SET parquet_prenest_auto=false
+
+statement ok
+CREATE TABLE s2b_off AS SELECT count(*) AS n, sum(l.qty) AS sq FROM (
+    SELECT unnest(p.lineitems) AS l FROM (SELECT unnest(orders) AS p FROM '__TEST_DIR__/prenest_ss_s2.parquet') s)
+WHERE l.qty < 3
+
+statement ok
+SET parquet_prenest_auto=true
+
+statement ok
+SELECT parquet_prenest_stat('reset')
+
+statement ok
+CREATE TABLE s2b_on AS SELECT count(*) AS n, sum(l.qty) AS sq FROM (
+    SELECT unnest(p.lineitems) AS l FROM (SELECT unnest(orders) AS p FROM '__TEST_DIR__/prenest_ss_s2.parquet') s)
+WHERE l.qty < 3
+
+query II
+SELECT (SELECT count(*) FROM (SELECT * FROM s2b_on EXCEPT ALL SELECT * FROM s2b_off)),
+       (SELECT count(*) FROM (SELECT * FROM s2b_off EXCEPT ALL SELECT * FROM s2b_on))
+----
+0	0
+
+query I
+SELECT parquet_prenest_stat('elements_appended:LineItems')
+----
+23
+
+# ------------------------------------------------------------------------------------------------
+# s3a - a column literally named "a.b", beside a struct a with a field b
+# Expected 0, not because nothing passes - one element does - but because the path rendering
+# is not injective here: "a.b" and a.b produce the same string. The OPTIMIZER refuses this
+# one; the plan carries no Pre-nest Filters at all, because the target parsed back into two
+# steps, no UNNEST matched it, and SafeToTruncate's iterated lookup found nothing.
+# ------------------------------------------------------------------------------------------------
+
+statement ok
+SET parquet_prenest_auto=false
+
+statement ok
+CREATE TABLE s3a_off AS SELECT count(*) AS n, sum(y.q) AS sq FROM (SELECT unnest("a.b") AS y FROM '__TEST_DIR__/prenest_ss_s3.parquet')
+WHERE y.q < 5
+
+statement ok
+SET parquet_prenest_auto=true
+
+statement ok
+SELECT parquet_prenest_stat('reset')
+
+statement ok
+CREATE TABLE s3a_on AS SELECT count(*) AS n, sum(y.q) AS sq FROM (SELECT unnest("a.b") AS y FROM '__TEST_DIR__/prenest_ss_s3.parquet')
+WHERE y.q < 5
+
+query II
+SELECT (SELECT count(*) FROM (SELECT * FROM s3a_on EXCEPT ALL SELECT * FROM s3a_off)),
+       (SELECT count(*) FROM (SELECT * FROM s3a_off EXCEPT ALL SELECT * FROM s3a_on))
+----
+0	0
+
+query I
+SELECT parquet_prenest_stat('elements_appended')
+----
+0
+
+# ------------------------------------------------------------------------------------------------
+# s3b - the same file, predicate on the struct field instead
+# Also 0, but refused one stage later: the plan DOES carry a Pre-nest Filters entry, and the
+# reader drops it because two schema nodes render to "a.b" and CountPathMatches is 2.
+# ------------------------------------------------------------------------------------------------
+
+statement ok
+SET parquet_prenest_auto=false
+
+statement ok
+CREATE TABLE s3b_off AS SELECT count(*) AS n, sum(y.q) AS sq FROM (SELECT unnest(a.b) AS y FROM '__TEST_DIR__/prenest_ss_s3.parquet')
+WHERE y.q < 5
+
+statement ok
+SET parquet_prenest_auto=true
+
+statement ok
+SELECT parquet_prenest_stat('reset')
+
+statement ok
+CREATE TABLE s3b_on AS SELECT count(*) AS n, sum(y.q) AS sq FROM (SELECT unnest(a.b) AS y FROM '__TEST_DIR__/prenest_ss_s3.parquet')
+WHERE y.q < 5
+
+query II
+SELECT (SELECT count(*) FROM (SELECT * FROM s3b_on EXCEPT ALL SELECT * FROM s3b_off)),
+       (SELECT count(*) FROM (SELECT * FROM s3b_off EXCEPT ALL SELECT * FROM s3b_on))
+----
+0	0
+
+query I
+SELECT parquet_prenest_stat('elements_appended')
+----
+0
+
+# ------------------------------------------------------------------------------------------------
+# s4a - two files of the same shape read as one scan
+# 23 across both files, counted with the pass off.
+# ------------------------------------------------------------------------------------------------
+
+statement ok
+SET parquet_prenest_auto=false
+
+statement ok
+CREATE TABLE s4a_off AS SELECT count(*) AS n, sum(l.qty) AS sq FROM (
+    SELECT unnest(p.items) AS l
+    FROM (SELECT unnest(orders) AS p FROM read_parquet(['__TEST_DIR__/prenest_ss_s4a.parquet', '__TEST_DIR__/prenest_ss_s4b.parquet'])) s)
+WHERE l.qty < 3
+
+statement ok
+SET parquet_prenest_auto=true
+
+statement ok
+SELECT parquet_prenest_stat('reset')
+
+statement ok
+CREATE TABLE s4a_on AS SELECT count(*) AS n, sum(l.qty) AS sq FROM (
+    SELECT unnest(p.items) AS l
+    FROM (SELECT unnest(orders) AS p FROM read_parquet(['__TEST_DIR__/prenest_ss_s4a.parquet', '__TEST_DIR__/prenest_ss_s4b.parquet'])) s)
+WHERE l.qty < 3
+
+query II
+SELECT (SELECT count(*) FROM (SELECT * FROM s4a_on EXCEPT ALL SELECT * FROM s4a_off)),
+       (SELECT count(*) FROM (SELECT * FROM s4a_off EXCEPT ALL SELECT * FROM s4a_on))
+----
+0	0
+
+query I
+SELECT parquet_prenest_stat('elements_appended:items')
+----
+23
+
+# ------------------------------------------------------------------------------------------------
+# s4b - one of the files has no such column at all (union_by_name)
+# Only the first file has the path, so only its reader gets a spec; the other contributes
+# nothing. 13 counted with the pass off.
+# ------------------------------------------------------------------------------------------------
+
+statement ok
+SET parquet_prenest_auto=false
+
+statement ok
+CREATE TABLE s4b_off AS SELECT count(*) AS n, sum(l.qty) AS sq FROM (
+    SELECT unnest(p.items) AS l
+    FROM (SELECT unnest(orders) AS p
+          FROM read_parquet(['__TEST_DIR__/prenest_ss_s4a.parquet', '__TEST_DIR__/prenest_ss_s4c.parquet'], union_by_name=true)) s)
+WHERE l.qty < 3
+
+statement ok
+SET parquet_prenest_auto=true
+
+statement ok
+SELECT parquet_prenest_stat('reset')
+
+statement ok
+CREATE TABLE s4b_on AS SELECT count(*) AS n, sum(l.qty) AS sq FROM (
+    SELECT unnest(p.items) AS l
+    FROM (SELECT unnest(orders) AS p
+          FROM read_parquet(['__TEST_DIR__/prenest_ss_s4a.parquet', '__TEST_DIR__/prenest_ss_s4c.parquet'], union_by_name=true)) s)
+WHERE l.qty < 3
+
+query II
+SELECT (SELECT count(*) FROM (SELECT * FROM s4b_on EXCEPT ALL SELECT * FROM s4b_off)),
+       (SELECT count(*) FROM (SELECT * FROM s4b_off EXCEPT ALL SELECT * FROM s4b_on))
+----
+0	0
+
+query I
+SELECT parquet_prenest_stat('elements_appended:items')
+----
+13
+
+# ------------------------------------------------------------------------------------------------
+# s5 - sibling lists: items filtered, tags read whole from the same element
+# len(p.tags) resolves to o[].tags, a sibling of o[].items - neither the target nor an
+# ancestor of it - so it does not block the spec. 23 counted with the pass off.
+# ------------------------------------------------------------------------------------------------
+
+statement ok
+SET parquet_prenest_auto=false
+
+statement ok
+CREATE TABLE s5_off AS SELECT count(*) AS n, sum(cnt) AS sc FROM (
+    SELECT unnest(p.items) AS l, len(p.tags) AS cnt
+    FROM (SELECT unnest(o) AS p FROM '__TEST_DIR__/prenest_ss_s5.parquet') s)
+WHERE l.qty < 3
+
+statement ok
+SET parquet_prenest_auto=true
+
+statement ok
+SELECT parquet_prenest_stat('reset')
+
+statement ok
+CREATE TABLE s5_on AS SELECT count(*) AS n, sum(cnt) AS sc FROM (
+    SELECT unnest(p.items) AS l, len(p.tags) AS cnt
+    FROM (SELECT unnest(o) AS p FROM '__TEST_DIR__/prenest_ss_s5.parquet') s)
+WHERE l.qty < 3
+
+query II
+SELECT (SELECT count(*) FROM (SELECT * FROM s5_on EXCEPT ALL SELECT * FROM s5_off)),
+       (SELECT count(*) FROM (SELECT * FROM s5_off EXCEPT ALL SELECT * FROM s5_on))
+----
+0	0
+
+query I
+SELECT parquet_prenest_stat('elements_appended:items')
+----
+23
+
+query I
+SELECT parquet_prenest_stat('elements_appended:tags')
+----
+0
+
+# tags carries no predicate, so its reader never gets a spec and appends nothing.
+
+# ------------------------------------------------------------------------------------------------
+# s6 - a list whose elements are not structs
+# 9 elements pass, but expected 0: the predicate names the element itself rather than a field
+# of it, so Flatten sees an empty field path and declines, and PrenestFilter::Bind would
+# refuse a non-STRUCT element type anyway. The answer is unaffected - the conjunct never left
+# the Filter above the UNNEST.
+# ------------------------------------------------------------------------------------------------
+
+statement ok
+SET parquet_prenest_auto=false
+
+statement ok
+CREATE TABLE s6_off AS SELECT count(*) AS n, sum(nn) AS sn FROM (SELECT unnest(nums) AS nn FROM '__TEST_DIR__/prenest_ss_s6.parquet')
+WHERE nn < 3
+
+statement ok
+SET parquet_prenest_auto=true
+
+statement ok
+SELECT parquet_prenest_stat('reset')
+
+statement ok
+CREATE TABLE s6_on AS SELECT count(*) AS n, sum(nn) AS sn FROM (SELECT unnest(nums) AS nn FROM '__TEST_DIR__/prenest_ss_s6.parquet')
+WHERE nn < 3
+
+query II
+SELECT (SELECT count(*) FROM (SELECT * FROM s6_on EXCEPT ALL SELECT * FROM s6_off)),
+       (SELECT count(*) FROM (SELECT * FROM s6_off EXCEPT ALL SELECT * FROM s6_on))
+----
+0	0
+
+query I
+SELECT parquet_prenest_stat('elements_appended:nums')
+----
+0
+
+# ------------------------------------------------------------------------------------------------
+# s7 - a MAP sits beside the filtered list in the same row
+# The reader counts MAP nodes as list paths too (parquet_reader.cpp:443), so this file has two
+# of them. They render differently, so the spec still resolves to exactly one node. 12 counted
+# with the pass off.
+# ------------------------------------------------------------------------------------------------
+
+statement ok
+SET parquet_prenest_auto=false
+
+statement ok
+CREATE TABLE s7_off AS SELECT count(*) AS n, sum(l.qty) AS sq FROM (SELECT unnest(items) AS l FROM '__TEST_DIR__/prenest_ss_s7.parquet')
+WHERE l.qty < 3
+
+statement ok
+SET parquet_prenest_auto=true
+
+statement ok
+SELECT parquet_prenest_stat('reset')
+
+statement ok
+CREATE TABLE s7_on AS SELECT count(*) AS n, sum(l.qty) AS sq FROM (SELECT unnest(items) AS l FROM '__TEST_DIR__/prenest_ss_s7.parquet')
+WHERE l.qty < 3
+
+query II
+SELECT (SELECT count(*) FROM (SELECT * FROM s7_on EXCEPT ALL SELECT * FROM s7_off)),
+       (SELECT count(*) FROM (SELECT * FROM s7_off EXCEPT ALL SELECT * FROM s7_on))
+----
+0	0
+
+query I
+SELECT parquet_prenest_stat('elements_appended:items')
+----
+12
+
+# ------------------------------------------------------------------------------------------------
+# s8 - many row groups, each larger than a vector
+# 30,000 rows x 3 elements over row groups of 5,000, so the output vector fills mid-read many
+# times and the carry-over path runs. 54,000 counted with the pass off.
+# ------------------------------------------------------------------------------------------------
+
+statement ok
+SET parquet_prenest_auto=false
+
+statement ok
+CREATE TABLE s8_off AS SELECT count(*) AS n, sum(l.qty) AS sq FROM (SELECT unnest(items) AS l FROM '__TEST_DIR__/prenest_ss_s8.parquet')
+WHERE l.qty < 3
+
+statement ok
+SET parquet_prenest_auto=true
+
+statement ok
+SELECT parquet_prenest_stat('reset')
+
+statement ok
+CREATE TABLE s8_on AS SELECT count(*) AS n, sum(l.qty) AS sq FROM (SELECT unnest(items) AS l FROM '__TEST_DIR__/prenest_ss_s8.parquet')
+WHERE l.qty < 3
+
+query II
+SELECT (SELECT count(*) FROM (SELECT * FROM s8_on EXCEPT ALL SELECT * FROM s8_off)),
+       (SELECT count(*) FROM (SELECT * FROM s8_off EXCEPT ALL SELECT * FROM s8_on))
+----
+0	0
+
+query I
+SELECT parquet_prenest_stat('elements_appended:items')
+----
+54000
+
+query I
+SELECT parquet_prenest_stat('carryovers') > 0
+----
+true
+
+# elements_decoded is NOT asserted: it undercounts by one vector per row group, because
+# ListColumnReader::ApplyPendingSkips has no pending_skips == 0 guard and the zero-length
+# skip read it performs is not counted. elements_appended is exact.
