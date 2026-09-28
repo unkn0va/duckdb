@@ -234,6 +234,35 @@ bool HasColumnRef(const Expression &expr) {
 	return found;
 }
 
+//! Whether a value of this type can contain a LIST. Dropping elements changes the list, and
+//! with it every value that contains it, so a value whose origin we could not trace is only
+//! safe when no list can be hiding inside it. Unknown NESTED types answer true: the point of
+//! the check is that we do not know what we are looking at.
+bool CanContainList(const LogicalType &type) {
+	switch (type.id()) {
+	case LogicalTypeId::LIST:
+	case LogicalTypeId::ARRAY:
+	case LogicalTypeId::MAP:
+		return true;
+	case LogicalTypeId::STRUCT:
+		for (auto &child : StructType::GetChildTypes(type)) {
+			if (CanContainList(child.second)) {
+				return true;
+			}
+		}
+		return false;
+	case LogicalTypeId::UNION:
+		for (idx_t i = 0; i < UnionType::GetMemberCount(type); i++) {
+			if (CanContainList(UnionType::GetMemberType(type, i))) {
+				return true;
+			}
+		}
+		return false;
+	default:
+		return type.IsNested();
+	}
+}
+
 //! A statement-level operator that wraps a query rather than being part of it. These do not
 //! override LogicalOperator::GetColumnBindings, so the default hands back the synthetic
 //! ColumnBinding(0, 0) - a binding that belongs to nobody but happens to resolve, via
@@ -880,10 +909,25 @@ private:
 		// plan reads it, so it has to be checked separately - otherwise a query that simply
 		// selects the enclosing value would see the truncation. Ask the operator that really
 		// produces the result, not a statement wrapper above it (see IsStatementWrapper).
-		for (auto &binding : ResultProducer(*root).GetColumnBindings()) {
+		auto &producer = ResultProducer(*root);
+		auto result_bindings = producer.GetColumnBindings();
+		if (result_bindings.size() != producer.types.size()) {
+			// the two are supposed to line up; if they do not we cannot tell what any output
+			// column holds, and guessing is what this whole function exists to avoid
+			return false;
+		}
+		for (idx_t i = 0; i < result_bindings.size(); i++) {
 			vector<PrenestPathEntry> path;
 			optional_ptr<LogicalGet> owner;
-			if (ResolveBindingPath(binding, path, &owner) && owner.get() == &get && IsAncestorOrSame(path, target)) {
+			if (ResolveBindingPath(result_bindings[i], path, &owner)) {
+				if (owner.get() == &get && IsAncestorOrSame(path, target)) {
+					return false;
+				}
+				continue;
+			}
+			// An output we could not trace. Same reasoning as in ContainerReadScanner::Scan:
+			// only safe when no list can be hiding in it.
+			if (CanContainList(producer.types[i])) {
 				return false;
 			}
 		}
@@ -977,6 +1021,17 @@ private:
 				if (path_owner.get() == &get && IsAncestorOrSame(path, target)) {
 					illegal++;
 				}
+				return;
+			}
+			// The path could not be traced. ResolveBindingPath only walks GET, PROJECTION and
+			// UNNEST, so any other operator that re-binds a value - a set operation, a
+			// materialized or recursive CTE reference, a delim get - ends the walk, and every
+			// check that depends on it goes silent. A column reference we cannot trace is a
+			// value of unknown origin: if a list can be hiding in it, we cannot rule out that
+			// it is this one. Refusing costs a pushdown; allowing costs the answer.
+			if (expr->GetExpressionClass() == ExpressionClass::BOUND_COLUMN_REF &&
+			    CanContainList(expr->return_type)) {
+				illegal++;
 				return;
 			}
 			ExpressionIterator::EnumerateChildren(*expr, [&](unique_ptr<Expression> &child) { Scan(child); });
