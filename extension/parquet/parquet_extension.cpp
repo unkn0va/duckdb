@@ -1,4 +1,5 @@
 #include "parquet_extension.hpp"
+#include "duckdb/optimizer/prenest_filter_pushdown.hpp"
 
 #include "duckdb.hpp"
 #include "duckdb/parser/expression/positional_reference_expression.hpp"
@@ -852,7 +853,13 @@ static void ParquetPrenestStatFunction(DataChunk &args, ExpressionState &state, 
 		auto name = name_s.GetString();
 		if (name == "reset") {
 			stats.Reset();
+			PrenestPushdownTotals::GetTotals().Reset();
 			return 0;
+		}
+		// 'opt:<name>' reads the OPTIMIZER's counters - how the pass classified and placed
+		// predicates - rather than the reader's. They accumulate, so reading them is safe.
+		if (StringUtil::StartsWith(name, "opt:")) {
+			return NumericCast<int64_t>(PrenestPushdownTotals::GetTotals().Get(name.substr(4)));
 		}
 		auto colon = name.find(':');
 		if (colon != string::npos) {

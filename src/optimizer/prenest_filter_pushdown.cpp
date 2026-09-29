@@ -1154,9 +1154,64 @@ private:
 
 } // namespace
 
-PrenestPushdownStats &PrenestPushdownStats::Get() {
-	static PrenestPushdownStats stats;
-	return stats;
+PrenestPushdownTotals &PrenestPushdownTotals::GetTotals() {
+	static PrenestPushdownTotals totals;
+	return totals;
+}
+
+void PrenestPushdownTotals::Add(const PrenestPushdownStats &run) {
+	comprehensions_formed += run.comprehensions_formed;
+	binders_not_formable += run.binders_not_formable;
+	passthroughs += run.passthroughs;
+	levels_lifted += run.levels_lifted;
+	absorbed_at_scan += run.absorbed_at_scan;
+	specs_pushed += run.specs_pushed;
+	rolled_up += run.rolled_up;
+	refused_list_read_elsewhere += run.refused_list_read_elsewhere;
+	dropped += run.dropped;
+}
+
+void PrenestPushdownTotals::Reset() {
+	comprehensions_formed = 0;
+	binders_not_formable = 0;
+	passthroughs = 0;
+	levels_lifted = 0;
+	absorbed_at_scan = 0;
+	specs_pushed = 0;
+	rolled_up = 0;
+	refused_list_read_elsewhere = 0;
+	dropped = 0;
+}
+
+idx_t PrenestPushdownTotals::Get(const string &name) const {
+	if (name == "comprehensions_formed") {
+		return comprehensions_formed.load();
+	}
+	if (name == "binders_not_formable") {
+		return binders_not_formable.load();
+	}
+	if (name == "passthroughs") {
+		return passthroughs.load();
+	}
+	if (name == "levels_lifted") {
+		return levels_lifted.load();
+	}
+	if (name == "absorbed_at_scan") {
+		return absorbed_at_scan.load();
+	}
+	if (name == "specs_pushed") {
+		return specs_pushed.load();
+	}
+	if (name == "rolled_up") {
+		return rolled_up.load();
+	}
+	if (name == "refused_list_read_elsewhere") {
+		return refused_list_read_elsewhere.load();
+	}
+	if (name == "dropped") {
+		return dropped.load();
+	}
+	throw InvalidInputException("unknown prenest optimizer counter \"%s\"", name);
 }
 
 void PrenestFilterPushdown::Optimize(unique_ptr<LogicalOperator> &plan) {
@@ -1169,7 +1224,7 @@ void PrenestFilterPushdown::Optimize(unique_ptr<LogicalOperator> &plan) {
 		return;
 	}
 	PrenestFilterExtractor extractor(context);
-	PrenestPushdownStats::Get() = extractor.Run(plan);
+	PrenestPushdownTotals::GetTotals().Add(extractor.Run(plan));
 }
 
 } // namespace duckdb

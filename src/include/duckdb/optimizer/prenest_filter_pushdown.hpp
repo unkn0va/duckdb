@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include "duckdb/common/atomic.hpp"
 #include "duckdb/planner/logical_operator.hpp"
 
 namespace duckdb {
@@ -50,8 +51,32 @@ struct PrenestPushdownStats {
 	idx_t refused_list_read_elsewhere = 0;
 	//! comprehensions nothing claimed - dropped, which is always safe
 	idx_t dropped = 0;
+};
 
-	static PrenestPushdownStats &Get();
+//! Process-global totals. PrenestPushdownStats is one run's worth and is returned by value;
+//! these are atomic and only ever ADDED to, which is what lets a plain SELECT read them: that
+//! SELECT's own run of the pass contributes zero, so the numbers survive being looked at. The
+//! whole-struct assignment this replaced did not - reading with the pass enabled overwrote the
+//! values with the reading query's own zeros, and the workaround was to turn the pass off first.
+//! Zeroed by parquet_prenest_stat('reset').
+struct PrenestPushdownTotals {
+	atomic<idx_t> comprehensions_formed {0};
+	atomic<idx_t> binders_not_formable {0};
+	atomic<idx_t> passthroughs {0};
+	atomic<idx_t> levels_lifted {0};
+	atomic<idx_t> absorbed_at_scan {0};
+	atomic<idx_t> specs_pushed {0};
+	atomic<idx_t> rolled_up {0};
+	atomic<idx_t> refused_list_read_elsewhere {0};
+	atomic<idx_t> dropped {0};
+
+	DUCKDB_API void Add(const PrenestPushdownStats &run);
+	DUCKDB_API void Reset();
+	//! Named read. Throws on an unknown name rather than answering 0, because unlike the
+	//! per-list counters there is no "this one was never registered" case to be lenient about.
+	DUCKDB_API idx_t Get(const string &name) const;
+
+	DUCKDB_API static PrenestPushdownTotals &GetTotals();
 };
 
 class PrenestFilterPushdown {
