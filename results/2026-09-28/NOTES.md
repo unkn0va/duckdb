@@ -153,3 +153,113 @@ round trip with no spec and the pass is silently off. Measured on TPC-H q6:
 `elements_appended:o_lineitems` **0** under `enable_verification`, **114,160** under
 `disable_verification`. Affected existing assertions: `prenest_nested_projection.test` (whole
 file), `prenest_deep_safety.test:13-103`, `prenest_multi_spec.test:13-69`. Not changed here.
+
+---
+
+# Follow-ups (2026-09-29, local WSL2)
+
+Commits, in order: **`4533f24462`** (comments), **`a4e038866a`** (test s9),
+**`723e557d66`** (spec serialization), **`d21662a89e`** (skip-path counting),
+**`00bdbb0221`** (`parquet_prenest_lists()`), **`4f07424e4e`** (optimizer counters).
+
+## Spec serialization (`723e557d66`)
+
+`PRAGMA enable_verification` sets `verify_serializer`, `Planner::VerifyPlan` round-trips the
+plan and REPLACES it, and `ParquetOptionsSerialization` did not carry `prenest_filters`. The
+plan that ran had no spec, so the pass was off. `parquet.json` now has entries for
+`PrenestRawCondition` and `PrenestFilterSpec` and member 108 on `ParquetOptionsSerialization`;
+regenerated with the script, not hand-edited.
+
+```
+q6, PRAGMA enable_verification      before  elements_appended:o_lineitems = 0
+                                    after                                 = 684,960
+```
+
+684,960 is 6 x 114,160 - verification runs the query repeatedly and the counters are
+process-global, so `> 0` is the assertion, as intended.
+
+The three regions that had been asserting against a pass that never ran now exercise it,
+checked with a representative query of each shape under `enable_verification`:
+
+| region | shape | appended |
+|---|---|---|
+| `prenest_deep_safety.test:13-103` | inner list filtered | `items` 138 (= 23 x 6) |
+| `prenest_multi_spec.test:13-69` | two specs in one scan | `orders` 48, `items` 138 |
+| `prenest_nested_projection.test` (whole file) | single-level predicate | `posts` 48 |
+
+## elements_decoded (`d21662a89e`)
+
+`ApplyPendingSkips` is upstream (`08b3e8665a`, `289d906015`), so its behaviour is untouched and
+only the counting moved: `ReadInternal` counts its child read when the reader carries a pre-nest
+filter. Guarded on the filter, so a plain read still counts nothing and `auto=false` is the same
+baseline.
+
+The counter is now exact. Checked against the true slot count of every list:
+
+```
+c_orders                1,550,004      r_nations        25
+c_orders[].o_lineitems  6,051,219      s_partsupps  800,000
+```
+
+and against all 27 queries, where `decoded` = the sum over (scan x filtered list) of that
+list's slots. 25 of 27 match the sum of the paths in `parquet_prenest_lists()` directly; q7 and
+q11 read `region` **twice**, so `r_nations` decodes twice (50) while the path set lists it once.
+With that accounted for, **all 27 match**.
+
+`elements_appended` is unchanged: all 27 identical to `results/2026-09-19/duckdb_counters.tsv`.
+`decoded` differing from that file is expected and is what this change is.
+
+## parquet_prenest_lists() (`00bdbb0221`)
+
+`<counter>:<name>` answers 0 for a name it never saw, so a refused list, a list nobody asked
+for, and a typo all read the same. The new function returns the list PATHS the reader was asked
+to filter since the last reset, sorted and comma-joined, registered before the uniqueness check
+so a refused spec still shows. It is a separate function rather than
+`parquet_prenest_stat('lists')` because that one returns BIGINT and four existing assertions
+compare it with `> 0`.
+
+It separates two of the three cases, not all three:
+
+| | in `lists` | `:<name>` |
+|---|---|---|
+| asked for, reader refused (`s3b`) | yes (`a.b`) | 0 |
+| optimizer never asked (`s3a`, `s5`'s `tags`) | no | 0 |
+| typo | no | 0 |
+
+Tests updated to assert it alongside the existing `:<name>` assertions:
+`prenest_untraceable_reads.test` (all 11 refusals empty, control `orders[].items`),
+`prenest_schema_shapes.test` (s3a empty, s3b `a.b`, s5 `o[].items`, s6 empty),
+`prenest_boundary_shapes.test` (case 6 `orders`).
+
+Also corrected a wrong comment written earlier: `PrenestReaderPlan::by_path` is a
+`case_insensitive_map_t`, so the claim that s2b depends on an exact lookup there was wrong.
+
+## Optimizer counters (`4f07424e4e`)
+
+`PrenestPushdownTotals` accumulates instead of being assigned whole, so reading it with a plain
+SELECT no longer zeroes it - that SELECT's own run contributes nothing. The
+turn-the-pass-off-first protocol is gone. Read as `parquet_prenest_stat('opt:<name>')`.
+
+Cross-check against the eight queries pre-nest never improves:
+
+```
+q2 q9 q9b q13 q16 q17 q18 q22   every counter 0, including binders_not_formable
+                                 and refused_list_read_elsewhere
+q6 (contrast)                    formed 3, levels_lifted 3, specs_pushed 1,
+                                 absorbed_at_scan 1, nothing declined
+```
+
+So it is not that the pass tried and declined on those eight - there is no element-level
+predicate on an UNNEST for it to classify. That matches the earlier EXPLAIN reading, now stated
+by the pass itself.
+
+## Regression
+
+- 27 queries: `elements_appended` identical to `results/2026-09-19/duckdb_counters.tsv`, all 27.
+  Results identical between `parquet_prenest_auto` false and true.
+- `test/sql/optimizer/prenest/*` 707 assertions over 10 files, `parquet_prenest_filter.test` 35,
+  `prenest_nested_projection.test` 34 - all pass.
+
+## Not done, on purpose
+
+The duplicate check the carry-over performs, and widening `StripLeftovers` past Filters.
