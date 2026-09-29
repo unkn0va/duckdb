@@ -1,0 +1,12 @@
+diff --git a/benchmarks/src/nested/benchmark_utils.rs b/benchmarks/src/nested/benchmark_utils.rs
+index e1668dba6..504554686 100644
+--- a/benchmarks/src/nested/benchmark_utils.rs
++++ b/benchmarks/src/nested/benchmark_utils.rs
+@@ -119,6 +119,7 @@ pub const QUICK_PARADIGMS: &[Paradigm] = &[
+ /// meant to change as the focus shifts; use `ALL_PARADIGMS` when the baseline
+ /// itself is the point.
+ pub const ACTIVE_PARADIGMS: &[Paradigm] = &[
++    Paradigm::Nested,
+     Paradigm::NestedColumnPruning,
+     Paradigm::NestedColumnPruningFused,
+     Paradigm::NestedFilterPushingShallowNoScan,
