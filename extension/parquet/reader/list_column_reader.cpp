@@ -97,6 +97,16 @@ idx_t ListColumnReader::ReadInternal(uint64_t num_values, data_ptr_t define_out,
 			read_vector.ResetFromCache(read_cache);
 			child_actual_num_values =
 			    child_column_reader->Read(child_req_num_values, child_defines_ptr, child_repeats_ptr, read_vector);
+			if (prenest_filter) {
+				// PROBE: on a pre-filtered list this is the SKIP path, and ApplyPendingSkips
+				// reaches it on every Read - it has no `pending_skips == 0` guard, so a
+				// zero-length skip still pulls a whole vector and parks it in the overflow,
+				// which ReadFilteredInternal then consumes through the carry-in branch that
+				// deliberately does not count. Counting here closes that gap: it was
+				// row_groups x STANDARD_VECTOR_SIZE per filtered list. Guarded on the filter
+				// so a plain read still counts nothing and auto=false stays the same baseline.
+				PrenestStats::Get().elements_decoded += child_actual_num_values;
+			}
 		} else {
 			// we do: use the overflow values
 			child_actual_num_values = overflow_child_count;
