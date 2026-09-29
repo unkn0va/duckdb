@@ -7,6 +7,7 @@
 #include "duckdb/common/serializer/deserializer.hpp"
 #include "parquet_reader.hpp"
 #include "parquet_crypto.hpp"
+#include "duckdb/planner/filter/prenest_filter_spec.hpp"
 #include "parquet_field_id.hpp"
 #include "parquet_shredding.hpp"
 
@@ -85,6 +86,7 @@ void ParquetOptionsSerialization::Serialize(Serializer &serializer) const {
 	/* [Deleted] (bool) "parquet_options.debug_use_openssl" */
 	serializer.WritePropertyWithDefault<idx_t>(106, "explicit_cardinality", parquet_options.explicit_cardinality, 0);
 	serializer.WritePropertyWithDefault<bool>(107, "can_have_nan", parquet_options.can_have_nan, false);
+	serializer.WritePropertyWithDefault<vector<PrenestFilterSpec>>(108, "prenest_filters", parquet_options.prenest_filters);
 }
 
 ParquetOptionsSerialization ParquetOptionsSerialization::Deserialize(Deserializer &deserializer) {
@@ -97,6 +99,37 @@ ParquetOptionsSerialization ParquetOptionsSerialization::Deserialize(Deserialize
 	deserializer.ReadDeletedProperty<bool>(105, "debug_use_openssl");
 	deserializer.ReadPropertyWithExplicitDefault<idx_t>(106, "explicit_cardinality", result.parquet_options.explicit_cardinality, 0);
 	deserializer.ReadPropertyWithExplicitDefault<bool>(107, "can_have_nan", result.parquet_options.can_have_nan, false);
+	deserializer.ReadPropertyWithDefault<vector<PrenestFilterSpec>>(108, "prenest_filters", result.parquet_options.prenest_filters);
+	return result;
+}
+
+void PrenestFilterSpec::Serialize(Serializer &serializer) const {
+	serializer.WritePropertyWithDefault<string>(100, "list_path", list_path);
+	serializer.WritePropertyWithDefault<string>(101, "list_name", list_name);
+	serializer.WritePropertyWithDefault<vector<PrenestRawCondition>>(102, "conditions", conditions);
+	serializer.WritePropertyWithDefault<shared_ptr<Expression>>(103, "predicate", predicate, nullptr);
+}
+
+PrenestFilterSpec PrenestFilterSpec::Deserialize(Deserializer &deserializer) {
+	PrenestFilterSpec result;
+	deserializer.ReadPropertyWithDefault<string>(100, "list_path", result.list_path);
+	deserializer.ReadPropertyWithDefault<string>(101, "list_name", result.list_name);
+	deserializer.ReadPropertyWithDefault<vector<PrenestRawCondition>>(102, "conditions", result.conditions);
+	deserializer.ReadPropertyWithExplicitDefault<shared_ptr<Expression>>(103, "predicate", result.predicate, nullptr);
+	return result;
+}
+
+void PrenestRawCondition::Serialize(Serializer &serializer) const {
+	serializer.WritePropertyWithDefault<string>(100, "field", field);
+	serializer.WriteProperty<ExpressionType>(101, "comparison", comparison);
+	serializer.WritePropertyWithDefault<string>(102, "literal", literal);
+}
+
+PrenestRawCondition PrenestRawCondition::Deserialize(Deserializer &deserializer) {
+	PrenestRawCondition result;
+	deserializer.ReadPropertyWithDefault<string>(100, "field", result.field);
+	deserializer.ReadProperty<ExpressionType>(101, "comparison", result.comparison);
+	deserializer.ReadPropertyWithDefault<string>(102, "literal", result.literal);
 	return result;
 }
 

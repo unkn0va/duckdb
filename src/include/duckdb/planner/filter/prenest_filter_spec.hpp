@@ -20,6 +20,9 @@
 
 namespace duckdb {
 
+class Deserializer;
+class Serializer;
+
 //! One "<field> <cmp> <literal>" term of the `parquet_prenest_filter` setting. The literal
 //! stays a string here - the reader casts it to the field's real type once it knows the element
 //! type, and compiles the term into the same expression shape `predicate` carries. The
@@ -28,6 +31,9 @@ struct PrenestRawCondition {
 	string field;
 	ExpressionType comparison;
 	string literal;
+
+	void Serialize(Serializer &serializer) const;
+	static PrenestRawCondition Deserialize(Deserializer &deserializer);
 };
 
 //! A pre-nest predicate carried from the bind/optimize phase down to the readers.
@@ -60,6 +66,11 @@ struct PrenestFilterSpec {
 	bool empty() const {
 		return conditions.empty() && !predicate;
 	}
+
+	//! Carried through plan serialization so that the round trip DuckDB performs under
+	//! verify_serializer does not quietly drop the spec and turn the pre-nest path off.
+	void Serialize(Serializer &serializer) const;
+	static PrenestFilterSpec Deserialize(Deserializer &deserializer);
 };
 
 } // namespace duckdb
