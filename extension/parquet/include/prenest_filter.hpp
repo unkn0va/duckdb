@@ -14,6 +14,7 @@
 #include "duckdb/common/atomic.hpp"
 #include "duckdb/common/case_insensitive_map.hpp"
 #include "duckdb/common/mutex.hpp"
+#include "duckdb/common/set.hpp"
 #include "duckdb/common/unordered_map.hpp"
 #include "duckdb/common/types/selection_vector.hpp"
 #include "duckdb/common/types/vector.hpp"
@@ -57,6 +58,16 @@ struct PrenestStats {
 		predicate_elements = 0;
 		ResetPerList();
 	}
+	//! Every list PATH the reader was asked to filter, whether or not it accepted it. A path
+	//! that is not in here was never requested: either the optimizer built no spec for it, or
+	//! the name is a typo. `<counter>:<list_name>` cannot tell those apart - it answers 0 for
+	//! anything it has not seen - so this is what makes "exactly these lists were asked for"
+	//! assertable. Keyed on the full path, not the last segment, because two lists can share
+	//! a last segment.
+	void RegisterPath(const string &path);
+	//! The registered paths, sorted and comma-joined.
+	string GetPaths() const;
+
 	static PrenestStats &Get();
 
 private:
@@ -64,6 +75,7 @@ private:
 
 	mutable mutex list_lock;
 	unordered_map<string, unique_ptr<PrenestListStats>> per_list;
+	set<string> registered_paths;
 };
 
 //! PROBE: which spec, if any, attaches to each LIST node of one file. Built once per reader

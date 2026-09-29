@@ -881,6 +881,16 @@ static void ParquetPrenestStatFunction(DataChunk &args, ExpressionState &state, 
 	});
 }
 
+//! PROBE: parquet_prenest_lists() - the list paths the reader was asked to filter since the
+//! last reset, sorted and comma-joined. A companion to parquet_prenest_stat, which returns a
+//! number and therefore cannot carry this; and the thing that separates "this list was asked
+//! for and refused" from "nobody ever asked for that name".
+static void ParquetPrenestListsFunction(DataChunk &args, ExpressionState &state, Vector &result) {
+	auto paths = PrenestStats::Get().GetPaths();
+	result.SetVectorType(VectorType::CONSTANT_VECTOR);
+	ConstantVector::GetData<string_t>(result)[0] = StringVector::AddString(result, paths);
+}
+
 static void LoadInternal(ExtensionLoader &loader) {
 	auto &db_instance = loader.GetDatabaseInstance();
 	auto &fs = db_instance.GetFileSystem();
@@ -954,6 +964,11 @@ static void LoadInternal(ExtensionLoader &loader) {
 	                                ParquetPrenestStatFunction);
 	prenest_stat_fun.stability = FunctionStability::VOLATILE;
 	loader.RegisterFunction(prenest_stat_fun);
+
+	ScalarFunction prenest_lists_fun("parquet_prenest_lists", {}, LogicalType::VARCHAR,
+	                                 ParquetPrenestListsFunction);
+	prenest_lists_fun.stability = FunctionStability::VOLATILE;
+	loader.RegisterFunction(prenest_lists_fun);
 
 	auto &config = DBConfig::GetConfig(db_instance);
 	config.replacement_scans.emplace_back(ParquetScanReplacement);

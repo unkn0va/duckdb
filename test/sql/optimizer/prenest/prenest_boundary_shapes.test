@@ -349,3 +349,10 @@ query II
 SELECT parquet_prenest_stat('elements_appended:orders'), parquet_prenest_stat('elements_appended:items')
 ----
 8	0
+
+# ... and those are the only two names involved: `orders` was asked for and `items` never was.
+# elements_appended:<name> answers 0 for a name nobody requested, so it cannot say that alone.
+query I
+SELECT parquet_prenest_lists()
+----
+orders

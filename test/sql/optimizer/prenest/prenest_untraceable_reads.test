@@ -73,6 +73,11 @@ SELECT parquet_prenest_stat('elements_appended:items')
 ----
 23
 
+query I
+SELECT parquet_prenest_lists()
+----
+orders[].items
+
 # ------------------------------------------------------------------------------------------------
 # c0 - the list read whole in the same query - caught before the fix too
 # ------------------------------------------------------------------------------------------------
@@ -110,6 +115,11 @@ query I
 SELECT parquet_prenest_stat('elements_appended:items')
 ----
 0
+
+query I
+SELECT parquet_prenest_lists() = ''
+----
+true
 
 # ------------------------------------------------------------------------------------------------
 # c1 - across a MATERIALIZED CTE
@@ -151,6 +161,11 @@ query I
 SELECT parquet_prenest_stat('elements_appended:items')
 ----
 0
+
+query I
+SELECT parquet_prenest_lists() = ''
+----
+true
 
 # ------------------------------------------------------------------------------------------------
 # c2 - across an inline CTE referenced twice - DuckDB materialises it
@@ -196,6 +211,11 @@ SELECT parquet_prenest_stat('elements_appended:items')
 ----
 0
 
+query I
+SELECT parquet_prenest_lists() = ''
+----
+true
+
 # ------------------------------------------------------------------------------------------------
 # u1 - across UNION ALL, the chain in one branch only
 # `orders` also expects 0, and that one is over-refusal: the second branch's spec was never
@@ -240,6 +260,11 @@ query I
 SELECT parquet_prenest_stat('elements_appended:items')
 ----
 0
+
+query I
+SELECT parquet_prenest_lists() = ''
+----
+true
 
 # ------------------------------------------------------------------------------------------------
 # u2 - across UNION ALL, both branches carry the chain
@@ -288,6 +313,11 @@ query I
 SELECT parquet_prenest_stat('elements_appended:items')
 ----
 0
+
+query I
+SELECT parquet_prenest_lists() = ''
+----
+true
 
 # ------------------------------------------------------------------------------------------------
 # r1 - across a recursive CTE
@@ -340,6 +370,11 @@ SELECT parquet_prenest_stat('elements_appended:items')
 ----
 0
 
+query I
+SELECT parquet_prenest_lists() = ''
+----
+true
+
 # ------------------------------------------------------------------------------------------------
 # p1 - a lambda over the list
 # ------------------------------------------------------------------------------------------------
@@ -377,6 +412,11 @@ query I
 SELECT parquet_prenest_stat('elements_appended:items')
 ----
 0
+
+query I
+SELECT parquet_prenest_lists() = ''
+----
+true
 
 # ------------------------------------------------------------------------------------------------
 # p2 - list indexing
@@ -418,6 +458,11 @@ SELECT parquet_prenest_stat('elements_appended:items')
 ----
 0
 
+query I
+SELECT parquet_prenest_lists() = ''
+----
+true
+
 # ------------------------------------------------------------------------------------------------
 # p3 - GROUP BY on a value derived from the list
 # ------------------------------------------------------------------------------------------------
@@ -456,6 +501,11 @@ SELECT parquet_prenest_stat('elements_appended:items')
 ----
 0
 
+query I
+SELECT parquet_prenest_lists() = ''
+----
+true
+
 # ------------------------------------------------------------------------------------------------
 # p4 - a correlated subquery reading the list
 # ------------------------------------------------------------------------------------------------
@@ -493,6 +543,11 @@ query I
 SELECT parquet_prenest_stat('elements_appended:items')
 ----
 0
+
+query I
+SELECT parquet_prenest_lists() = ''
+----
+true
 
 # ------------------------------------------------------------------------------------------------
 # p5 - reading the list above a window operator
@@ -535,3 +590,8 @@ query I
 SELECT parquet_prenest_stat('elements_appended:items')
 ----
 0
+
+query I
+SELECT parquet_prenest_lists() = ''
+----
+true

@@ -540,6 +540,10 @@ PrenestReaderPlan ParquetReader::BuildPrenestPlan(ClientContext &context) {
 		if (spec.empty() || spec.list_path.empty()) {
 			continue;
 		}
+		// Recorded before the uniqueness check, so that a spec this file refuses still shows up
+		// as "asked for" - parquet_prenest_stat cannot otherwise tell a refused list from a
+		// misspelt one, since both read 0.
+		PrenestStats::Get().RegisterPath(spec.list_path);
 		if (CountPathMatches(list_paths, spec.list_path) != 1) {
 			// absent from this file, or rendered by more than one node - either way we cannot
 			// say which list is meant, so this spec is dropped and the stock path is kept

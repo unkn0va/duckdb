@@ -47,6 +47,22 @@ void PrenestStats::ResetPerList() {
 		entry.second->elements_appended = 0;
 		entry.second->predicate_elements = 0;
 	}
+	// the path set has no such constraint - nobody holds a reference into it
+	registered_paths.clear();
+}
+
+void PrenestStats::RegisterPath(const string &path) {
+	if (path.empty()) {
+		return;
+	}
+	lock_guard<mutex> guard(list_lock);
+	registered_paths.insert(path);
+}
+
+string PrenestStats::GetPaths() const {
+	lock_guard<mutex> guard(list_lock);
+	vector<string> sorted(registered_paths.begin(), registered_paths.end());
+	return StringUtil::Join(sorted, ",");
 }
 
 static bool ParseComparison(const string &term, string &field, ExpressionType &cmp, string &literal) {

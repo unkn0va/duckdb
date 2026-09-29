@@ -155,8 +155,9 @@ SELECT parquet_prenest_stat('elements_appended:LineItems')
 # s2b - the same file read with the query spelled in lower case
 # Same 23. The counter is keyed on the FILE's spelling either way: the path is rendered from
 # the scan's own column names and the element struct's field names, not from how the query
-# spelled them. So the reader's exact by_path lookup (parquet_reader.cpp:560) still hits, and
-# the case-insensitive count at 543 is not what saves it here.
+# spelled them, so both spellings produce the same spec and the same counter key. (The reader's
+# by_path map is case-insensitive too, so a spec that DID differ in case would still be found -
+# neither lookup is what this case depends on.)
 # ------------------------------------------------------------------------------------------------
 
 statement ok
@@ -225,6 +226,11 @@ SELECT parquet_prenest_stat('elements_appended')
 ----
 0
 
+query I
+SELECT parquet_prenest_lists() = ''
+----
+true
+
 # ------------------------------------------------------------------------------------------------
 # s3b - the same file, predicate on the struct field instead
 # Also 0, but refused one stage later: the plan DOES carry a Pre-nest Filters entry, and the
@@ -258,6 +264,11 @@ query I
 SELECT parquet_prenest_stat('elements_appended')
 ----
 0
+
+query I
+SELECT parquet_prenest_lists()
+----
+a.b
 
 # ------------------------------------------------------------------------------------------------
 # s4a - two files of the same shape read as one scan
@@ -379,6 +390,11 @@ SELECT parquet_prenest_stat('elements_appended:tags')
 ----
 0
 
+query I
+SELECT parquet_prenest_lists()
+----
+o[].items
+
 # tags carries no predicate, so its reader never gets a spec and appends nothing.
 
 # ------------------------------------------------------------------------------------------------
@@ -416,6 +432,11 @@ query I
 SELECT parquet_prenest_stat('elements_appended:nums')
 ----
 0
+
+query I
+SELECT parquet_prenest_lists() = ''
+----
+true
 
 # ------------------------------------------------------------------------------------------------
 # s7 - a MAP sits beside the filtered list in the same row
