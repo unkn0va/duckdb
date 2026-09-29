@@ -1,3 +1,9 @@
+# DataFusion run4: run_active with Paradigm::Nested added to ACTIVE_PARADIGMS (see datafusion_active_with_nested.diff, reverted after)
+# machine: apache10
+# date: 2026-09-29
+# data: /data/tpch-nested/1/ (SF1)
+# duckdb commit: a85216b8b7
+# datafusion commit: 271583af3 (branch nested_data_processing)
 case,nested,col_prune,col_prune_fused,push_shallow,push_shallow_fused,push_deep_scan,push_deep_scan_fused,flatread,pureflat
 q1,3229,1400,1331,1378,1250,1313,1270,933,979
 q2,1227,515,530,529,545,512,491,389,389

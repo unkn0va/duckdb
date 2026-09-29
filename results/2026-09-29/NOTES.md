@@ -42,3 +42,32 @@ q3 q4 q5 q6 q7 q8 q10 q12 q14 q15 q19 q20 q21. DataFusion q1 is borderline (1.09
 - DuckDB timing includes process startup, which understates its ratios.
 - Supersedes the earlier "4.318 / 3.406 / 1.764" table, which was measured on
   code before 7618e48fb9 (weaker predicate expressivity).
+
+## Three stages (stock / + pruning / + filter pushdown)
+
+Branch lineage (linear, no merges): (a) 83ae79e5b7 upstream -> (b) 58a44bb203 adds
+LIST<STRUCT> field pruning (projection_pushdown branch) -> (c) a85216b8b7 adds pre-nest
+filter pushdown. Pre-nest commits do not touch the pruning code.
+EXPLAIN q6: (a) PARQUET_SCAN reads c_orders whole; (c) with auto=false reads 4 leaf fields.
+
+DuckDB (a), (b), (c) measured back to back. (b) and (c) auto=false agree within 0.03 s on
+every query, so "(c) off" = "(b)". DataFusion: nested -> col_prune -> push_deep_scan (run4).
+
+Geomean over the 13 gaining queries:
+
+| stage | DuckDB | DataFusion |
+|---|---|---|
+| pruning (a->b / nested->col_prune) | 2.01 | 3.76 |
+| filter pushdown (b->c / col_prune->push_deep_scan) | 2.65 | 1.34 |
+| total | 5.33 | 5.04 |
+
+| query | DuckDB prune / filter / total | DataFusion prune / filter / total |
+|---|---|---|
+| q6  | 1.83 / 4.00 / 7.32 | 3.59 / 1.62 / 5.81 |
+| q12 | 1.83 / 4.00 / 7.33 | 2.72 / 1.79 / 4.87 |
+| q3  | 2.03 / 2.75 / 5.59 | 4.21 / 1.11 / 4.65 |
+
+Totals are similar; the split is reversed. Why the split differs is a hypothesis
+(DuckDB perf-profiled only). The "7x" figure matches DuckDB total (stock -> both) on q6/q12.
+(a), (b) and DataFusion nested were measured once each; read with the +-10% noise band.
+q13: DuckDB pruning 7.48, DataFusion 1.13 - cause not investigated.

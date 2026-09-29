@@ -1,3 +1,9 @@
+# DataFusion run3: run_active, same paradigms as run1/run2
+# machine: apache10
+# date: 2026-09-29
+# data: /data/tpch-nested/1/ (SF1)
+# duckdb commit: a85216b8b7
+# datafusion commit: 271583af3 (branch nested_data_processing)
 case,col_prune,col_prune_fused,push_shallow,push_shallow_fused,push_deep_scan,push_deep_scan_fused,flatread,pureflat
 q1,1489,1344,1335,1281,1344,1292,962,984
 q2,506,510,529,536,545,541,383,394
