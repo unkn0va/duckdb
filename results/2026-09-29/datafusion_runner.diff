@@ -1,0 +1,25 @@
+diff --git a/benchmarks/run_nested_benchmark.sh b/benchmarks/run_nested_benchmark.sh
+index ca29c6773..a066d212a 100755
+--- a/benchmarks/run_nested_benchmark.sh
++++ b/benchmarks/run_nested_benchmark.sh
+@@ -18,7 +18,7 @@ CARGO="$(command -v cargo || echo "$HOME/.cargo/bin/cargo")"
+ #export TPCH_NESTED_VARIANT=tpch-nested-noempty      # 빈 고객 제거
+ #export TPCH_NESTED_VARIANT=tpch-nested-listnullable # NULL 인코딩
+ #export TPCH_SF=10                                   # 스케일 팩터 (기본 1)
+-#export NESTED_DATA_DIR=/data                        # 데이터 위치 (기본 ~/data)
++export NESTED_DATA_DIR=/data                        # 데이터 위치 (기본 ~/data)
+ 
+ #export RUST_LOG="datafusion_optimizer::optimizer=debug"
+ #export RUST_LOG="$RUST_LOG,datafusion_physical_optimizer::optimizer=debug"
+@@ -65,9 +65,9 @@ TESTS=(
+ #    "nested::benchmark_tpch_regular::tests::q22"
+ #    "nested::benchmark_tpch_regular::tests::explain_q9"
+ #    "nested::benchmark_tpch_regular::tests::quick_prune_vs_flat"
+-#    "nested::benchmark_tpch_regular::tests::run_all"
++    "nested::benchmark_tpch_regular::tests::run_active"
+     # "nested::benchmark_tpch_regular::tests::run_quick"
+-    "nested::benchmark_tpch_regular::tests::run_unnest"
++#    "nested::benchmark_tpch_regular::tests::run_unnest"
+ #    "nested::benchmark_tpch_regular::tests::run_unnest_single"
+ #   "nested::benchmark_tpch_regular::tests::explain_all_analyze"
+ #    "nested::benchmark_tpch_regular::tests::report_rg_skips"
