@@ -71,3 +71,9 @@ Totals are similar; the split is reversed. Why the split differs is a hypothesis
 (DuckDB perf-profiled only). The "7x" figure matches DuckDB total (stock -> both) on q6/q12.
 (a), (b) and DataFusion nested were measured once each; read with the +-10% noise band.
 q13: DuckDB pruning 7.48, DataFusion 1.13 - cause not investigated.
+
+Lineage check (2026-10-01, Layun): commits 049ec389d7..295b275dd3 (early filter
+attempts, UNNEST fusion) lie between (b) and (c) in history, but fff6e6276e restores
+the tree of 58a44bb203 exactly (both tree 6ff717ce23), so they contribute no code
+to (c). No merge commits in 58a44bb203..prenest-3way. a85216b8b7..9c1a81288f are
+results-only commits (0c9234039d, ba20b5fc93, 9c1a81288f).
