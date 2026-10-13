@@ -3,7 +3,6 @@
 # date: 2026-10-13
 # data: /data/tpch-nested/1/ (SF1)
 # duckdb commit: 58a44bb203 (branch detached)
-# datafusion commit: unknown (no checkout at /home/layun03/datafusion_research)
 query	time
 q10a	0.85
 q10b	0.83
