@@ -97,11 +97,78 @@ ParquetNodeInfo ParquetNodeInfo::Resolve(const ParquetColumnSchema &root, const 
 	if (!at_node) {
 		throw BinderException("read_parquet_node: node path \"%s\" does not end at a repeated field", path);
 	}
-	CollectNodeLeaves(element.get(), IsLeafSchema(element.get()) ? node_name : string(), result.leaves);
+	result.element_is_leaf = IsLeafSchema(element.get());
+	CollectNodeLeaves(element.get(), result.element_is_leaf ? node_name : string(), result.leaves);
 	result.key_leaf = result.leaves.empty() ? FindAnyLeaf(element.get()) : result.leaves[0].schema;
 	if (!result.key_leaf) {
 		throw BinderException("read_parquet_node: node \"%s\" has no columns", path);
 	}
+	return result;
+}
+
+//! Collect the nodes below an element of the node with the given index
+static void EnumerateChildNodes(const ParquetColumnSchema &root, const ParquetColumnSchema &element,
+                                const string &path, idx_t node_idx, vector<ParquetFlatNode> &result);
+
+static void AddFlatNode(const ParquetColumnSchema &root, const ParquetColumnSchema &list, const string &path,
+                        optional_idx parent, vector<ParquetFlatNode> &result) {
+	auto node = ParquetNodeInfo::Resolve(root, path);
+	ParquetFlatNode flat_node;
+	flat_node.path = path;
+	flat_node.level = node.level;
+	flat_node.parent = parent;
+	for (auto &leaf : node.leaves) {
+		flat_node.leaf_names.push_back(leaf.name);
+		flat_node.leaf_types.push_back(leaf.schema->type);
+		if (path.empty()) {
+			flat_node.column_names.push_back(leaf.name);
+		} else if (node.element_is_leaf) {
+			// the elements of a list of primitives are the node itself
+			flat_node.column_names.push_back(path);
+		} else {
+			flat_node.column_names.push_back(path + "." + leaf.name);
+		}
+	}
+	// the path is resolved case-insensitively - make sure it leads to this node
+	if (parent.IsValid() && node.level != result[parent.GetIndex()].level + 1) {
+		throw BinderException("read_parquet_flat: the nested field \"%s\" cannot be told apart from another field",
+		                      path);
+	}
+	auto node_idx = result.size();
+	result.push_back(std::move(flat_node));
+	if (list.type.id() == LogicalTypeId::LIST) {
+		EnumerateChildNodes(root, list.children[0], path, node_idx, result);
+	} else {
+		EnumerateChildNodes(root, list, path, node_idx, result);
+	}
+}
+
+static void EnumerateChildNodes(const ParquetColumnSchema &root, const ParquetColumnSchema &element,
+                                const string &path, idx_t node_idx, vector<ParquetFlatNode> &result) {
+	if (element.schema_type != ParquetColumnSchemaType::COLUMN) {
+		return;
+	}
+	if (element.type.id() == LogicalTypeId::LIST) {
+		// a list of lists: its elements are a node of their own
+		AddFlatNode(root, element, path + ".element", node_idx, result);
+		return;
+	}
+	if (element.type.id() != LogicalTypeId::STRUCT) {
+		return;
+	}
+	for (auto &child : element.children) {
+		auto child_path = path.empty() ? child.name : path + "." + child.name;
+		if (child.type.id() == LogicalTypeId::LIST) {
+			AddFlatNode(root, child, child_path, node_idx, result);
+		} else if (child.type.id() == LogicalTypeId::STRUCT) {
+			EnumerateChildNodes(root, child, child_path, node_idx, result);
+		}
+	}
+}
+
+vector<ParquetFlatNode> ParquetFlatNode::EnumerateNodes(const ParquetColumnSchema &root) {
+	vector<ParquetFlatNode> result;
+	AddFlatNode(root, root, string(), optional_idx(), result);
 	return result;
 }
 
@@ -127,6 +194,21 @@ void ParquetNodeKeyGenerator::BeginRowGroup(const vector<idx_t> &row_offsets) {
 	for (idx_t k = 0; k <= level; k++) {
 		counters[k] = NumericCast<int64_t>(row_offsets[k]) - 1;
 	}
+	row_group_offsets = row_offsets;
+}
+
+optional_idx ParquetNodeKeyGenerator::FindMismatch(const vector<optional_idx> &expected_counts) const {
+	D_ASSERT(expected_counts.size() == level + 1);
+	for (idx_t k = 0; k <= level; k++) {
+		if (expected_counts[k].IsValid() && RowCount(k) != expected_counts[k].GetIndex()) {
+			return k;
+		}
+	}
+	return optional_idx();
+}
+
+idx_t ParquetNodeKeyGenerator::RowCount(idx_t key_level) const {
+	return NumericCast<idx_t>(counters[key_level] + 1) - row_group_offsets[key_level];
 }
 
 idx_t ParquetNodeKeyGenerator::Process(const uint8_t *repeats, const uint8_t *defines, idx_t count,
@@ -183,8 +265,8 @@ static void CountLevelRows(const ParquetReader &reader, const ParquetColumnSchem
 	}
 }
 
-vector<vector<idx_t>> ComputeNodeRowOffsets(ClientContext &context, const ParquetReader &reader,
-                                            const ParquetNodeInfo &node) {
+ParquetNodeRowGroupRows ParquetNodeRowGroupRows::Compute(ClientContext &context, const ParquetReader &reader,
+                                                         const ParquetNodeInfo &node) {
 	auto &row_groups = reader.GetFileMetadata()->row_groups;
 	// levels whose node has no column of its own have no row count in the metadata - their rows are counted
 	vector<idx_t> counted_levels;
@@ -198,25 +280,34 @@ vector<vector<idx_t>> ComputeNodeRowOffsets(ClientContext &context, const Parque
 		protocol = reader.OpenColumnProtocol(context);
 	}
 
-	vector<vector<idx_t>> result;
-	vector<idx_t> row_counts(node.level + 1, 0);
+	ParquetNodeRowGroupRows result;
+	vector<idx_t> offsets(node.level + 1, 0);
 	for (idx_t rg = 0; rg < row_groups.size(); rg++) {
-		result.push_back(row_counts);
-		if (rg + 1 == row_groups.size()) {
-			break;
-		}
 		auto &group = row_groups[rg];
-		row_counts[0] += NumericCast<idx_t>(group.num_rows);
+		vector<optional_idx> counts(node.level + 1);
+		counts[0] = NumericCast<idx_t>(group.num_rows);
 		for (idx_t k = 1; k <= node.level; k++) {
 			auto &witness = node.level_witness[k];
 			if (witness) {
 				// every slot of a column directly in the node starts a row of it (or an empty placeholder)
-				row_counts[k] += NumericCast<idx_t>(group.columns[witness->column_index].meta_data.num_values);
+				counts[k] = NumericCast<idx_t>(group.columns[witness->column_index].meta_data.num_values);
 			}
 		}
-		if (!counted_levels.empty()) {
-			CountLevelRows(reader, *node.key_leaf, rg, *protocol, counted_levels, row_counts);
+		// the levels of the last row group are not needed for any offset - its counts stay unknown
+		if (!counted_levels.empty() && rg + 1 < row_groups.size()) {
+			vector<idx_t> level_counts(node.level + 1, 0);
+			CountLevelRows(reader, *node.key_leaf, rg, *protocol, counted_levels, level_counts);
+			for (auto k : counted_levels) {
+				counts[k] = level_counts[k];
+			}
 		}
+		result.offsets.push_back(offsets);
+		for (idx_t k = 0; k <= node.level; k++) {
+			if (counts[k].IsValid()) {
+				offsets[k] += counts[k].GetIndex();
+			}
+		}
+		result.counts.push_back(std::move(counts));
 	}
 	return result;
 }

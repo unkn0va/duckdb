@@ -1,0 +1,307 @@
+# name: test/sql/copy/parquet/nested_keys/read_parquet_flat.test
+# description: Read nested Parquet files by the paths of their columns, joining the nodes of the referenced columns
+# group: [nested_keys]
+
+require parquet
+
+statement ok
+CREATE TABLE users (
+	UserId INTEGER,
+	Name VARCHAR,
+	Followers INTEGER[],
+	Posts STRUCT(
+		Text VARCHAR,
+		Reactions STRUCT(UserId INTEGER, Emoji VARCHAR)[],
+		Comments STRUCT(UserId INTEGER, Text VARCHAR, Likes INTEGER[])[]
+	)[]
+);
+
+statement ok
+INSERT INTO users VALUES
+	(302, 'alice', [406, 501], [
+		{'Text': 'nice day', 'Reactions': [], 'Comments': [{'UserId': 406, 'Text': 'same here', 'Likes': []}]},
+		{'Text': 'coffee time', 'Reactions': [{'UserId': 501, 'Emoji': 'smile'}, {'UserId': 406, 'Emoji': 'heart'}], 'Comments': []}
+	]),
+	(406, 'bob', [908, 302], [
+		{'Text': 'movie night!', 'Reactions': [{'UserId': 302, 'Emoji': 'star'}], 'Comments': [
+			{'UserId': 908, 'Text': 'happy for you', 'Likes': [406, 908]},
+			{'UserId': 302, 'Text': 'have fun!', 'Likes': [501]}
+		]}
+	]);
+
+statement ok
+COPY users TO '{TEST_DIR}/social.parquet';
+
+statement ok
+CREATE VIEW flat AS FROM read_parquet_flat('{TEST_DIR}/social.parquet');
+
+# the unnested lists, as the oracle for the queries over the flat scan
+statement ok
+CREATE VIEW unnested_posts AS SELECT UserId, Name, unnest(Posts) AS p FROM users;
+
+query II
+SELECT column_name, column_type FROM (DESCRIBE flat)
+----
+UserId	INTEGER
+Name	VARCHAR
+Followers	INTEGER
+Posts.Text	VARCHAR
+Posts.Reactions.UserId	INTEGER
+Posts.Reactions.Emoji	VARCHAR
+Posts.Comments.UserId	INTEGER
+Posts.Comments.Text	VARCHAR
+Posts.Comments.Likes	INTEGER
+
+# the example query of figure 7: the filter is pushed into the scan of the comments
+query I
+SELECT "Posts.Text" FROM flat WHERE "Posts.Comments.Text" LIKE '%fun%'
+----
+movie night!
+
+query II
+EXPLAIN SELECT "Posts.Text" FROM flat WHERE "Posts.Comments.Text" LIKE '%fun%'
+----
+physical_plan	<REGEX>:(?s).*(_sk = _ak1|_ak1 = _sk).*Filter.*contains.*Node: Posts.Comments.*
+
+# I. a single node is scanned without joins
+query I
+SELECT "Posts.Text" FROM flat ORDER BY ALL
+----
+coffee time
+movie night!
+nice day
+
+query II
+EXPLAIN SELECT "Posts.Text" FROM flat
+----
+physical_plan	<!REGEX>:(?s).*(Join|top level).*
+
+# II. a node with its parent
+query II
+SELECT Name, max(length("Posts.Text")) FROM flat GROUP BY ALL ORDER BY ALL
+----
+alice	11
+bob	12
+
+# III. a node with an ancestor that is not its parent - the posts in between are not scanned
+query II
+SELECT Name, count("Posts.Comments.Text") FROM flat GROUP BY ALL ORDER BY ALL
+----
+alice	1
+bob	2
+
+query II
+SELECT Name, count(c) FROM (SELECT Name, unnest(p.Comments) AS c FROM unnested_posts) GROUP BY ALL ORDER BY ALL
+----
+alice	1
+bob	2
+
+query II
+EXPLAIN SELECT Name, count("Posts.Comments.Text") FROM flat GROUP BY ALL
+----
+physical_plan	<!REGEX>:(?s).*Node: Posts .*
+
+query II
+EXPLAIN SELECT Name, count("Posts.Comments.Text") FROM flat GROUP BY ALL
+----
+physical_plan	<REGEX>:(?s).*(_sk = _ak0|_ak0 = _sk).*
+
+# IV. comments from users who also reacted to the post: siblings, joined on their common ancestor
+query II
+SELECT "Posts.Comments.UserId", "Posts.Comments.Text" FROM flat WHERE "Posts.Reactions.UserId" = "Posts.Comments.UserId"
+----
+302	have fun!
+
+query II
+EXPLAIN SELECT "Posts.Comments.Text" FROM flat WHERE "Posts.Reactions.UserId" = "Posts.Comments.UserId"
+----
+physical_plan	<REGEX>:(?s).*_ak1 = _ak1.*
+
+# only the referenced node is scanned - every follower once
+query II
+SELECT "Followers", count(*) FROM flat GROUP BY ALL ORDER BY ALL
+----
+302	1
+406	1
+501	1
+908	1
+
+# V. nodes in different subtrees of the top level - the top level itself is not scanned
+query II
+SELECT ft.f, count(*) FROM users u, unnest(u.Followers) AS ft(f), unnest(u.Posts) AS pt(p), unnest(pt.p.Reactions) AS rt(r) GROUP BY ALL ORDER BY ALL
+----
+302	1
+406	2
+501	2
+908	1
+
+query II
+SELECT "Followers", count("Posts.Reactions.Emoji") FROM flat GROUP BY ALL ORDER BY ALL
+----
+302	1
+406	2
+501	2
+908	1
+
+query II
+EXPLAIN SELECT "Followers", "Posts.Reactions.Emoji" FROM flat
+----
+physical_plan	<REGEX>:(?s).*_ak0 = _ak0.*
+
+query II
+EXPLAIN SELECT "Followers", "Posts.Reactions.Emoji" FROM flat
+----
+physical_plan	<!REGEX>:(?s).*top level.*
+
+# VI. users with the likes of the comments on their posts
+query III
+SELECT Name, "Posts.Comments.Text", "Posts.Comments.Likes" FROM flat ORDER BY ALL
+----
+bob	happy for you	406
+bob	happy for you	908
+bob	have fun!	501
+
+query III
+SELECT Name, c.Text, unnest(c.Likes) FROM (SELECT Name, unnest(p.Comments) AS c FROM unnested_posts) ORDER BY ALL
+----
+bob	happy for you	406
+bob	happy for you	908
+bob	have fun!	501
+
+# VII. four nodes: followers of users that liked a comment on a post of theirs about movies
+query IIII
+SELECT Name, "Followers", "Posts.Text", "Posts.Comments.Likes" FROM flat WHERE "Posts.Text" LIKE '%movie%' ORDER BY ALL
+----
+bob	302	movie night!	406
+bob	302	movie night!	501
+bob	302	movie night!	908
+bob	908	movie night!	406
+bob	908	movie night!	501
+bob	908	movie night!	908
+
+query I
+SELECT count(*) FROM flat WHERE "Followers" = "Posts.Comments.Likes"
+----
+1
+
+# count(*) scans the top level
+query I
+SELECT count(*) FROM flat
+----
+2
+
+# all columns: every node is joined - only bob has a post with reactions and liked comments, and his followers multiply
+query IIIIIIIII
+SELECT * FROM flat ORDER BY ALL
+----
+406	bob	302	movie night!	302	star	302	have fun!	501
+406	bob	302	movie night!	302	star	908	happy for you	406
+406	bob	302	movie night!	302	star	908	happy for you	908
+406	bob	908	movie night!	302	star	302	have fun!	501
+406	bob	908	movie night!	302	star	908	happy for you	406
+406	bob	908	movie night!	302	star	908	happy for you	908
+
+# the nodes are those of the columns that are used, not of the columns that are bound: none here
+query I
+SELECT count(*) FROM (SELECT * FROM flat)
+----
+2
+
+# two scans of the same file, and a CTE that is used twice
+query II
+SELECT a.Name, b.Name FROM flat a JOIN flat b ON a."Posts.Comments.UserId" = b.UserId ORDER BY ALL
+----
+alice	bob
+bob	alice
+
+query I
+WITH c AS MATERIALIZED (SELECT "Posts.Comments.UserId" AS u FROM flat) SELECT count(*) FROM c c1 JOIN c c2 ON c1.u = c2.u
+----
+3
+
+# the replaced scans survive serialization of the plan - users without likes are not part of the join
+statement ok
+SET debug_verify_serializer = true
+
+query II
+SELECT Name, count("Posts.Comments.Likes") FROM flat GROUP BY ALL ORDER BY ALL
+----
+bob	3
+
+statement ok
+SET debug_verify_serializer = false
+
+# the scan has to be replaced by the optimizer
+statement ok
+SET disabled_optimizers = 'extension'
+
+statement error
+SELECT "Posts.Text" FROM flat
+----
+cannot be used with the optimizer
+
+statement ok
+RESET disabled_optimizers
+
+# count(*) is not answered by the first column when it is a list
+statement ok
+COPY (SELECT range(i % 3) AS l, i AS x FROM range(100) t(i)) TO '{TEST_DIR}/list_first.parquet';
+
+query I
+SELECT count(*) FROM read_parquet_flat('{TEST_DIR}/list_first.parquet')
+----
+100
+
+query I
+SELECT count(l) FROM read_parquet_flat('{TEST_DIR}/list_first.parquet')
+----
+99
+
+# MAP fields are not included, the other fields are
+statement ok
+COPY (SELECT MAP {'a': 1} AS m, 42 AS x) TO '{TEST_DIR}/with_map.parquet';
+
+query I
+SELECT * FROM read_parquet_flat('{TEST_DIR}/with_map.parquet')
+----
+42
+
+# a field whose name contains a dot can collide with the path of a nested field
+statement ok
+COPY (SELECT {'b': 1} AS a, 2 AS "a.b") TO '{TEST_DIR}/collision.parquet';
+
+statement error
+SELECT * FROM read_parquet_flat('{TEST_DIR}/collision.parquet')
+----
+several columns with the path
+
+# several row groups, NULL and empty lists, lists of lists
+statement ok
+CREATE TABLE big AS
+SELECT
+	i AS id,
+	CASE WHEN i % 7 = 0 THEN NULL ELSE list_transform(range(i % 4), lambda j: {'v': i * 10 + j, 'inner': range(j)}) END AS l,
+	CASE WHEN i % 5 = 0 THEN NULL ELSE list_transform(range(i % 3), lambda j: range(j)) END AS m
+FROM range(10000) t(i);
+
+statement ok
+COPY big TO '{TEST_DIR}/big_flat.parquet' (ROW_GROUP_SIZE 1000);
+
+query I
+SELECT sum(id * "l.v" * "l.inner") = (SELECT sum(s.id * s.e.v * t.x) FROM (SELECT id, unnest(l) AS e FROM big) s, unnest(s.e.inner) t(x))
+FROM read_parquet_flat('{TEST_DIR}/big_flat.parquet')
+----
+true
+
+query I
+SELECT sum(id * ("m.element" + 1)) = (SELECT sum(s.id * (t.x + 1)) FROM (SELECT id, unnest(m) AS e FROM big) s, unnest(s.e) t(x))
+FROM read_parquet_flat('{TEST_DIR}/big_flat.parquet')
+----
+true
+
+# siblings below the top level: every element of l is combined with every element of the inner lists of m
+query I
+SELECT count(*) = (SELECT sum(coalesce(len(l), 0) * coalesce(list_sum(list_transform(m, lambda e: len(e))), 0)) FROM big)
+FROM read_parquet_flat('{TEST_DIR}/big_flat.parquet') WHERE "l.v" IS NOT NULL AND "m.element" IS NOT NULL
+----
+true

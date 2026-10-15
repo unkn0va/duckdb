@@ -264,3 +264,141 @@ SELECT count(*) = (SELECT sum(len(m)) FROM big)
 FROM read_parquet_node('{TEST_DIR}/big.parquet', node := 'm')
 ----
 true
+
+# a legacy two-level list without LIST annotation (a repeated group in an optional struct)
+query IIII
+SELECT * FROM read_parquet_node('data/parquet-testing/arrow/repeated_no_annotation.parquet', node := 'phoneNumbers.phone', include_empty := true) ORDER BY _sk
+----
+NULL	NULL	0	0
+NULL	NULL	1	1
+NULL	NULL	2	2
+5555555555	NULL	3	3
+1111111111	home	4	4
+1111111111	home	5	5
+2222222222	NULL	6	5
+3333333333	mobile	7	5
+
+query IIII
+SELECT * FROM read_parquet_node('data/parquet-testing/arrow/repeated_no_annotation.parquet', node := 'phoneNumbers.phone') ORDER BY _sk
+----
+5555555555	NULL	3	3
+1111111111	home	4	4
+1111111111	home	5	5
+2222222222	NULL	6	5
+3333333333	mobile	7	5
+
+# a three-level list of lists of lists written by arrow, with NULL inner lists
+query II
+SELECT * FROM read_parquet_node('data/parquet-testing/arrow/nested_lists.snappy.parquet', node := 'a') ORDER BY _sk
+----
+0	0
+1	0
+2	1
+3	1
+4	2
+5	2
+
+query III
+SELECT * FROM read_parquet_node('data/parquet-testing/arrow/nested_lists.snappy.parquet', node := 'a.element', include_empty := true) ORDER BY _sk
+----
+0	0	0
+1	0	0
+2	0	1
+3	0	1
+4	1	2
+5	1	2
+6	1	3
+7	1	3
+8	2	4
+9	2	4
+10	2	4
+11	2	5
+12	2	5
+
+# a NULL inner list is an element of its node (with a NULL value), but a placeholder in the node of its elements
+query I
+SELECT list(_sk ORDER BY _sk) FROM read_parquet_node('data/parquet-testing/arrow/nested_lists.snappy.parquet', node := 'a.element')
+----
+[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+
+query I
+SELECT list(_sk ORDER BY _sk) FROM read_parquet_node('data/parquet-testing/arrow/nested_lists.snappy.parquet', node := 'a.element.element')
+----
+[0, 1, 2, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15, 17]
+
+query IIIII
+SELECT * FROM read_parquet_node('data/parquet-testing/arrow/nested_lists.snappy.parquet', node := 'a.element.element', include_empty := true) ORDER BY _sk
+----
+a	0	0	0	0
+b	1	0	0	0
+c	2	0	0	1
+NULL	3	0	1	2
+d	4	0	1	3
+a	5	1	2	4
+b	6	1	2	4
+c	7	1	2	5
+d	8	1	2	5
+NULL	9	1	3	6
+e	10	1	3	7
+a	11	2	4	8
+b	12	2	4	8
+c	13	2	4	9
+d	14	2	4	9
+e	15	2	4	10
+NULL	16	2	5	11
+f	17	2	5	12
+
+# the non-NULL inner lists per row, rebuilt by joining the nodes
+query I
+SELECT list(i.inner_list ORDER BY i._sk)
+FROM read_parquet_node('data/parquet-testing/arrow/nested_lists.snappy.parquet', node := 'a') o
+JOIN (
+	SELECT m._sk, m._ak1, list(e.element ORDER BY e._sk) AS inner_list
+	FROM read_parquet_node('data/parquet-testing/arrow/nested_lists.snappy.parquet', node := 'a.element') m
+	JOIN read_parquet_node('data/parquet-testing/arrow/nested_lists.snappy.parquet', node := 'a.element.element') e ON m._sk = e._ak2
+	GROUP BY ALL
+) i ON o._sk = i._ak1
+GROUP BY o._ak0 ORDER BY o._ak0
+----
+[[a, b], [c], [d]]
+[[a, b], [c, d], [e]]
+[[a, b], [c, d], [e], [f]]
+
+query I
+SELECT list_filter(flatten(a), lambda x: x IS NOT NULL) FROM 'data/parquet-testing/arrow/nested_lists.snappy.parquet'
+----
+[[a, b], [c], [d]]
+[[a, b], [c, d], [e]]
+[[a, b], [c, d], [e], [f]]
+
+# the levels of a row group must agree with the row counts in the metadata
+statement error
+SELECT * FROM read_parquet_node('data/parquet-testing/invalid_list/list_leading_repeat.parquet', node := 'l')
+----
+row group 0 has 2 rows on nesting level 0 according to its repetition levels, but 3 according to its metadata
+
+# a top-level column whose values are all NULL in a row group is not read - its slots are still counted
+statement ok
+COPY (SELECT i, CASE WHEN i >= 4096 THEN NULL ELSE i END AS y, [i, i + 1] AS l FROM range(10000) t(i)) TO '{TEST_DIR}/all_null.parquet' (ROW_GROUP_SIZE 4096);
+
+query I
+SELECT stats_null_count FROM parquet_metadata('{TEST_DIR}/all_null.parquet') WHERE path_in_schema = 'y' ORDER BY row_group_id
+----
+0
+4096
+1808
+
+query III
+SELECT count(y), count(i), max(_sk) FROM read_parquet_node('{TEST_DIR}/all_null.parquet')
+----
+4096	10000	9999
+
+query II
+SELECT count(y), sum(i) FROM read_parquet_node('{TEST_DIR}/all_null.parquet')
+----
+4096	49995000
+
+query II
+SELECT count(*), sum(r.y) FROM read_parquet_node('{TEST_DIR}/all_null.parquet') r JOIN read_parquet_node('{TEST_DIR}/all_null.parquet', node := 'l') l ON r._sk = l._ak0
+----
+20000	16773120

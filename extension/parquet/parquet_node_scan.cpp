@@ -8,14 +8,19 @@
 #include "duckdb/common/vector/flat_vector.hpp"
 #include "duckdb/common/vector/vector_writer.hpp"
 #include "duckdb/function/table_function.hpp"
+#include "duckdb/parser/tableref/table_function_ref.hpp"
+#include "duckdb/storage/statistics/numeric_stats.hpp"
 
 namespace duckdb {
 
 struct ReadParquetNodeData : public TableFunctionData {
 	shared_ptr<ParquetReader> reader;
+	string node_path;
 	ParquetNodeInfo node;
 	bool include_empty = false;
 	idx_t cardinality = 0;
+	//! For every level: an upper bound of the number of rows (and placeholders) of the level - the keys are below it
+	vector<idx_t> key_upper_bounds;
 };
 
 //! What a projected column of the scan is read from
@@ -27,7 +32,7 @@ struct ReadParquetNodeColumn {
 };
 
 struct ReadParquetNodeGlobalState : public GlobalTableFunctionState {
-	vector<vector<idx_t>> row_offsets;
+	ParquetNodeRowGroupRows row_group_rows;
 	vector<ReadParquetNodeColumn> columns;
 	//! The columns that are read - the first one drives the keys
 	vector<reference<const ParquetColumnSchema>> read_leaves;
@@ -46,6 +51,9 @@ struct ReadParquetNodeLocalState : public LocalTableFunctionState {
 
 	unique_ptr<TProtocol> protocol;
 	bool has_row_group = false;
+	//! The slots of the current row group that are left to read
+	idx_t slots_left = 0;
+	idx_t row_group_idx = 0;
 	vector<unique_ptr<ColumnReader>> readers;
 	DataChunk read_chunk;
 	ResizeableBuffer define_buf;
@@ -79,6 +87,7 @@ static unique_ptr<FunctionData> ReadParquetNodeBind(ClientContext &context, Tabl
 	if (reader.metadata->crypto_metadata) {
 		throw NotImplementedException("read_parquet_node does not support encrypted Parquet files");
 	}
+	result->node_path = node_path;
 	result->node = ParquetNodeInfo::Resolve(*reader.root_schema, node_path);
 	auto &node = result->node;
 
@@ -99,6 +108,16 @@ static unique_ptr<FunctionData> ReadParquetNodeBind(ClientContext &context, Tabl
 		result->cardinality += node.level == 0 ? NumericCast<idx_t>(group.num_rows)
 		                                       : NumericCast<idx_t>(
 		                                             group.columns[cardinality_leaf.column_index].meta_data.num_values);
+	}
+	// a level without a column of its own has fewer rows than the slots of any column below it
+	result->key_upper_bounds.resize(node.level + 1, 0);
+	for (auto &group : reader.GetFileMetadata()->row_groups) {
+		result->key_upper_bounds[0] += NumericCast<idx_t>(group.num_rows);
+		for (idx_t k = 1; k <= node.level; k++) {
+			auto &count_leaf = node.level_witness[k] ? *node.level_witness[k] : *node.key_leaf;
+			auto &chunk_metadata = group.columns[count_leaf.column_index].meta_data;
+			result->key_upper_bounds[k] += NumericCast<idx_t>(chunk_metadata.num_values);
+		}
 	}
 	return std::move(result);
 }
@@ -127,7 +146,7 @@ static unique_ptr<GlobalTableFunctionState> ReadParquetNodeInitGlobal(ClientCont
 		// only keys are projected - read the levels of any column of the node
 		result->read_leaves.push_back(*node.key_leaf);
 	}
-	result->row_offsets = ComputeNodeRowOffsets(context, *data.reader, node);
+	result->row_group_rows = ParquetNodeRowGroupRows::Compute(context, *data.reader, node);
 	result->max_threads = MaxValue<idx_t>(data.reader->NumRowGroups(), 1);
 	return std::move(result);
 }
@@ -170,9 +189,35 @@ static bool ReadParquetNodeNextRowGroup(ClientContext &context, const ReadParque
 		                              *lstate.protocol);
 		lstate.readers.push_back(std::move(column_reader));
 	}
-	lstate.generator.BeginRowGroup(gstate.row_offsets[row_group_idx]);
+	// the columns of a node have the same slots. The readers do not track how many are left themselves: a top-level
+	// column whose values are all NULL is not read at all
+	lstate.slots_left = lstate.readers[0]->GroupRowsAvailable();
+	for (auto &column_reader : lstate.readers) {
+		if (column_reader->GroupRowsAvailable() != lstate.slots_left) {
+			throw InvalidInputException("read_parquet_node: corrupt file \"%s\": the columns of a node have a "
+			                            "different number of values in row group %llu",
+			                            reader.GetFileName(), row_group_idx);
+		}
+	}
+	lstate.generator.BeginRowGroup(gstate.row_group_rows.offsets[row_group_idx]);
+	lstate.row_group_idx = row_group_idx;
 	lstate.has_row_group = true;
 	return true;
+}
+
+//! The keys are offset by the row counts of the metadata - verify that the levels of the row group agree with them
+static void VerifyRowGroupRows(const ReadParquetNodeData &data, ReadParquetNodeGlobalState &gstate,
+                               ReadParquetNodeLocalState &lstate) {
+	auto &expected = gstate.row_group_rows.counts[lstate.row_group_idx];
+	auto mismatch = lstate.generator.FindMismatch(expected);
+	if (!mismatch.IsValid()) {
+		return;
+	}
+	auto level = mismatch.GetIndex();
+	throw InvalidInputException("read_parquet_node: corrupt file \"%s\": row group %llu has %llu rows on nesting level "
+	                            "%llu according to its repetition levels, but %llu according to its metadata",
+	                            data.reader->GetFileName(), lstate.row_group_idx, lstate.generator.RowCount(level),
+	                            level, expected[level].GetIndex());
 }
 
 static void ReadParquetNodeScan(ClientContext &context, TableFunctionInput &input, DataChunk &output) {
@@ -188,10 +233,9 @@ static void ReadParquetNodeScan(ClientContext &context, TableFunctionInput &inpu
 		if (!lstate.has_row_group && !ReadParquetNodeNextRowGroup(context, data, gstate, lstate)) {
 			return;
 		}
-		// all columns of the node have the same slots - the first one determines how many there are left
-		auto &key_reader = *lstate.readers[0];
-		auto count = MinValue<idx_t>(STANDARD_VECTOR_SIZE, key_reader.GroupRowsAvailable());
+		auto count = MinValue<idx_t>(STANDARD_VECTOR_SIZE, lstate.slots_left);
 		if (count == 0) {
+			VerifyRowGroupRows(data, gstate, lstate);
 			lstate.has_row_group = false;
 			continue;
 		}
@@ -211,6 +255,8 @@ static void ReadParquetNodeScan(ClientContext &context, TableFunctionInput &inpu
 				                            lstate.readers[i]->Schema().name, data.reader->GetFileName());
 			}
 		}
+
+		lstate.slots_left -= count;
 
 		SelectionVector sel(STANDARD_VECTOR_SIZE);
 		auto result_count = lstate.generator.Process(repeats, defines, count, sel);
@@ -251,6 +297,62 @@ static unique_ptr<NodeStatistics> ReadParquetNodeCardinality(ClientContext &cont
 	return make_uniq<NodeStatistics>(data.cardinality);
 }
 
+//! The keys of a level are the row numbers 0..n-1 of that level
+static unique_ptr<BaseStatistics> ReadParquetNodeStatistics(ClientContext &context, const FunctionData *bind_data,
+                                                            column_t column_index) {
+	auto &data = bind_data->Cast<ReadParquetNodeData>();
+	auto &node = data.node;
+	const auto leaf_count = node.leaves.size();
+	if (column_index < leaf_count || column_index >= leaf_count + node.level + 1) {
+		return nullptr;
+	}
+	auto key_index = column_index - leaf_count;
+	auto level = key_index == 0 ? node.level : key_index - 1;
+	auto upper_bound = data.key_upper_bounds[level];
+	if (upper_bound == 0) {
+		return NumericStats::CreateEmpty(LogicalType::BIGINT).ToUnique();
+	}
+	auto stats = NumericStats::CreateUnknown(LogicalType::BIGINT);
+	NumericStats::SetMin(stats, Value::BIGINT(0));
+	NumericStats::SetMax(stats, Value::BIGINT(NumericCast<int64_t>(upper_bound - 1)));
+	stats.SetHasNoNull();
+	return stats.ToUnique();
+}
+
+static InsertionOrderPreservingMap<string> ReadParquetNodeToString(TableFunctionToStringInput &input) {
+	InsertionOrderPreservingMap<string> result;
+	if (input.bind_data) {
+		auto &data = input.bind_data->Cast<ReadParquetNodeData>();
+		result["File"] = data.reader->GetFileName();
+		result["Node"] = data.node_path.empty() ? "(top level)" : data.node_path;
+	}
+	return result;
+}
+
+unique_ptr<LogicalGet> ReadParquetNodeFunction::CreateGet(ClientContext &context, TableIndex table_index,
+                                                          const string &file, const string &node_path) {
+	// bind the function the way the binder binds a call to it, so that the plan can be serialized and copied
+	BoundTableFunction function(GetFunction());
+	vector<Value> parameters {Value(file)};
+	named_argument_map_t named_parameters;
+	named_parameters["node"] = Value(node_path);
+	function.GetSignature().FillNamedDefaults(context, named_parameters);
+	function.SetCallArguments(parameters, named_parameters);
+	vector<LogicalType> input_table_types;
+	vector<Identifier> input_table_names;
+	TableFunctionRef ref;
+	TableFunctionBindInput bind_input(parameters, named_parameters, input_table_types, input_table_names,
+	                                  function.function_info.get(), nullptr, function, ref);
+	vector<LogicalType> return_types;
+	vector<Identifier> names;
+	auto bind_data = function.bind(context, bind_input, return_types, names);
+	auto get = make_uniq<LogicalGet>(table_index, std::move(function), std::move(bind_data), std::move(return_types),
+	                                 std::move(names));
+	get->parameters = std::move(parameters);
+	get->named_parameters = std::move(named_parameters);
+	return get;
+}
+
 TableFunction ReadParquetNodeFunction::GetFunction() {
 	TableFunction function("read_parquet_node", FunctionSignature().AddPositionalOnly("file", LogicalType::VARCHAR),
 	                       ReadParquetNodeScan, ReadParquetNodeBind, ReadParquetNodeInitGlobal,
@@ -259,6 +361,8 @@ TableFunction ReadParquetNodeFunction::GetFunction() {
 	    .AddKeywordOnly("node", LogicalType::VARCHAR, Value(""))
 	    .AddKeywordOnly("include_empty", LogicalType::BOOLEAN, Value::BOOLEAN(false));
 	function.cardinality = ReadParquetNodeCardinality;
+	function.statistics = ReadParquetNodeStatistics;
+	function.to_string = ReadParquetNodeToString;
 	function.projection_pushdown = true;
 	return function;
 }

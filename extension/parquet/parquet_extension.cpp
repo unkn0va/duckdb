@@ -1067,6 +1067,11 @@ static void LoadInternal(ExtensionLoader &loader) {
 	node_set.AddFunction(ReadParquetNodeFunction::GetFunction());
 	loader.RegisterFunction(std::move(node_set));
 
+	// read_parquet_flat
+	TableFunctionSet flat_set("read_parquet_flat");
+	flat_set.AddFunction(ReadParquetFlatFunction::GetFunction());
+	loader.RegisterFunction(std::move(flat_set));
+
 	// parquet_metadata
 	ParquetMetaDataFunction meta_fun;
 	loader.RegisterFunction(MultiFileReader::CreateFunctionSet(meta_fun));
@@ -1134,6 +1139,7 @@ static void LoadInternal(ExtensionLoader &loader) {
 
 	auto &config = DBConfig::GetConfig(db_instance);
 	config.replacement_scans.emplace_back(ParquetScanReplacement);
+	ReadParquetFlatFunction::RegisterOptimizer(config);
 	config.AddExtensionOption("binary_as_string", "In Parquet files, interpret binary data as a string.",
 	                          LogicalType::BOOLEAN, Value(false));
 	config.AddExtensionOption("disable_parquet_prefetching", "Disable the prefetching mechanism in Parquet",
