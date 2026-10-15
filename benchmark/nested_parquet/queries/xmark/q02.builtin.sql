@@ -1,0 +1,1 @@
+select unnest(open_auctions.open_auction).bidder[1].increase from "sf10.parquet"
