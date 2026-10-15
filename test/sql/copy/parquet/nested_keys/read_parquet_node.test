@@ -1,0 +1,266 @@
+# name: test/sql/copy/parquet/nested_keys/read_parquet_node.test
+# description: Read nodes of nested Parquet files as flat relations with surrogate and ancestor keys
+# group: [nested_keys]
+
+require parquet
+
+# the social media example of "Nested Parquet Is Flat, Why Not Use It?" (Rey et al.), figure 3
+statement ok
+CREATE TABLE users (
+	UserId INTEGER,
+	Name VARCHAR,
+	Followers INTEGER[],
+	Posts STRUCT(
+		Text VARCHAR,
+		Reactions STRUCT(UserId INTEGER, Emoji VARCHAR)[],
+		Comments STRUCT(UserId INTEGER, Text VARCHAR, Likes INTEGER[])[]
+	)[]
+);
+
+statement ok
+INSERT INTO users VALUES
+	(302, 'alice', [406, 501], [
+		{'Text': 'nice day', 'Reactions': [], 'Comments': [{'UserId': 406, 'Text': 'same here', 'Likes': []}]},
+		{'Text': 'coffee time', 'Reactions': [{'UserId': 501, 'Emoji': 'smile'}, {'UserId': 406, 'Emoji': 'heart'}], 'Comments': []}
+	]),
+	(406, 'bob', [908, 302], [
+		{'Text': 'movie night!', 'Reactions': [{'UserId': 302, 'Emoji': 'star'}], 'Comments': [
+			{'UserId': 908, 'Text': 'happy for you', 'Likes': [406, 908]},
+			{'UserId': 302, 'Text': 'have fun!', 'Likes': [501]}
+		]}
+	]);
+
+statement ok
+COPY users TO '{TEST_DIR}/social.parquet';
+
+# the keys match figure 5 of the paper
+query III
+SELECT * FROM read_parquet_node('{TEST_DIR}/social.parquet') ORDER BY _sk
+----
+302	alice	0
+406	bob	1
+
+query III
+SELECT * FROM read_parquet_node('{TEST_DIR}/social.parquet', node := 'followers') ORDER BY _sk
+----
+406	0	0
+501	1	0
+908	2	1
+302	3	1
+
+query III
+SELECT * FROM read_parquet_node('{TEST_DIR}/social.parquet', node := 'posts') ORDER BY _sk
+----
+nice day	0	0
+coffee time	1	0
+movie night!	2	1
+
+query IIIII
+SELECT * FROM read_parquet_node('{TEST_DIR}/social.parquet', node := 'posts.reactions') ORDER BY _sk
+----
+501	smile	1	0	1
+406	heart	2	0	1
+302	star	3	1	2
+
+query IIIII
+SELECT * FROM read_parquet_node('{TEST_DIR}/social.parquet', node := 'posts.reactions', include_empty := true) ORDER BY _sk
+----
+NULL	NULL	0	0	0
+501	smile	1	0	1
+406	heart	2	0	1
+302	star	3	1	2
+
+query IIIII
+SELECT * FROM read_parquet_node('{TEST_DIR}/social.parquet', node := 'Posts.Comments') ORDER BY _sk
+----
+406	same here	0	0	0
+908	happy for you	2	1	2
+302	have fun!	3	1	2
+
+query IIIII
+SELECT * FROM read_parquet_node('{TEST_DIR}/social.parquet', node := 'posts.comments', include_empty := true) ORDER BY _sk
+----
+406	same here	0	0	0
+NULL	NULL	1	0	1
+908	happy for you	2	1	2
+302	have fun!	3	1	2
+
+query IIIII
+SELECT * FROM read_parquet_node('{TEST_DIR}/social.parquet', node := 'posts.comments.likes') ORDER BY _sk
+----
+406	2	1	2	2
+908	3	1	2	2
+501	4	1	2	3
+
+query IIIII
+SELECT * FROM read_parquet_node('{TEST_DIR}/social.parquet', node := 'posts.comments.likes', include_empty := true) ORDER BY _sk
+----
+NULL	0	0	0	0
+NULL	1	0	1	1
+406	2	1	2	2
+908	3	1	2	2
+501	4	1	2	3
+
+# the leaf columns of a node are named after their field
+query I
+SELECT Likes FROM read_parquet_node('{TEST_DIR}/social.parquet', node := 'posts.comments.likes') ORDER BY ALL
+----
+406
+501
+908
+
+# projecting only keys reads the levels of a column of the node
+query II
+SELECT count(*), max(_sk) FROM read_parquet_node('{TEST_DIR}/social.parquet', node := 'posts.comments.likes')
+----
+3	4
+
+query I
+SELECT count(*) FROM read_parquet_node('{TEST_DIR}/social.parquet', node := 'posts.comments')
+----
+3
+
+# users with the number of comments they got (join with an ancestor)
+query II
+SELECT u.Name, count(*)
+FROM read_parquet_node('{TEST_DIR}/social.parquet') u
+JOIN read_parquet_node('{TEST_DIR}/social.parquet', node := 'posts.comments') c ON u._sk = c._ak0
+GROUP BY ALL ORDER BY ALL
+----
+alice	1
+bob	2
+
+# comments from users who also reacted to the post (join of siblings on their common ancestor)
+query II
+SELECT c.UserId, c.Text
+FROM read_parquet_node('{TEST_DIR}/social.parquet', node := 'posts.reactions') r
+JOIN read_parquet_node('{TEST_DIR}/social.parquet', node := 'posts.comments') c ON r._ak1 = c._ak1 AND r.UserId = c.UserId
+----
+302	have fun!
+
+# the level 0 keys are the row numbers of the file
+query II
+SELECT r.Name, count(*)
+FROM read_parquet('{TEST_DIR}/social.parquet', file_row_number := true) r
+JOIN read_parquet_node('{TEST_DIR}/social.parquet', node := 'posts') p ON r.file_row_number = p._ak0
+GROUP BY ALL ORDER BY ALL
+----
+alice	2
+bob	1
+
+# errors
+statement error
+SELECT * FROM read_parquet_node('{TEST_DIR}/social.parquet', node := 'posts.nonexistent')
+----
+not found
+
+statement error
+SELECT * FROM read_parquet_node('{TEST_DIR}/social.parquet', node := 'name')
+----
+is not a list or struct
+
+statement error
+SELECT * FROM read_parquet_node(NULL)
+----
+non-NULL
+
+# several row groups, NULL and empty lists, structs in nodes and lists of lists
+statement ok
+CREATE TABLE big AS
+SELECT
+	i AS id,
+	CASE WHEN i % 7 = 0 THEN NULL ELSE list_transform(range(i % 4), lambda j: {'v': i * 10 + j, 's': {'a': j, 'b': CASE WHEN j = 1 THEN NULL ELSE j::VARCHAR END}, 'inner': range(j)}) END AS l,
+	CASE WHEN i % 5 = 0 THEN NULL ELSE list_transform(range(i % 3), lambda j: range(j)) END AS m
+FROM range(10000) t(i);
+
+statement ok
+COPY big TO '{TEST_DIR}/big.parquet' (ROW_GROUP_SIZE 1000);
+
+query I
+SELECT count(*) > 1 FROM parquet_metadata('{TEST_DIR}/big.parquet') WHERE column_id = 0
+----
+true
+
+# with the placeholders, the keys of every level are exactly the row numbers 0..n-1 of that level
+query I
+SELECT count(*) = count(DISTINCT _sk) AND min(_sk) = 0 AND max(_sk) = count(*) - 1
+FROM read_parquet_node('{TEST_DIR}/big.parquet', node := 'l', include_empty := true)
+----
+true
+
+query I
+SELECT count(*) = count(DISTINCT _sk) AND min(_sk) = 0 AND max(_sk) = count(*) - 1
+FROM read_parquet_node('{TEST_DIR}/big.parquet', node := 'l.inner', include_empty := true)
+----
+true
+
+# the outer list of a list of lists has no column of its own, its row groups are counted from the levels
+query I
+SELECT count(*) = count(DISTINCT _sk) AND min(_sk) = 0 AND max(_sk) = count(*) - 1
+FROM read_parquet_node('{TEST_DIR}/big.parquet', node := 'm', include_empty := true)
+----
+true
+
+query I
+SELECT count(*) = count(DISTINCT _sk) AND min(_sk) = 0 AND max(_sk) = count(*) - 1
+FROM read_parquet_node('{TEST_DIR}/big.parquet', node := 'm.element', include_empty := true)
+----
+true
+
+# the number of placeholders and elements per level
+query I
+SELECT count(*) = (SELECT sum(CASE WHEN l IS NULL OR len(l) = 0 THEN 1 ELSE len(l) END) FROM big)
+FROM read_parquet_node('{TEST_DIR}/big.parquet', node := 'l', include_empty := true)
+----
+true
+
+query I
+SELECT count(*) = (SELECT sum(len(l)) FROM big)
+FROM read_parquet_node('{TEST_DIR}/big.parquet', node := 'l')
+----
+true
+
+# joining the nodes gives the same result as unnesting the lists
+query I
+SELECT sum(r.id * l.v * l."s.a") = (SELECT sum(id * e.v * e.s.a) FROM (SELECT id, unnest(l) AS e FROM big))
+FROM read_parquet_node('{TEST_DIR}/big.parquet') r
+JOIN read_parquet_node('{TEST_DIR}/big.parquet', node := 'l') l ON r._sk = l._ak0
+----
+true
+
+query I
+SELECT count(l."s.b") = (SELECT count(e.s.b) FROM (SELECT unnest(l) AS e FROM big))
+FROM read_parquet_node('{TEST_DIR}/big.parquet', node := 'l') l
+----
+true
+
+query I
+SELECT sum(r.id * l.v * x.inner) = (SELECT sum(s.id * s.e.v * t.x) FROM (SELECT id, unnest(l) AS e FROM big) s, unnest(s.e.inner) t(x))
+FROM read_parquet_node('{TEST_DIR}/big.parquet') r
+JOIN read_parquet_node('{TEST_DIR}/big.parquet', node := 'l') l ON r._sk = l._ak0
+JOIN read_parquet_node('{TEST_DIR}/big.parquet', node := 'l.inner') x ON l._sk = x._ak1 AND r._sk = x._ak0
+----
+true
+
+# skipping a level: join the innermost node directly with the top level
+query I
+SELECT sum(r.id * x.inner) = (SELECT sum(s.id * t.x) FROM (SELECT id, unnest(l) AS e FROM big) s, unnest(s.e.inner) t(x))
+FROM read_parquet_node('{TEST_DIR}/big.parquet') r
+JOIN read_parquet_node('{TEST_DIR}/big.parquet', node := 'l.inner') x ON r._sk = x._ak0
+----
+true
+
+query I
+SELECT sum(r.id * (x.element + 1)) = (SELECT sum(s.id * (t.x + 1)) FROM (SELECT id, unnest(m) AS e FROM big) s, unnest(s.e) t(x))
+FROM read_parquet_node('{TEST_DIR}/big.parquet') r
+JOIN read_parquet_node('{TEST_DIR}/big.parquet', node := 'm') o ON r._sk = o._ak0
+JOIN read_parquet_node('{TEST_DIR}/big.parquet', node := 'm.element') x ON o._sk = x._ak1
+----
+true
+
+# the outer lists of a list of lists per top-level row
+query I
+SELECT count(*) = (SELECT sum(len(m)) FROM big)
+FROM read_parquet_node('{TEST_DIR}/big.parquet', node := 'm')
+----
+true

@@ -12,6 +12,7 @@
 #include "parquet_geometry.hpp"
 #include "parquet_crypto.hpp"
 #include "parquet_metadata.hpp"
+#include "parquet_nested_keys.hpp"
 #include "parquet_writer.hpp"
 #include "parquet_shredding.hpp"
 #include "zstd_file_system.hpp"
@@ -1060,6 +1061,11 @@ static void LoadInternal(ExtensionLoader &loader) {
 	TableFunctionSet single_file_set("read_single_parquet_file");
 	single_file_set.AddFunction(ParquetScanFunction::GetSingleFileFunction());
 	loader.RegisterFunction(std::move(single_file_set));
+
+	// read_parquet_node
+	TableFunctionSet node_set("read_parquet_node");
+	node_set.AddFunction(ReadParquetNodeFunction::GetFunction());
+	loader.RegisterFunction(std::move(node_set));
 
 	// parquet_metadata
 	ParquetMetaDataFunction meta_fun;

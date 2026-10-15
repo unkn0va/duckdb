@@ -23,6 +23,8 @@ set(PARQUET_EXTENSION_FILES
     parquet_file_metadata_cache.cpp
     parquet_float16.cpp
     parquet_multi_file_info.cpp
+    parquet_nested_keys.cpp
+    parquet_node_scan.cpp
     read_single_parquet_file.cpp
     parquet_metadata.cpp
     parquet_prefetch_cost_model.cpp

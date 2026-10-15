@@ -1911,6 +1911,11 @@ void ParquetReader::InitializeScanHandle(ClientContext &context) const {
 	CallOnce(scan_handle_initialized, [&] { shared_scan_handle = OpenScanHandle(context); });
 }
 
+unique_ptr<duckdb_apache::thrift::protocol::TProtocol> ParquetReader::OpenColumnProtocol(ClientContext &context) const {
+	InitializeScanHandle(context);
+	return CreateThriftFileProtocol(context, *shared_scan_handle, false);
+}
+
 void ParquetReader::InitializeScan(ClientContext &context, ParquetReaderScanState &state, idx_t group_to_read) const {
 	state.resuming_payload = false;
 	state.offset_in_group = 0;

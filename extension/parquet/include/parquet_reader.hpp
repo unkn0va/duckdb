@@ -402,6 +402,8 @@ public:
 public:
 	//! Initialize the state for the next rowgroup to read
 	void InitializeScan(ClientContext &context, ParquetReaderScanState &state, idx_t group_to_read) const;
+	//! Open a protocol over the scan handle of the file, for column readers that are driven outside of Scan
+	unique_ptr<duckdb_apache::thrift::protocol::TProtocol> OpenColumnProtocol(ClientContext &context) const;
 
 	idx_t NumRows() const;
 	idx_t NumRowGroups() const;
