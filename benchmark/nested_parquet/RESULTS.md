@@ -142,6 +142,53 @@ Seconds, fastest of 5, `base` -> `new` interleaved (t1 ratio: new/base, < 1 is f
 - Two fixes came out of these measurements: an earlier version also split the 22 row groups of TPC-H SF10 (SF10 Q3
   flat 0.87x), and read the levels for the pre-pass from the first projected column (a string column for XMark Q4).
 
+## Why 16 threads give only ~2x on the files with a single row group
+
+Measured with `profile_breakdown.py` (perf samples of all threads, mapped to functions with `nm`; this perf has no
+call stacks) and the operator timings of `EXPLAIN ANALYZE` (CPU summed over threads, without the pre-pass, which runs
+when the scan is initialized). Node variants, `new` binary.
+
+| query | wall t1 | wall t16 | speedup | CPU t1 | CPU t16 | CPU x | Parquet decode t1/t16 | of which snappy | levels/skip | keys | join | aggregate |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| SF1 Q1 | 343 | 142 | 2.4x | 334 | 1834 | 5.5 | 136/896 | 50/577 | 0/199 | 36/82 | 0/0 | 47/113 |
+| SF1 Q3 | 236 | 115 | 2.1x | 229 | 1345 | 5.9 | 109/771 | 60/535 | 0/134 | 49/88 | 19/40 | 2/7 |
+| SF1 Q4 | 171 | 89 | 1.9x | 164 | 958 | 5.8 | 51/426 | 15/252 | 0/118 | 48/96 | 17/34 | 5/18 |
+| SF1 Q6 | 158 | 60 | 2.6x | 152 | 752 | 4.9 | 79/426 | 41/293 | 0/43 | 42/81 | 0/0 | 0/0 |
+| SF1 Q10 | 223 | 141 | 1.6x | 215 | 1326 | 6.2 | 97/712 | 52/482 | 0/178 | 49/98 | 13/19 | 6/18 |
+| SF1 Q12 | 179 | 98 | 1.8x | 176 | 1192 | 6.8 | 60/534 | 10/305 | 0/154 | 48/96 | 11/18 | 1/2 |
+| XMark Q2 | 31 | 15 | 2.1x | 31 | 59 | 1.9 | 4/8 | 0/2 | 0/2 | 3/4 | 2/4 | 6/14 |
+| XMark Q3 | 38 | 23 | 1.7x | 38 | 66 | 1.7 | 4/8 | 0/2 | 0/1 | 3/5 | 0/0 | 10/16 |
+| XMark Q4 | 30 | 17 | 1.8x | 29 | 53 | 1.8 | 10/22 | 5/11 | 0/1 | 4/3 | 0/0 | 5/8 |
+| SF10 Q4 (22 RG, not split) | 1671 | 322 | 5.2x | 1626 | 3502 | 2.2 | 441/754 | 0/0 | 0/1 | 402/846 | 233/450 | 68/146 |
+
+(milliseconds; one profiled run each, so the speedups differ slightly from the benchmark tables)
+
+- **The CPU time of the split scans grows 5-7x from 1 to 16 threads** (TPC-H SF10, which is not split: 2.2x - the
+  cost of 16 hardware threads on 4 performance + 8 efficiency cores with SMT). Keys, joins and aggregates grow ~2x like
+  SF10; Parquet decoding grows 6-10x, snappy decompression 10-30x, and level decoding/skipping appears (0 -> 43-199ms).
+  EXPLAIN ANALYZE shows the same: SF1 Q1 table scan 208ms -> 1852ms CPU, its aggregate 73 -> 188ms.
+- Cause: a part of a row group starts with `Skip(start)`. Pages before it are skipped by their header, but the page that
+  contains the start is decompressed completely and its levels are decoded up to the start - for every column of every
+  part. The parts (122,880 slots) are about as large as or smaller than the pages (e.g. `l_shipdate`: 11.6 MB
+  uncompressed for 6M values), so the same pages are decompressed again and again. Q1 and Q6 do not need ancestor keys,
+  have no pre-pass, and are affected just as much.
+- Larger parts trade parallelism for less repeated work (16 threads, fastest of 5, seconds (CPU)):
+
+  | parts of (slots) | 122,880 (default) | 250K | 500K | 1M | 2M | not split |
+  |---|---|---|---|---|---|---|
+  | SF1 Q1 | 0.136 (1.98) | 0.100 (1.27) | 0.086 (1.02) | 0.101 (0.65) | 0.110 (0.42) | 0.337 (0.34) |
+  | SF1 Q4 | 0.082 (1.04) | 0.071 (0.68) | 0.060 (0.49) | 0.073 (0.31) | 0.096 (0.25) | 0.175 (0.18) |
+  | SF1 Q6 | 0.060 (0.86) | 0.046 (0.56) | 0.040 (0.44) | 0.045 (0.26) | 0.053 (0.20) | 0.162 (0.16) |
+
+  Even the best size uses 3x the CPU of a single scan; parts that start at page boundaries would avoid most of it.
+- **The pre-pass** is a phase of its own: SF1 Q4 at 16 threads (89 ms) spends ~25 ms scanning orders and building the
+  hash table (5-10 busy threads), ~25 ms in the pre-pass of the lineitems (15 threads, mostly decompressing the pages
+  of the levels - also repeatedly), ~35 ms in the probe pipeline and ~4 ms in the final aggregate. Q12: ~25 of 98 ms.
+- **XMark**: only 30-60 ms of CPU in total; its bidder node (609K slots) gives 5 parts and the auctions (120K) one, so
+  2-4 threads are busy; the grouped first()/last() aggregates are a large share.
+- **Filters**: in these queries they keep most rows of the large nodes (SF1 Q4: 63% of the lineitems, Q1: 99%); the
+  selective ones are on small nodes (Q4: 3.8% of the orders, 35 ms of CPU with one thread).
+
 ## XMark: element order
 
 The XMark queries need the order of the bidders of an auction. Umbra exposes a surrogate key per node (`"...bidder.sk"`);
