@@ -1,4 +1,0 @@
-query,builtin_s,node_s,split_s,builtin_over_node,node_over_split,flat_s,flat_over_node,flat_matches_builtin,node_matches_builtin,builtin_error,node_error,split_error,builtin_result,node_result,split_result,flat_result,flat_error
-q02,0.5300,0.0480,0.0850,11.04,0.56,,,False,True,,,,"120000,1053097117522367120","120000,1053097117522367120","120000,1053097117522367120",,
-q03,0.5320,0.0540,0.3850,9.85,0.14,,,False,True,,,,"29928,7557011359999892284","29928,7557011359999892284","29928,7557011359999892284",,
-q04,0.5430,0.0470,0.0470,11.55,1.00,,,False,True,,,,"0,13787848793156543929","0,13787848793156543929","0,13787848793156543929",,

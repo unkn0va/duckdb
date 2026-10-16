@@ -1,0 +1,5 @@
+-- every pair of positions i < j of the bidders of an auction with person148112 at i and person189013 at j
+select a.bidder[i].personref._person, a.reserve
+from (select unnest(open_auctions.open_auction) as a from "sf10.parquet") s,
+     range(1, coalesce(len(s.a.bidder), 0) + 1) t1(i), range(1, coalesce(len(s.a.bidder), 0) + 1) t2(j)
+where i < j and a.bidder[i].personref._person = 'person148112' and a.bidder[j].personref._person = 'person189013'
