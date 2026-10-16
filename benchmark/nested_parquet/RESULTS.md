@@ -230,6 +230,16 @@ With 1 thread, page/base (the scan of 1 thread is unchanged; builtin/split in th
   vs slot 0.323s for node, 17% slower); faster than base for all queries.
 - **TPC-H SF10** (more row groups than threads, not split by any binary): equal within the noise.
 
+**Limitation: columns with few pages.** A page is decompressed as a whole, by every part that reads from it. When the
+columns that are read have fewer pages than threads (XMark bidders: 1-8 pages for 609K slots; parquet-cpp-arrow
+writes pages of about 1 MB, and a compact column - dictionary encoded, few distinct values - holds millions of values
+in one page), the parts start within pages, and each of these pages is decompressed by all the parts that start in or
+cross it: more threads only add CPU, not throughput, for these columns (XMark Q2 node: CPU 0.10s vs slot 0.06s). The
+minimum part size (`parquet_node_task_slots`, 122,880 slots) stays: lower values would give XMark more parts but
+decompress the same pages more often. Avoiding it would need the decompressed pages to be shared between the parts
+(read once, used by several threads), or files with smaller pages; the page index (`OffsetIndex`) does not help, as it
+only locates pages.
+
 ## Why 16 threads gave only ~2x on the files with a single row group (slot version)
 
 Measured with `profile_breakdown.py` (perf samples of all threads, mapped to functions with `nm`; this perf has no
@@ -296,6 +306,233 @@ The XMark queries need the order of the bidders of an auction. Umbra exposes a s
 - Correlated subqueries (`flat_umbra`) vs a join with the min/max key per parent (`flat_minmax`), 16 threads: the join
   is faster for all queries - Q2 0.024s vs 0.041s, Q3 (first and last bidder) 0.046s vs 0.125s, Q4 0.025s vs 0.036s,
   Q4p 0.028s vs 0.039s. With 1 thread Q3 shows the largest difference (0.062s vs 0.263s).
+
+## Filter pushdown into read_parquet_node (phase 1)
+
+`read_parquet_node` now accepts filters (`filter_pushdown`, generic expressions via `pushdown_expression`), which
+`read_parquet_flat` passes on to the scans of its nodes:
+
+- **Evaluation in the scan**: after the keys of a batch are generated, the filters are evaluated on the rows of the
+  node (keys first, then the columns they use). The other columns are decoded only for the slots of the rows that
+  pass (`ColumnReader::Select`). The column readers' own `Filter`/`DirectFilter` are not used: they skip pages without
+  reading their levels, which the keys need. Placeholders (`include_empty`) are NULL rows and are filtered as such.
+- **Skipping tasks** (a row group, or a part of one with several threads): a task is skipped when a filter on a key
+  excludes the key range of its rows, or a filter on a column excludes the statistics of the column chunk of its row
+  group (FLOAT/DOUBLE are not checked - NaN is not within min/max). The debug log reports
+  `the filters of the query skip N of M tasks of node "..."`.
+- **Filters that joins create while the query runs** (min/max, IN, PRF of the hash join's build side): used only with
+  `SET parquet_node_join_filter_pruning = true` (default false), for skipping tasks and evaluating rows; the log then
+  adds `, the filters of joins N more`. Using join information to skip parts of the probe side is sideways information
+  passing, which the paper only names as future work (Section 6.5) - **this setting and the `join` configuration below
+  are additions beyond the paper's scope.** With the setting off, these filters are ignored (the joins apply them
+  anyway, so results are the same).
+- Scope: phase 1 only. Skipping at page granularity (phase 2) and with page statistics (phase 3) are not implemented.
+
+**Page index in the paper's datasets** (checked in the footers with pyarrow): ColumnIndex/OffsetIndex (page statistics)
+are present in every column chunk only in the parquet-mr files - TPC-H SF10, nested and normalized. The
+parquet-cpp-arrow files (TPC-H SF1, XMark, DBLP, synthetic) have none. All files have column chunk statistics.
+
+### Selectivity experiment (counterpart of the paper's Fig. 15)
+
+Running:
+```
+python3 make_selectivity_queries.py                                     # queries/selectivity_random, selectivity_sorted
+mkdir <dir>/selectivity_random && ln -s <datasets dir>/synthetic/l1.parquet <dir>/selectivity_random/
+python3 split_selectivity_data.py <dir>/selectivity_random/l1.parquet <dir>/selectivity_random   # pyarrow 26
+python3 generate_selectivity_data.py <dir>/selectivity_sorted           # data of experiment (B), pyarrow 26
+CFG="page=<page duckdb>,query=<duckdb>;SET disabled_optimizers = 'join_filter_pushdown';SET parquet_node_join_filter_pruning = false,join=<duckdb>;SET parquet_node_join_filter_pruning = true"
+RUNS=5 THREADS=1,16 SKIPS=1 python3 run_bench.py "$CFG" queries/selectivity_random <dir>/selectivity_random selectivity_random.csv
+RUNS=5 THREADS=1,16 SKIPS=1 python3 run_bench.py "$CFG" queries/selectivity_sorted <dir>/selectivity_sorted selectivity_sorted.csv
+```
+
+- **(A)** the paper's `synthetic/l1.parquet` (1M rows, `a` random BIGINT, a list `b` of 10 BIGINTs, one row group of
+  10M slots) with the paper's predicate `a % N = 0`, N = 1 ... 10^6 (N = 1 without predicate): the selected rows are
+  spread over the whole file. Every variant computes `avg(greatest(a, b))` over the elements of the selected rows.
+- `split` reads pre-split files cut from the same nested file (`split_selectivity_data.py`): `normalized/l1_0.parquet`
+  (`a`, `_sk`, 1 row group) and `l1_1.parquet` (`b`, `_psk0`, `_sk`, 10 row groups of 1M), with 1-based INT32 keys
+  like the paper's files. The paper's own pre-split files hold *other random values* than its `l1.parquet` (other
+  sums, no row matches), so they cannot be checked against the nested variants; the files cut from `l1.parquet` have
+  the same layout and size (12.85 MB / 135.9 MB vs 12.87 MB / 136.2 MB) and give the same results as the nested
+  variants.
+- **(B) - an additional experiment beyond the paper's scope**: the same shape with `a` ascending (a = row number,
+  `generate_selectivity_data.py`, which writes the pre-split files with the same code) and the range predicate
+  `a < 10^6 / N`: the selected rows, and so their keys, are contiguous - the case where the join's min/max filters can
+  skip parts of the child.
+- Variants: `builtin` (unnest), `node` (`read_parquet_node` + join on `_ak0 = _sk`), `flat` (`read_parquet_flat`),
+  `split`. **All variants return the same result in all configurations and at both thread counts**, `split` included.
+
+**How the configurations were aligned.** Three configurations, interleaved for every query and variant, with
+threads = 1 and 16:
+
+| configuration | binary | setup SQL |
+|---|---|---|
+| `page` | before filter pushdown (page-aligned parallel scan) | - |
+| `query` | filter pushdown | `SET disabled_optimizers = 'join_filter_pushdown'; SET parquet_node_join_filter_pruning = false;` |
+| `join` (beyond the paper's scope) | filter pushdown | `SET parquet_node_join_filter_pruning = true;` |
+
+`split` reads the pre-split files with `read_parquet`, which uses the joins' filters by default (it skips row groups by
+the min/max of `_psk0` and filters rows with them). To compare like with like, the setup SQL of a configuration applies
+to *every* variant: in `query` no variant gets information from the joins - the join filter pushdown optimizer is
+disabled, so `split` does not use it either and no join spends time building such filters - and in `join` all
+variants use it (`split` as DuckDB does by default, `node`/`flat` through the setting). `split` is therefore reported
+in `query` and `join`; `builtin` has no join and is unaffected. The setup SQL is recorded in the `setup_<config>`
+columns of the CSV.
+
+Columns marked † belong to the `join` configuration. "skipped" is `<by the query's filters>+<by join filters>/<tasks>`
+of the node variant, summed over its two scans (parent and child). Fastest of 5 runs; no other process used the CPU
+during the runs (`busy_cpu` 0).
+
+(A) paper data, `a % N = 0`, threads=1: wall seconds (CPU seconds)
+
+| N | builtin | node page | node query | node join† | skipped q+j/tasks† | flat query | flat join† | split query | split join† |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | 0.115 (0.12) | 0.153 (0.15) | 0.152 (0.15) | 0.164 (0.16) | 0+0/1 | 0.153 (0.15) | 0.165 (0.17) | 0.130 (0.13) | 0.138 (0.14) |
+| 10^1 | 0.078 (0.08) | 0.095 (0.09) | 0.097 (0.10) | 0.104 (0.10) | 0+0/2 | 0.097 (0.10) | 0.104 (0.10) | 0.067 (0.07) | 0.068 (0.07) |
+| 10^2 | 0.073 (0.07) | 0.085 (0.08) | 0.087 (0.09) | 0.092 (0.09) | 0+0/2 | 0.087 (0.09) | 0.091 (0.09) | 0.058 (0.06) | 0.056 (0.05) |
+| 10^3 | 0.068 (0.07) | 0.085 (0.08) | 0.088 (0.09) | 0.084 (0.08) | 0+0/2 | 0.087 (0.09) | 0.096 (0.10) | 0.057 (0.06) | 0.049 (0.05) |
+| 10^4 | 0.061 (0.06) | 0.090 (0.09) | 0.089 (0.09) | 0.091 (0.09) | 0+0/2 | 0.091 (0.09) | 0.093 (0.09) | 0.066 (0.07) | 0.043 (0.04) |
+| 10^5 | 0.073 (0.07) | 0.088 (0.09) | 0.096 (0.10) | 0.090 (0.09) | 0+0/2 | 0.088 (0.09) | 0.090 (0.09) | 0.058 (0.06) | 0.039 (0.04) |
+| 10^6 | 0.043 (0.04) | 0.090 (0.09) | 0.090 (0.09) | 0.083 (0.08) | 0+0/2 | 0.094 (0.09) | 0.080 (0.08) | 0.064 (0.06) | 0.018 (0.02) |
+
+(A) paper data, `a % N = 0`, threads=16: wall seconds (CPU seconds)
+
+| N | builtin | node page | node query | node join† | skipped q+j/tasks† | flat query | flat join† | split query | split join† |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | 0.136 (0.24) | 0.050 (0.53) | 0.057 (0.45) | 0.057 (0.45) | 0+0/16 | 0.056 (0.46) | 0.057 (0.54) | 0.047 (0.22) | 0.053 (0.24) |
+| 10^1 | 0.082 (0.08) | 0.039 (0.41) | 0.040 (0.39) | 0.040 (0.38) | 0+0/24 | 0.041 (0.43) | 0.042 (0.47) | 0.029 (0.14) | 0.030 (0.14) |
+| 10^2 | 0.056 (0.10) | 0.037 (0.42) | 0.036 (0.33) | 0.040 (0.36) | 0+0/24 | 0.036 (0.40) | 0.039 (0.33) | 0.025 (0.13) | 0.022 (0.12) |
+| 10^3 | 0.074 (0.07) | 0.036 (0.37) | 0.037 (0.43) | 0.037 (0.42) | 0+0/24 | 0.038 (0.42) | 0.037 (0.42) | 0.026 (0.12) | 0.022 (0.10) |
+| 10^4 | 0.064 (0.06) | 0.036 (0.27) | 0.036 (0.37) | 0.036 (0.43) | 0+0/24 | 0.040 (0.37) | 0.038 (0.42) | 0.024 (0.11) | 0.021 (0.10) |
+| 10^5 | 0.062 (0.11) | 0.035 (0.36) | 0.036 (0.30) | 0.036 (0.36) | 0+6/24 | 0.037 (0.41) | 0.034 (0.24) | 0.028 (0.14) | 0.019 (0.08) |
+| 10^6 | 0.047 (0.06) | 0.037 (0.40) | 0.037 (0.41) | 0.026 (0.12) | 0+15/24 | 0.036 (0.41) | 0.025 (0.19) | 0.026 (0.14) | 0.018 (0.03) |
+
+(B) sorted `a`, `a < 10^6/N` — beyond the paper's scope, threads=1: wall seconds (CPU seconds)
+
+| N | builtin | node page | node query | node join† | skipped q+j/tasks† | flat query | flat join† | split query | split join† |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | 0.105 (0.11) | 0.147 (0.15) | 0.141 (0.14) | 0.159 (0.16) | 0+0/1 | 0.150 (0.15) | 0.188 (0.19) | 0.116 (0.12) | 0.132 (0.13) |
+| 10^1 | 0.057 (0.06) | 0.115 (0.11) | 0.095 (0.09) | 0.087 (0.09) | 0+0/2 | 0.107 (0.11) | 0.086 (0.09) | 0.061 (0.06) | 0.032 (0.03) |
+| 10^2 | 0.033 (0.03) | 0.088 (0.09) | 0.089 (0.09) | 0.081 (0.08) | 0+0/2 | 0.102 (0.10) | 0.082 (0.08) | 0.055 (0.05) | 0.021 (0.02) |
+| 10^3 | 0.034 (0.03) | 0.087 (0.09) | 0.086 (0.09) | 0.078 (0.08) | 0+0/2 | 0.108 (0.11) | 0.079 (0.08) | 0.063 (0.06) | 0.025 (0.02) |
+| 10^4 | 0.036 (0.04) | 0.088 (0.09) | 0.086 (0.09) | 0.080 (0.08) | 0+0/2 | 0.086 (0.09) | 0.080 (0.08) | 0.069 (0.07) | 0.021 (0.02) |
+| 10^5 | 0.035 (0.04) | 0.086 (0.09) | 0.087 (0.09) | 0.081 (0.08) | 0+0/2 | 0.108 (0.11) | 0.080 (0.08) | 0.058 (0.06) | 0.021 (0.02) |
+| 10^6 | 0.036 (0.04) | 0.085 (0.08) | 0.089 (0.09) | 0.100 (0.10) | 0+0/2 | 0.085 (0.09) | 0.082 (0.08) | 0.073 (0.07) | 0.021 (0.02) |
+
+(B) sorted `a`, `a < 10^6/N` — beyond the paper's scope, threads=16: wall seconds (CPU seconds)
+
+| N | builtin | node page | node query | node join† | skipped q+j/tasks† | flat query | flat join† | split query | split join† |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | 0.127 (0.23) | 0.053 (0.51) | 0.052 (0.45) | 0.066 (0.58) | 0+0/16 | 0.070 (0.57) | 0.071 (0.60) | 0.049 (0.21) | 0.057 (0.24) |
+| 10^1 | 0.056 (0.06) | 0.035 (0.40) | 0.037 (0.33) | 0.029 (0.19) | 0+14/24 | 0.037 (0.40) | 0.029 (0.12) | 0.030 (0.15) | 0.032 (0.05) |
+| 10^2 | 0.039 (0.04) | 0.034 (0.42) | 0.035 (0.34) | 0.025 (0.18) | 0+15/24 | 0.038 (0.40) | 0.025 (0.22) | 0.025 (0.11) | 0.023 (0.04) |
+| 10^3 | 0.019 (0.03) | 0.035 (0.27) | 0.036 (0.39) | 0.024 (0.12) | 0+15/24 | 0.035 (0.41) | 0.025 (0.15) | 0.029 (0.14) | 0.017 (0.03) |
+| 10^4 | 0.036 (0.04) | 0.035 (0.29) | 0.035 (0.34) | 0.024 (0.17) | 0+15/24 | 0.035 (0.42) | 0.025 (0.22) | 0.030 (0.13) | 0.020 (0.04) |
+| 10^5 | 0.037 (0.04) | 0.035 (0.28) | 0.035 (0.35) | 0.024 (0.17) | 0+15/24 | 0.043 (0.40) | 0.026 (0.12) | 0.030 (0.12) | 0.023 (0.03) |
+| 10^6 | 0.035 (0.04) | 0.034 (0.35) | 0.036 (0.32) | 0.029 (0.13) | 0+15/24 | 0.034 (0.32) | 0.024 (0.18) | 0.031 (0.14) | 0.023 (0.04) |
+
+**Interpretation**
+
+- **`page` -> `query`: no difference - this reproduces the limitation the paper describes in Section 6.5: a condition
+  on the parent cannot reduce the scan of the child.** In both experiments `node`/`flat` take the same time with and
+  without filter pushdown (N >= 100: 1 thread 0.085-0.096s - `flat` in (B) up to 0.108s - and 16 threads
+  0.034-0.043s, in both configurations). The predicate is on the
+  parent (1M rows, cheap); the cost is the scan of the 10M child elements, which no condition on the parent can
+  restrict without information from the join. `split` shows the same with stored keys: in `query` it stays at
+  0.055-0.073s (1 thread) for N >= 100, as it also reads all 10M child rows.
+- **`join` (beyond the paper's scope)**: the child scan skips tasks only when it has several of them - at 16 threads
+  its row group is split into 16 parts; with 1 thread a node of a single row group is one task and nothing can be
+  skipped (the 1-thread gains of up to ~10%, not at every N, come from evaluating the join filter on the child rows and decoding `b`
+  only for the rows that pass). In (A) the selected keys are spread over the file: parts are skipped only from
+  N = 10^5 (13 selected rows: 6 of 16 child parts) and at N = 10^6 (1 row: 15 of 16; wall 0.037s -> 0.026s, CPU
+  0.41s -> 0.12s). In (B) 14-15 of the 16 child parts are skipped from N = 10 on: wall 0.035-0.037s -> 0.024-0.029s,
+  CPU 0.32-0.39s -> 0.12-0.19s.
+- **`join` slower than `split` - the fundamental cost of generating the keys on the fly: to skip, the levels must be
+  counted first.** `split` in `join` reaches 0.017-0.032s at 16 threads and 0.018-0.032s even with 1 thread (N >= 10 in
+  (B), N = 10^6 in (A)): its keys are stored, and the row group statistics of `_psk0` let it skip 9 of its 10 child row
+  groups without reading them. The node scan has no stored keys: the keys at the start of every part are only known
+  after the levels of all pages of the child column have been counted, which decompresses the whole 80 MB column
+  chunk before any part can be skipped (EXPLAIN ANALYZE of (B) N = 10^6: 173 MB read for an 84 MB file). The parts
+  that remain are not the cost - this pre-pass is, and it is the same work whatever the selectivity. Skipping without
+  it would need the key ranges of the pages without reading them: stored keys, or page-level skipping (phase 2) with
+  page statistics (phase 3), which these parquet-cpp-arrow files do not have.
+- `builtin` gets faster with selectivity at 1 thread (0.105-0.115s -> 0.033-0.043s): `read_parquet` evaluates the
+  predicate on `a` first and decodes the list `b` only for the selected rows, within a single scan.
+
+### Regression check on the paper's queries
+
+The full query set, `page` vs `filter` (filter pushdown, default settings: `parquet_node_join_filter_pruning = false`,
+join filter pushdown on), threads = 1 and 16, interleaved, 5 runs (`filter_<dataset>.csv`). Ratios filter / page of the
+wall time (CPU time); `split` runs unchanged code and shows the noise of this machine: 0.83-1.17. All variants return
+their expected results.
+
+tpch_sf1: filter / page, wall (CPU)
+
+| query | node t1 | node t16 | flat t1 | flat t16 | split t1 | split t16 |
+|---|---|---|---|---|---|---|
+| q01 | 0.89 (0.89) | 0.93 (0.91) | 0.99 (1.00) | 1.01 (1.00) | 1.11 (1.13) | 1.02 (1.02) |
+| q03 | 0.98 (0.99) | 1.01 (0.97) | 1.01 (1.00) | 0.95 (0.90) | 0.88 (0.88) | 1.03 (1.01) |
+| q04 | 1.12 (1.12) | 1.01 (0.95) | 0.99 (0.99) | 0.95 (0.94) | 1.03 (1.03) | 1.03 (1.01) |
+| q06 | 1.08 (1.07) | 0.87 (0.87) | 1.10 (1.09) | 1.03 (0.99) | 1.05 (1.05) | 0.99 (0.98) |
+| q10 | 1.13 (1.11) | 1.05 (1.04) | 1.04 (1.03) | 1.00 (0.83) | 0.92 (0.94) | 1.07 (1.08) |
+| q12 | 1.04 (1.04) | 1.01 (0.99) | 0.99 (1.00) | 0.98 (1.01) | 0.83 (0.83) | 0.98 (0.96) |
+
+tpch_sf10: filter / page, wall (CPU)
+
+| query | node t1 | node t16 | flat t1 | flat t16 | split t1 | split t16 |
+|---|---|---|---|---|---|---|
+| q01 | 0.97 (0.97) | 0.73 (0.73) | 0.98 (0.98) | 0.99 (0.98) | 1.00 (1.00) | 0.99 (1.04) |
+| q03 | 1.00 (1.00) | 1.12 (1.21) | 1.01 (1.01) | 1.04 (1.03) | 1.00 (0.98) | 0.94 (0.90) |
+| q04 | 1.03 (1.02) | 1.20 (1.18) | 1.03 (1.03) | 1.05 (1.04) | 0.99 (0.98) | 1.05 (1.02) |
+| q06 | 0.99 (1.00) | 1.00 (0.96) | 0.99 (0.98) | 1.03 (1.05) | 1.01 (0.99) | 0.93 (1.02) |
+| q12 | 1.01 (1.01) | 0.83 (0.76) | 1.04 (1.04) | 1.00 (0.97) | 1.00 (1.00) | 0.98 (1.01) |
+
+xmark: filter / page, wall (CPU)
+
+| query | node t1 | node t16 | flat_umbra t1 | flat_umbra t16 | flat_minmax t1 | flat_minmax t16 | split t1 | split t16 |
+|---|---|---|---|---|---|---|---|---|
+| q02 | 0.97 (0.95) | 1.00 (0.98) | 1.02 (1.02) | 1.32 (1.10) | 1.02 (1.01) | 1.05 (1.11) | 0.96 (0.95) | 1.10 (1.06) |
+| q03 | 1.03 (1.02) | 1.04 (1.06) | 0.95 (0.95) | 1.01 (0.91) | 1.03 (1.03) | 1.31 (1.27) | 0.97 (0.95) | 0.96 (1.17) |
+| q04 | 1.03 (1.03) | 1.05 (1.04) | 1.39 (1.38) | 1.32 (0.90) | 1.03 (1.03) | 1.06 (1.04) | 1.00 (0.98) | 1.04 (0.87) |
+| q04p | 1.00 (1.00) | 1.00 (1.04) | 1.05 (1.04) | 1.46 (1.00) | 0.98 (0.99) | 1.10 (1.11) | 0.96 (0.95) | 1.09 (1.13) |
+
+dblp: filter / page, wall (CPU)
+
+| query | node t1 | node t16 | flat t1 | flat t16 | split t1 | split t16 |
+|---|---|---|---|---|---|---|
+| q06 | 1.01 (1.01) | 1.07 (1.04) | 1.00 (1.00) | 0.98 (1.00) | 1.00 (1.01) | 1.05 (1.06) |
+| q07 | 0.99 (1.00) | 0.95 (0.95) | 0.95 (0.95) | 1.16 (1.14) | 1.03 (1.03) | 1.17 (1.10) |
+| q08 | 1.00 (1.00) | 1.03 (1.00) | 0.99 (0.99) | 0.96 (0.93) | 0.99 (0.98) | 1.01 (0.98) |
+| q09 | 1.01 (1.01) | 1.20 (1.16) | 1.00 (1.00) | 0.98 (1.02) | 1.06 (1.07) | 1.06 (1.13) |
+
+- TPC-H SF1/SF10 and DBLP: the node/flat ratios (0.73-1.20) lie in or just beside the noise range of `split`, in both
+  directions, without a pattern.
+  Their filters keep most rows of the large nodes, so there is little to gain. A filter in the scan replaces the
+  FILTER above it at the same cost.
+- XMark `flat_umbra` q04 (+15-20 ms at 1 and 16 threads, confirmed in a separate interleaved run with 10 runs) and
+  q04p (+13 ms at 16 threads only): the join order flipped. Both queries are symmetric self-joins of the bidders of
+  two persons, whose filtered scans now have equal estimates as table filters (default selectivity 0.2, the columns
+  have no statistics). In q04, person51 has no bids in the matching auctions: the old plan built the hash table from that
+  side (0 rows), so the probe-side scan stopped almost at once; the new plan builds from person20's side (3 rows) and
+  the person51 scan reads the whole node (20 ms). In q04p both plans read both bidder scans completely and take the
+  same time with 1 thread (0.066s vs 0.065s). The 16-thread difference comes from the flipped order, which changes
+  what runs one after the other; not analysed further. The join filters are not the cause: disabling the join
+  filter pushdown optimizer gives the same times.
+- XMark `flat_umbra` q02 (1.32) and `flat_minmax` q03 (1.31) at 16 threads did not reproduce in a separate run with
+  10 runs (q02 0.054s vs 0.051s; q03 0.049s vs 0.054s), in which all four `flat_minmax` queries were 1-5 ms slower.
+- **`flat_minmax` profiled** (interleaved timings with 15 runs, and perf with `profile_breakdown.py`, 3 profiles per
+  binary, 1 thread): the difference is **not** the evaluation of filters in the scan or the late decoding.
+  - The plans of both binaries are identical, and no node scan of these queries gets a filter: the conditions on the
+    persons (q02/q04/q04p) and on the increases (q03) stay in FILTER / join operators above the scans. The
+    categories "scan filters / late decoding" (`FilterSelection`, filter executors, `ColumnReader::Select`) have no
+    samples at all; decoding and key generation take the same time (q04: 14.0 vs 14.0 ms decoding, 3.0 vs 3.7 ms keys;
+    q03: 9.7 vs 9.3 ms, 11.0 vs 9.0 ms).
+  - The join filters, which the joins now build for the node scans (and the scans ignore with
+    `parquet_node_join_filter_pruning = false`), take <= 0.7 ms, and disabling the join filter pushdown optimizer gives
+    the same times as with it.
+  - With 15 runs the difference is 0-2 ms (0-7%); an identical copy of the old binary differs from it by up to 2 ms in
+    the same run (q03, 1 thread: 0.059s vs 0.061s, filter pushdown 0.064s). The rest of the profile difference lies in
+    the aggregate and hash join (q03 +3.3 / +1.3 ms), which the change does not touch - within the noise of these
+    40-65 ms queries; what remains (about 1 ms) could not be attributed at this resolution.
 
 ## Notes
 

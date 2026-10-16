@@ -28,6 +28,10 @@ BUCKET_MS = float(os.environ.get("BUCKET_MS", "10"))
 # the first matching category of a function name wins
 CATEGORIES = [
     ("keys", ("ParquetNodeKeyGenerator",)),
+    ("join filters", ("JoinFilterPushdown", "PrefixRange", "BloomFilter", "DynamicTableFilterSet",
+                      "SelectivityOptionalFilter", "PushDynamicFilters", "FinalizeFilters")),
+    ("scan filters / late decoding", ("FilterSelection", "FilterExecutor", "ExpressionFilter", "TableFilterState",
+                                      "ColumnReader::Select", "DirectSelect", "PlainSelect", "FilterRows")),
     ("parquet levels/skip", ("::Skip", "PlainSkip", "ReadLevels", "SkipPageValues", "ApplyPendingSkips")),
     ("parquet decode", ("ColumnReader", "Decoder", "RleBpDecoder", "snappy", "Snappy", "ZSTD", "duckdb_zstd",
                         "thrift", "Thrift", "ParquetDecodeUtils", "BitpackingPrimitives", "ByteBuffer",

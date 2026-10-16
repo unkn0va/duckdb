@@ -12,11 +12,18 @@ by definition when it differs from the builtin one.
 Several binaries (label=path,label=path) and thread counts (THREADS=1,16) can be compared: they run interleaved, one
 after the other for every variant, so that they see the same state of the machine (the timings of a laptop drift by
 tens of percent within an hour). Their columns get the suffix _<label>_t<threads> (parts that do not vary are left out).
+A binary can be given setup statements, run before every query of its configuration (and of its result check):
+label=path;SET a = 1;SET b = 2 - they must not contain commas. The setup of every configuration is recorded in the
+setup_<label> columns.
+
+With SKIPS=1, every node and flat query is run once more with debug logging, and the tasks that the read_parquet_node
+scans skipped are recorded as <variant>_<suffix>_skipped: "<by the query's filters>+<by join filters>/<tasks>", summed
+over the scans of the query.
 
 Before every query the CPU use of the other processes is sampled; when they keep a core busy a warning is printed and
 the CPU use is recorded in the busy_cpu column, as their load distorts the timings.
 
-Usage: [RUNS=n] [THREADS=n[,n...]] run_bench.py <duckdb binary | label=path,...> <query dir> <data dir> <result csv>
+Usage: [RUNS=n] [THREADS=n[,n...]] [SKIPS=1] run_bench.py <duckdb binary | label=path,...> <query dir> <data dir> <result csv>
 """
 import csv
 import os
@@ -31,22 +38,25 @@ OUT_CSV = sys.argv[4]
 RUNS = int(os.environ.get("RUNS", "5"))
 TIMEOUT = int(os.environ.get("QUERY_TIMEOUT", "600"))
 
+SKIPS = os.environ.get("SKIPS", "") == "1"
+
 BINARIES = []
 for entry in sys.argv[1].split(","):
-    label, _, path = entry.rpartition("=")
-    BINARIES.append((label or "duckdb", path))
+    binary, *setup = entry.split(";")
+    label, _, path = binary.partition("=") if "=" in binary.split("/")[0] else ("", "", binary)
+    BINARIES.append((label or "duckdb", path, "".join(statement.strip() + ";\n" for statement in setup)))
 THREADS = [t for t in os.environ.get("THREADS", "").split(",") if t] or [None]
 CONFIGS = []
-for label, path in BINARIES:
+for label, path, setup in BINARIES:
     for threads in THREADS:
         parts = ([label] if len(BINARIES) > 1 else []) + ([f"t{threads}"] if len(THREADS) > 1 else [])
-        CONFIGS.append({"label": label, "path": path, "threads": threads,
+        CONFIGS.append({"label": label, "path": path, "threads": threads, "setup": setup,
                         "suffix": "".join("_" + part for part in parts)})
 DUCKDB = BINARIES[0][1]
 
 
-def run_timed(sql, binary, threads):
-    setup = f"SET threads = {threads};\n" if threads else ""
+def run_timed(sql, binary, threads, config_setup=""):
+    setup = (f"SET threads = {threads};\n" if threads else "") + config_setup
     script = setup + ".timer on\n.mode trash\n" + "\n".join([sql.strip().rstrip(";") + ";"] * RUNS) + "\n"
     try:
         proc = subprocess.run([binary, "-no-agent"], input=script, capture_output=True, text=True, cwd=DATA_DIR,
@@ -61,15 +71,34 @@ def run_timed(sql, binary, threads):
     return (wall, cpu), ""
 
 
-def result_hash(sql, binary=None):
+def result_hash(sql, binary=None, setup=""):
     # order-insensitive fingerprint of the result, with numbers rounded to absorb float summation order
     inner = sql.strip().rstrip(";")
     query = ("SELECT count(*), hash(list(r ORDER BY r)) FROM (SELECT list_transform(list_value(COLUMNS(*)::VARCHAR), "
              "lambda x: CASE WHEN TRY_CAST(x AS DOUBLE) IS NULL THEN x ELSE round(x::DOUBLE, 2)::VARCHAR END)::VARCHAR AS r "
              f"FROM ({inner}))")
-    proc = subprocess.run([binary or DUCKDB, "-no-agent", "-csv", "-noheader", "-c", query], capture_output=True, text=True,
-                          cwd=DATA_DIR, timeout=TIMEOUT)
+    proc = subprocess.run([binary or DUCKDB, "-no-agent", "-csv", "-noheader", "-c", setup + query], capture_output=True,
+                          text=True, cwd=DATA_DIR, timeout=TIMEOUT)
     return proc.stdout.strip() if proc.returncode == 0 else "error: " + proc.stderr.strip()[-200:]
+
+
+SKIP_MESSAGE = re.compile(r"skip (\d+) of (\d+) tasks of node[^,]*(?:, the filters of joins (\d+) more)?")
+
+
+def skipped_tasks(sql, binary, threads, config_setup):
+    """The tasks the read_parquet_node scans of a query skipped: by the query's filters, by join filters, of all."""
+    setup = (f"SET threads = {threads};\n" if threads else "") + config_setup
+    script = (setup + "CALL enable_logging(level := 'debug', storage := 'memory');\n.mode trash\n" +
+              sql.strip().rstrip(";") + ";\n.mode list\n.headers off\n"
+              "SELECT message FROM duckdb_logs WHERE message LIKE 'read_parquet_node: the filters%';\n")
+    proc = subprocess.run([binary, "-no-agent"], input=script, capture_output=True, text=True, cwd=DATA_DIR,
+                          timeout=TIMEOUT)
+    by_query = by_join = tasks = 0
+    for match in SKIP_MESSAGE.finditer(proc.stdout):
+        by_query += int(match.group(1))
+        tasks += int(match.group(2))
+        by_join += int(match.group(3) or 0)
+    return f"{by_query}+{by_join}/{tasks}"
 
 
 VARIANTS = ("builtin", "node", "split", "flat", "flat_umbra", "flat_minmax")
@@ -138,6 +167,9 @@ rows = []
 names = sorted({f.rsplit(".", 2)[0] for f in os.listdir(QUERY_DIR) if f.endswith(".sql")})
 for name in names:
     entry = {"query": name, "busy_cpu": f"{check_system_load(name):.0f}"}
+    for label, _, setup in BINARIES:
+        if setup:
+            entry[f"setup_{label}"] = setup.replace("\n", " ").strip()
     for variant in VARIANTS:
         path = os.path.join(QUERY_DIR, f"{name}.{variant}.sql")
         if not os.path.exists(path):
@@ -145,19 +177,22 @@ for name in names:
         sql = open(path).read()
         failed = set()
         for config in CONFIGS:
-            seconds, error = run_timed(sql, config["path"], config["threads"])
+            seconds, error = run_timed(sql, config["path"], config["threads"], config["setup"])
             entry[f"{variant}{config['suffix']}_s"] = "" if seconds is None else f"{seconds[0]:.4f}"
             entry[f"{variant}{config['suffix']}_cpu"] = "" if seconds is None else f"{seconds[1]:.4f}"
             if seconds is None:
                 entry[f"{variant}{config['suffix']}_error"] = error if isinstance(error, str) else " ".join(error)
                 failed.add(config["label"])
-        for label, binary in BINARIES:
+            elif SKIPS and variant.startswith(("node", "flat")):
+                entry[f"{variant}{config['suffix']}_skipped"] = skipped_tasks(sql, config["path"], config["threads"],
+                                                                              config["setup"])
+        for label, binary, setup in BINARIES:
             key = f"{variant}{'_' + label if len(BINARIES) > 1 else ''}_result"
-            entry[key] = "n/a" if label in failed else result_hash(sql, binary)
+            entry[key] = "n/a" if label in failed else result_hash(sql, binary, setup)
     oracle_results = {}
     for variant in VARIANTS[1:]:
         oracle_path = os.path.join(QUERY_DIR, f"{name}.{variant}.oracle")
-        for label, _ in BINARIES:
+        for label, _, _ in BINARIES:
             binary_suffix = "_" + label if len(BINARIES) > 1 else ""
             result = entry.get(f"{variant}{binary_suffix}_result")
             if result is None:
