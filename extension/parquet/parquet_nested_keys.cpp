@@ -506,7 +506,7 @@ ParquetNodeTaskPlan ParquetNodeTaskPlan::Create(ClientContext &context, const Pa
 
 	// every slot of a column directly in the node starts one of its rows (or a placeholder). These columns have the
 	// same levels, so a part can start at the pages of any of them: at those of a large column that is read, whose
-	// pages are then decompressed only once. The rows before a part are counted per page of a cheap column of the
+	// pages are then decompressed only once - or within its pages, when it has fewer pages than parts. The rows before a part are counted per page of a cheap column of the
 	// node - with a page for every part, so that the pages are counted in parallel and a part starts in a small page
 	const bool slots_are_rows = !node.leaves.empty();
 	vector<idx_t> counted_levels;
@@ -558,15 +558,16 @@ ParquetNodeTaskPlan ParquetNodeTaskPlan::Create(ClientContext &context, const Pa
 		};
 		// about one part per thread
 		auto wanted_parts = MinValue<idx_t>(threads, row_group_slots[rg] / task_slots);
+		if (wanted_parts < 2) {
+			add_whole_row_group(rg);
+			continue;
+		}
 		// the largest column that is read and has a page for every part - or else the one with the most pages
 		optional_ptr<const ParquetColumnSchema> boundary_leaf;
 		string page_counts;
 		for (auto &leaf : read_leaves) {
 			page_counts += StringUtil::Format("%s%s: %llu", page_counts.empty() ? "" : ", ", leaf.get().name,
 			                                  page_count(leaf.get()));
-			if (page_count(leaf.get()) <= 1) {
-				continue;
-			}
 			if (!boundary_leaf) {
 				boundary_leaf = leaf.get();
 				continue;
@@ -585,20 +586,22 @@ ParquetNodeTaskPlan ParquetNodeTaskPlan::Create(ClientContext &context, const Pa
 				boundary_leaf = leaf.get();
 			}
 		}
-		if (!boundary_leaf || wanted_parts < 2) {
-			DUCKDB_LOG_DEBUG(context, StringUtil::Format("read_parquet_node: row group %llu of \"%s\" is not split, "
-			                                             "its columns have a single page (%s)",
-			                                             rg, reader.GetFileName(), page_counts));
-			add_whole_row_group(rg);
-			continue;
-		}
 		auto boundary_pages = cache.Get(reader, rg, boundary_leaf->column_index);
 		auto &pages = boundary_pages->pages;
-		auto part_slots = MaxValue<idx_t>(task_slots, row_group_slots[rg] / wanted_parts);
 		vector<idx_t> slot_starts {0};
-		for (idx_t p = 1; p < pages.size(); p++) {
-			if (pages[p].first_value - slot_starts.back() >= part_slots) {
-				slot_starts.push_back(pages[p].first_value);
+		const bool within_pages = pages.size() < wanted_parts;
+		if (within_pages) {
+			// fewer pages than parts: the parts start at offsets within the pages as well, so that every thread has a
+			// part - the pages a part starts in are then decompressed by more than one part
+			for (idx_t i = 1; i < wanted_parts; i++) {
+				slot_starts.push_back(row_group_slots[rg] * i / wanted_parts);
+			}
+		} else {
+			auto part_slots = MaxValue<idx_t>(task_slots, row_group_slots[rg] / wanted_parts);
+			for (idx_t p = 1; p < pages.size(); p++) {
+				if (pages[p].first_value - slot_starts.back() >= part_slots) {
+					slot_starts.push_back(pages[p].first_value);
+				}
 			}
 		}
 		if (slot_starts.size() == 1) {
@@ -685,9 +688,10 @@ ParquetNodeTaskPlan ParquetNodeTaskPlan::Create(ClientContext &context, const Pa
 			                              page_count(*count_leaf));
 		}
 		DUCKDB_LOG_DEBUG(context, StringUtil::Format("read_parquet_node: row group %llu of \"%s\" is scanned in %llu "
-		                                             "parts, at the pages of column \"%s\" (pages: %s)%s",
-		                                             rg, reader.GetFileName(), part_count, boundary_leaf->name,
-		                                             page_counts, counting));
+		                                             "parts, %s the pages of column \"%s\" (pages: %s)%s",
+		                                             rg, reader.GetFileName(), part_count,
+		                                             within_pages ? "within" : "at", boundary_leaf->name, page_counts,
+		                                             counting));
 	}
 	return result;
 }

@@ -143,9 +143,10 @@ struct ParquetNodeTask {
 
 //! The parts in which the row groups of a file are scanned. A row group is split only when the file has fewer row
 //! groups than threads, into about one part per thread that starts at a page of the largest column that is read - so
-//! that its pages are decompressed once. The keys at the start of a part are the rows before it, counted per page of
-//! the cheapest column of the node ("per-page key jumps"), in parallel, once per query and only for the levels whose
-//! keys are needed
+//! that its pages are decompressed once - or at an offset within its pages when it has fewer pages than parts. The
+//! keys at the start of a part are the rows before it, counted per page of the cheapest column of the node and up to
+//! the offset in the page it starts in ("per-page key jumps"), in parallel, once per query and only for the levels
+//! whose keys are needed
 struct ParquetNodeTaskPlan {
 	vector<ParquetNodeTask> tasks;
 

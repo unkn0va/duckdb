@@ -1,0 +1,122 @@
+# name: test/sql/copy/parquet/nested_keys/read_parquet_node_pages.test
+# description: Parts of a row group that start in the middle of the pages of the column whose levels are counted
+# group: [nested_keys]
+
+require parquet
+
+# written with pyarrow (data/parquet-testing/nested_pages/generate.py): in the node "l", "a" has many small pages,
+# "b" few large ones; nested_pages_v1 has data pages of version 1 in one row group, nested_pages_v2 of version 2 in
+# three row groups
+foreach file nested_pages_v1 nested_pages_v2
+
+statement ok
+SET threads = 1
+
+statement ok
+CREATE OR REPLACE TABLE expected_root AS FROM read_parquet_node('data/parquet-testing/nested_pages/${file}.parquet')
+
+statement ok
+CREATE OR REPLACE TABLE expected_l AS FROM read_parquet_node('data/parquet-testing/nested_pages/${file}.parquet', node := 'l', include_empty := true)
+
+statement ok
+CREATE OR REPLACE TABLE expected_m AS FROM read_parquet_node('data/parquet-testing/nested_pages/${file}.parquet', node := 'm', include_empty := true)
+
+statement ok
+CREATE OR REPLACE TABLE expected_element AS FROM read_parquet_node('data/parquet-testing/nested_pages/${file}.parquet', node := 'm.element', include_empty := true)
+
+statement ok
+SET parquet_node_task_slots = 100
+
+statement ok
+CALL enable_logging(level := 'debug', storage := 'memory')
+
+# 8 threads: the parts start at the pages of "a", the rows before them are counted in "b" - up to the offset in the
+# page of "b" that a part starts in
+statement ok
+SET threads = 8
+
+query I
+SELECT count(*) FROM ((SELECT a, _sk, _ak0 FROM read_parquet_node('data/parquet-testing/nested_pages/${file}.parquet', node := 'l', include_empty := true) EXCEPT ALL SELECT a, _sk, _ak0 FROM expected_l)
+	UNION ALL (SELECT a, _sk, _ak0 FROM expected_l EXCEPT ALL SELECT a, _sk, _ak0 FROM read_parquet_node('data/parquet-testing/nested_pages/${file}.parquet', node := 'l', include_empty := true)))
+----
+0
+
+query I
+SELECT count(*) > 0 FROM duckdb_logs WHERE message LIKE 'read_parquet_node: row group % parts, at the pages of column "a"%counting levels in column "b"%'
+----
+true
+
+# 32 threads: "b" has fewer pages than parts, so the parts also start within its pages - and the rows before them are
+# counted in "a", up to the offset in its page
+statement ok
+SET threads = 32
+
+query I
+SELECT count(*) FROM ((SELECT b, _sk, _ak0 FROM read_parquet_node('data/parquet-testing/nested_pages/${file}.parquet', node := 'l', include_empty := true) EXCEPT ALL SELECT b, _sk, _ak0 FROM expected_l)
+	UNION ALL (SELECT b, _sk, _ak0 FROM expected_l EXCEPT ALL SELECT b, _sk, _ak0 FROM read_parquet_node('data/parquet-testing/nested_pages/${file}.parquet', node := 'l', include_empty := true)))
+----
+0
+
+query I
+SELECT count(*) > 0 FROM duckdb_logs WHERE message LIKE 'read_parquet_node: row group % parts, within the pages of column "b"%counting levels in column "a"%'
+----
+true
+
+# all columns of the node, the top level, and the list of lists (whose outer lists have no column of their own)
+query I
+SELECT count(*) FROM ((FROM read_parquet_node('data/parquet-testing/nested_pages/${file}.parquet', node := 'l', include_empty := true) EXCEPT ALL FROM expected_l)
+	UNION ALL (FROM expected_l EXCEPT ALL FROM read_parquet_node('data/parquet-testing/nested_pages/${file}.parquet', node := 'l', include_empty := true)))
+----
+0
+
+query I
+SELECT count(*) FROM ((FROM read_parquet_node('data/parquet-testing/nested_pages/${file}.parquet') EXCEPT ALL FROM expected_root)
+	UNION ALL (FROM expected_root EXCEPT ALL FROM read_parquet_node('data/parquet-testing/nested_pages/${file}.parquet')))
+----
+0
+
+query I
+SELECT count(*) FROM ((FROM read_parquet_node('data/parquet-testing/nested_pages/${file}.parquet', node := 'm', include_empty := true) EXCEPT ALL FROM expected_m)
+	UNION ALL (FROM expected_m EXCEPT ALL FROM read_parquet_node('data/parquet-testing/nested_pages/${file}.parquet', node := 'm', include_empty := true)))
+----
+0
+
+query I
+SELECT count(*) FROM ((FROM read_parquet_node('data/parquet-testing/nested_pages/${file}.parquet', node := 'm.element', include_empty := true) EXCEPT ALL FROM expected_element)
+	UNION ALL (FROM expected_element EXCEPT ALL FROM read_parquet_node('data/parquet-testing/nested_pages/${file}.parquet', node := 'm.element', include_empty := true)))
+----
+0
+
+# the joins of the flat scan give the result of unnesting the lists
+query I
+SELECT sum(id * "l.a" + "l.b") = (SELECT sum(id * e.a + e.b) FROM (SELECT id, unnest(l) AS e FROM read_parquet('data/parquet-testing/nested_pages/${file}.parquet')))
+FROM read_parquet_flat('data/parquet-testing/nested_pages/${file}.parquet')
+----
+true
+
+# siblings below the top level: every element of l with every element of the inner lists of m
+query I
+SELECT count(*) = (SELECT sum(coalesce(len(l), 0) * coalesce(list_sum(list_transform(m, lambda e: len(e))), 0)) FROM read_parquet('data/parquet-testing/nested_pages/${file}.parquet'))
+FROM read_parquet_flat('data/parquet-testing/nested_pages/${file}.parquet') WHERE "l.c" IS NOT NULL AND "m.element" IS NOT NULL
+----
+true
+
+query I
+SELECT sum(id * ("m.element" + 1)) = (SELECT sum(s.id * (t.x + 1)) FROM (SELECT id, unnest(m) AS e FROM read_parquet('data/parquet-testing/nested_pages/${file}.parquet')) s, unnest(s.e) t(x))
+FROM read_parquet_flat('data/parquet-testing/nested_pages/${file}.parquet')
+----
+true
+
+statement ok
+CALL disable_logging()
+
+statement ok
+CALL truncate_duckdb_logs()
+
+statement ok
+RESET parquet_node_task_slots
+
+statement ok
+RESET threads
+
+endloop

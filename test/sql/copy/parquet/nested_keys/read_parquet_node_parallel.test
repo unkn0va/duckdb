@@ -140,7 +140,7 @@ RESET threads
 
 endloop
 
-# lists of structs and lists of lists are written in a single page - they are not split, and keep their keys
+# lists of structs and lists of lists are written in a single page - the parts start within it
 statement ok
 CREATE TABLE big AS
 SELECT
