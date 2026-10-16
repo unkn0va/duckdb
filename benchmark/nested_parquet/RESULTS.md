@@ -462,7 +462,11 @@ during the runs (`busy_cpu` 0).
   statistics (phase 3), which these parquet-cpp-arrow files do not have.
 - **Page format of the paper's files**: all of them - nested and pre-split, parquet-mr (TPC-H SF10) and
   parquet-cpp-arrow (all others) - use data pages of version 1 (the type of the first data page of every column
-  chunk, read from its page header), in which the levels are compressed together with the values.
+  chunk, read from its page header: `python3 page_versions.py <datasets dir>`), in which the levels are compressed
+  together with the values. The files written for the selectivity experiment use v1 pages as well, so they match the
+  paper's data: the split files of (A) and the sorted data of (B) with its split files (pyarrow 26, whose default
+  `data_page_version` is 1.0; all their column chunks start with a v1 page). The nested file of (A) is the paper's
+  `l1.parquet` itself.
   *Possible improvement*: with data pages v2 the repetition and definition levels are stored uncompressed, before and
   separate from the values, so the pre-pass could count the repetition levels without decompressing the values - this
   needs files written with v2 pages and a levels-only page read in the column reader (DuckDB's reader decompresses the
