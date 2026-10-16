@@ -4,27 +4,25 @@
 
 require parquet
 
+# small pages: the top-level columns and the lists of primitives without NULL lists get many pages, with different
+# boundaries (a list with NULL lists is written in a single page)
 statement ok
-CREATE TABLE big AS
+CREATE TABLE paged AS
 SELECT
-	i AS id,
-	CASE WHEN i % 7 = 0 THEN NULL ELSE list_transform(range(i % 4), lambda j: {'v': i * 10 + j, 'inner': range(j)}) END AS l,
-	CASE WHEN i % 5 = 0 THEN NULL ELSE list_transform(range(i % 3), lambda j: range(j)) END AS m
-FROM range(20000) t(i);
-
-# a single row group, and several row groups
-statement ok
-COPY big TO '{TEST_DIR}/parallel_one.parquet' (ROW_GROUP_SIZE 1000000);
+	i,
+	(i * 7)::VARCHAR AS s,
+	i % 3 AS small,
+	CASE WHEN i % 7 = 0 THEN NULL ELSE range(i % 4) END AS l,
+	list_transform(range(i % 3), lambda j: (i + j)::VARCHAR) AS ls
+FROM range(60000) t(i);
 
 statement ok
-COPY big TO '{TEST_DIR}/parallel_many.parquet' (ROW_GROUP_SIZE 3000);
+COPY paged TO '{TEST_DIR}/paged_one.parquet' (ROW_GROUP_SIZE 1000000, DATA_PAGE_SIZE_LIMIT 4096);
 
-query I
-SELECT count(DISTINCT row_group_id) FROM parquet_metadata('{TEST_DIR}/parallel_one.parquet')
-----
-1
+statement ok
+COPY paged TO '{TEST_DIR}/paged_many.parquet' (ROW_GROUP_SIZE 20000, DATA_PAGE_SIZE_LIMIT 4096);
 
-foreach file parallel_one parallel_many
+foreach file paged_one paged_many
 
 # the scans of a single thread do not split row groups
 statement ok
@@ -37,20 +35,17 @@ statement ok
 CREATE OR REPLACE TABLE expected_l AS FROM read_parquet_node('{TEST_DIR}/${file}.parquet', node := 'l', include_empty := true)
 
 statement ok
-CREATE OR REPLACE TABLE expected_inner AS FROM read_parquet_node('{TEST_DIR}/${file}.parquet', node := 'l.inner')
+CREATE OR REPLACE TABLE expected_ls AS FROM read_parquet_node('{TEST_DIR}/${file}.parquet', node := 'ls')
 
-statement ok
-CREATE OR REPLACE TABLE expected_m AS FROM read_parquet_node('{TEST_DIR}/${file}.parquet', node := 'm', include_empty := true)
-
-statement ok
-CREATE OR REPLACE TABLE expected_element AS FROM read_parquet_node('{TEST_DIR}/${file}.parquet', node := 'm.element')
-
-# several threads scan parts of 777 slots, which start and end in the middle of pages and of lists
+# several threads scan parts that start at the pages of the largest column read
 statement ok
 SET threads = 8
 
 statement ok
 SET parquet_node_task_slots = 777
+
+statement ok
+CALL enable_logging(level := 'debug', storage := 'memory')
 
 query I
 SELECT count(*) FROM ((FROM read_parquet_node('{TEST_DIR}/${file}.parquet') EXCEPT ALL FROM expected_root)
@@ -58,6 +53,14 @@ SELECT count(*) FROM ((FROM read_parquet_node('{TEST_DIR}/${file}.parquet') EXCE
 ----
 0
 
+# the other columns start in the middle of a page
+query I
+SELECT count(*) FROM ((SELECT small, _sk FROM read_parquet_node('{TEST_DIR}/${file}.parquet') EXCEPT ALL SELECT small, _sk FROM expected_root)
+	UNION ALL (SELECT small, _sk FROM expected_root EXCEPT ALL SELECT small, _sk FROM read_parquet_node('{TEST_DIR}/${file}.parquet')))
+----
+0
+
+# the ancestor keys of the parts are counted per page, before the scan
 query I
 SELECT count(*) FROM ((FROM read_parquet_node('{TEST_DIR}/${file}.parquet', node := 'l', include_empty := true) EXCEPT ALL FROM expected_l)
 	UNION ALL (FROM expected_l EXCEPT ALL FROM read_parquet_node('{TEST_DIR}/${file}.parquet', node := 'l', include_empty := true)))
@@ -65,58 +68,69 @@ SELECT count(*) FROM ((FROM read_parquet_node('{TEST_DIR}/${file}.parquet', node
 0
 
 query I
-SELECT count(*) FROM ((FROM read_parquet_node('{TEST_DIR}/${file}.parquet', node := 'l.inner') EXCEPT ALL FROM expected_inner)
-	UNION ALL (FROM expected_inner EXCEPT ALL FROM read_parquet_node('{TEST_DIR}/${file}.parquet', node := 'l.inner')))
-----
-0
-
-# the outer lists of m have no column of their own: their keys are counted from the levels below
-query I
-SELECT count(*) FROM ((FROM read_parquet_node('{TEST_DIR}/${file}.parquet', node := 'm', include_empty := true) EXCEPT ALL FROM expected_m)
-	UNION ALL (FROM expected_m EXCEPT ALL FROM read_parquet_node('{TEST_DIR}/${file}.parquet', node := 'm', include_empty := true)))
+SELECT count(*) FROM ((SELECT _ak0 FROM read_parquet_node('{TEST_DIR}/${file}.parquet', node := 'l') EXCEPT ALL SELECT _ak0 FROM expected_l WHERE l IS NOT NULL)
+	UNION ALL (SELECT _ak0 FROM expected_l WHERE l IS NOT NULL EXCEPT ALL SELECT _ak0 FROM read_parquet_node('{TEST_DIR}/${file}.parquet', node := 'l')))
 ----
 0
 
 query I
-SELECT count(*) FROM ((FROM read_parquet_node('{TEST_DIR}/${file}.parquet', node := 'm.element') EXCEPT ALL FROM expected_element)
-	UNION ALL (FROM expected_element EXCEPT ALL FROM read_parquet_node('{TEST_DIR}/${file}.parquet', node := 'm.element')))
+SELECT count(*) FROM ((FROM read_parquet_node('{TEST_DIR}/${file}.parquet', node := 'ls') EXCEPT ALL FROM expected_ls)
+	UNION ALL (FROM expected_ls EXCEPT ALL FROM read_parquet_node('{TEST_DIR}/${file}.parquet', node := 'ls')))
 ----
 0
 
-# a single key, or only the values, of a part
+# the row groups were split
 query I
-SELECT count(*) FROM ((SELECT _ak1, element FROM read_parquet_node('{TEST_DIR}/${file}.parquet', node := 'm.element') EXCEPT ALL SELECT _ak1, element FROM expected_element)
-	UNION ALL (SELECT _ak1, element FROM expected_element EXCEPT ALL SELECT _ak1, element FROM read_parquet_node('{TEST_DIR}/${file}.parquet', node := 'm.element')))
+SELECT count(*) >= 2 FROM duckdb_logs WHERE message LIKE 'read_parquet_node: row group % is scanned in % parts%'
 ----
-0
+true
 
 query I
-SELECT (count(*), sum("inner")) = (SELECT (count(*), sum(x)) FROM (SELECT unnest(e.inner) AS x FROM (SELECT unnest(l) AS e FROM big)))
-FROM read_parquet_node('{TEST_DIR}/${file}.parquet', node := 'l.inner')
+SELECT count(*) > 0 FROM duckdb_logs WHERE message LIKE 'read_parquet_node: row group % parts%counting levels in column%'
+----
+true
+
+# the levels of a page are counted once per query - also when the node is scanned twice
+statement ok
+CALL truncate_duckdb_logs()
+
+query I
+SELECT count(*) FROM read_parquet_node('{TEST_DIR}/${file}.parquet', node := 'ls') a JOIN read_parquet_node('{TEST_DIR}/${file}.parquet', node := 'ls') b ON a._ak0 = b._ak0 AND a._sk = b._sk
+----
+60000
+
+query I
+SELECT count(*) > 0 AND count(*) = count(DISTINCT message)
+FROM duckdb_logs WHERE message LIKE 'read_parquet_node: counted the levels%'
 ----
 true
 
 # the joins over the parts give the result of unnesting the lists
 query I
-SELECT sum(id * "l.v" * "l.inner") = (SELECT sum(s.id * s.e.v * t.x) FROM (SELECT id, unnest(l) AS e FROM big) s, unnest(s.e.inner) t(x))
-FROM read_parquet_flat('{TEST_DIR}/${file}.parquet')
+SELECT sum(i * l) = (SELECT sum(i * x) FROM paged, unnest(l) t(x)) FROM read_parquet_flat('{TEST_DIR}/${file}.parquet')
 ----
 true
 
 query I
-SELECT sum(id * ("m.element" + 1)) = (SELECT sum(s.id * (t.x + 1)) FROM (SELECT id, unnest(m) AS e FROM big) s, unnest(s.e) t(x))
-FROM read_parquet_flat('{TEST_DIR}/${file}.parquet')
+SELECT count(*) = (SELECT count(*) FROM paged, unnest(l) t(x), unnest(ls) u(y))
+FROM read_parquet_flat('{TEST_DIR}/${file}.parquet') WHERE l IS NOT NULL AND ls IS NOT NULL
 ----
 true
 
 # the parts are numbered in the order of the file: the rows stay in that order
 statement ok
-CREATE OR REPLACE TABLE ordered AS FROM read_parquet_node('{TEST_DIR}/${file}.parquet', node := 'l.inner')
+CREATE OR REPLACE TABLE ordered AS FROM read_parquet_node('{TEST_DIR}/${file}.parquet', node := 'l')
 
 query I
 SELECT count(*) FROM (SELECT _sk, lag(_sk) OVER (ORDER BY rowid) AS previous FROM ordered) WHERE _sk <= previous
 ----
 0
+
+statement ok
+CALL disable_logging()
+
+statement ok
+CALL truncate_duckdb_logs()
 
 statement ok
 RESET parquet_node_task_slots
@@ -126,15 +140,39 @@ RESET threads
 
 endloop
 
-# a top-level column whose values are all NULL in a part of the row group
+# lists of structs and lists of lists are written in a single page - they are not split, and keep their keys
 statement ok
-COPY (SELECT i, CASE WHEN i >= 4096 THEN NULL ELSE i END AS y, [i, i + 1] AS l FROM range(10000) t(i)) TO '{TEST_DIR}/parallel_all_null.parquet' (ROW_GROUP_SIZE 4096);
+CREATE TABLE big AS
+SELECT
+	i AS id,
+	CASE WHEN i % 7 = 0 THEN NULL ELSE list_transform(range(i % 4), lambda j: {'v': i * 10 + j, 'inner': range(j)}) END AS l,
+	CASE WHEN i % 5 = 0 THEN NULL ELSE list_transform(range(i % 3), lambda j: range(j)) END AS m
+FROM range(20000) t(i);
+
+statement ok
+COPY big TO '{TEST_DIR}/single_page.parquet' (ROW_GROUP_SIZE 1000000, DATA_PAGE_SIZE_LIMIT 4096);
 
 statement ok
 SET threads = 8
 
 statement ok
 SET parquet_node_task_slots = 777
+
+query I
+SELECT sum(id * "l.v" * "l.inner") = (SELECT sum(s.id * s.e.v * t.x) FROM (SELECT id, unnest(l) AS e FROM big) s, unnest(s.e.inner) t(x))
+FROM read_parquet_flat('{TEST_DIR}/single_page.parquet')
+----
+true
+
+query I
+SELECT sum(id * ("m.element" + 1)) = (SELECT sum(s.id * (t.x + 1)) FROM (SELECT id, unnest(m) AS e FROM big) s, unnest(s.e) t(x))
+FROM read_parquet_flat('{TEST_DIR}/single_page.parquet')
+----
+true
+
+# a top-level column whose values are all NULL in a part of the row group
+statement ok
+COPY (SELECT i, CASE WHEN i >= 4096 THEN NULL ELSE i END AS y, [i, i + 1] AS l FROM range(10000) t(i)) TO '{TEST_DIR}/parallel_all_null.parquet' (ROW_GROUP_SIZE 4096, DATA_PAGE_SIZE_LIMIT 1024);
 
 query IIII
 SELECT count(y), count(i), min(_sk), max(_sk) FROM read_parquet_node('{TEST_DIR}/parallel_all_null.parquet')

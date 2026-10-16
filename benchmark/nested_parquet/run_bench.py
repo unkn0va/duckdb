@@ -4,9 +4,10 @@
 A query directory holds <name>.<variant>.sql files, variants: builtin (DuckDB nested types), node (read_parquet_node
 with manual joins), split (the paper's pre-split files), flat (read_parquet_flat), flat_umbra / flat_minmax (XMark
 queries over read_parquet_flat: Umbra's correlated subqueries / a join with the min/max key per parent). Each query runs
-RUNS times in one CLI process (the first run warms the OS cache) and the fastest run is reported, as in the paper. The
-results of the variants are compared by an order-insensitive hash with the builtin query - or with
-<name>.<variant>.oracle, a query whose result the variant has by definition when it differs from the builtin one.
+RUNS times in one CLI process (the first run warms the OS cache); the fastest wall-clock time (_s) and the smallest
+CPU time of all threads (user + sys, _cpu) are reported. The results of the variants are compared by an
+order-insensitive hash with the builtin query - or with <name>.<variant>.oracle, a query whose result the variant has
+by definition when it differs from the builtin one.
 
 Several binaries (label=path,label=path) and thread counts (THREADS=1,16) can be compared: they run interleaved, one
 after the other for every variant, so that they see the same state of the machine (the timings of a laptop drift by
@@ -52,10 +53,12 @@ def run_timed(sql, binary, threads):
                               timeout=TIMEOUT * RUNS)
     except subprocess.TimeoutExpired:
         return None, "timeout"
-    times = [float(t) for t in re.findall(r"Run Time \(s\): real ([0-9.]+)", proc.stdout + proc.stderr)]
-    if proc.returncode != 0 or len(times) != RUNS:
+    timings = re.findall(r"Run Time \(s\): real ([0-9.]+) user ([0-9.]+) sys ([0-9.]+)", proc.stdout + proc.stderr)
+    if proc.returncode != 0 or len(timings) != RUNS:
         return None, (proc.stderr or proc.stdout).strip().splitlines()[-1:] or ["error"]
-    return min(times), ""
+    wall = min(float(real) for real, _, _ in timings)
+    cpu = min(float(user) + float(sys) for _, user, sys in timings)
+    return (wall, cpu), ""
 
 
 def result_hash(sql, binary=None):
@@ -143,7 +146,8 @@ for name in names:
         failed = set()
         for config in CONFIGS:
             seconds, error = run_timed(sql, config["path"], config["threads"])
-            entry[f"{variant}{config['suffix']}_s"] = "" if seconds is None else f"{seconds:.4f}"
+            entry[f"{variant}{config['suffix']}_s"] = "" if seconds is None else f"{seconds[0]:.4f}"
+            entry[f"{variant}{config['suffix']}_cpu"] = "" if seconds is None else f"{seconds[1]:.4f}"
             if seconds is None:
                 entry[f"{variant}{config['suffix']}_error"] = error if isinstance(error, str) else " ".join(error)
                 failed.add(config["label"])

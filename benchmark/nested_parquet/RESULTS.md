@@ -142,7 +142,93 @@ Seconds, fastest of 5, `base` -> `new` interleaved (t1 ratio: new/base, < 1 is f
 - Two fixes came out of these measurements: an earlier version also split the 22 row groups of TPC-H SF10 (SF10 Q3
   flat 0.87x), and read the levels for the pre-pass from the first projected column (a string column for XMark Q4).
 
-## Why 16 threads give only ~2x on the files with a single row group
+## Parts at page boundaries, with the pre-pass per page (base / slot / page)
+
+Three binaries, interleaved with 1 and 16 threads (fastest of 3 runs; CPU = user + sys of all threads, smallest of
+3): `base` before the parallel scan, `slot` the parts of 122,880 slots (previous version), `page` the parts at page
+boundaries with the pre-pass counted once per page. All results equal their references.
+
+How the parts are chosen now (`ParquetNodeTaskPlan::Create`):
+- The page headers of the columns that are read are read once (a directory of offset, first slot and values per page),
+  and every column of a part starts at the page that holds its first slot (`ColumnReader::SeekToPage`, after loading
+  the dictionary), instead of skipping the pages before it by their headers.
+- About one part per thread, starting at the pages of the largest column that is read and has a page for every part
+  (else the one with the most pages): its pages are decompressed once, the other columns at most one page more per
+  part.
+- The rows before a part are counted per page, in parallel, in the cheapest column of the node that has a page for
+  every part, plus the start of the page a part starts in. The pages and their counts are kept for the query
+  (`ClientContextState`), so the parts and all scans of the same column chunk in a query share them.
+- With 1 thread, or row groups that are not split, the scan is the one from before. Page counts per column of these
+  files: TPC-H SF1 lineitems 2-174 (l_linestatus 2, l_shipdate 10, l_extendedprice 46), orders 1-73, XMark bidders 1-8.
+
+Seconds, base / slot / page (wall: fastest run; CPU: user + sys of all threads):
+
+| dataset | query | variant | wall t1 | CPU t1 | wall t16 | CPU t16 |
+|---|---|---|---|---|---|---|
+| TPC-H SF1 (1 RG) | q01 | node | 0.451 / 0.347 / 0.343 | 0.45 / 0.35 / 0.35 | 0.355 / 0.151 / **0.094** | 0.36 / 2.11 / 1.26 |
+|  | q01 | flat | 0.367 / 0.360 / 0.347 | 0.37 / 0.36 / 0.35 | 0.352 / 0.154 / **0.087** | 0.35 / 2.23 / 1.15 |
+|  | q03 | node | 0.293 / 0.248 / 0.291 | 0.29 / 0.25 / 0.30 | 0.238 / 0.140 / **0.107** | 0.24 / 1.80 / 1.03 |
+|  | q03 | flat | 0.235 / 0.242 / 0.293 | 0.23 / 0.25 / 0.30 | 0.238 / 0.133 / **0.108** | 0.24 / 1.67 / 0.99 |
+|  | q04 | node | 0.184 / 0.219 / 0.234 | 0.18 / 0.22 / 0.24 | 0.182 / 0.158 / **0.089** | 0.23 / 1.96 / 0.60 |
+|  | q04 | flat | 0.254 / 0.266 / 0.220 | 0.25 / 0.27 / 0.22 | 0.257 / 0.104 / **0.064** | 0.32 / 1.34 / 0.50 |
+|  | q06 | node | 0.182 / 0.206 / 0.165 | 0.18 / 0.21 / 0.17 | 0.202 / 0.067 / **0.041** | 0.22 / 0.96 / 0.50 |
+|  | q06 | flat | 0.169 / 0.162 / 0.190 | 0.17 / 0.17 / 0.19 | 0.200 / 0.072 / **0.063** | 0.20 / 0.98 / 0.53 |
+|  | q10 | node | 0.233 / 0.292 / 0.236 | 0.23 / 0.29 / 0.24 | 0.286 / 0.141 / **0.170** | 0.32 / 1.53 / 1.06 |
+|  | q10 | flat | 0.273 / 0.224 / 0.274 | 0.28 / 0.22 / 0.27 | 0.287 / 0.146 / **0.143** | 0.30 / 1.54 / 0.85 |
+|  | q12 | node | 0.188 / 0.191 / 0.196 | 0.19 / 0.19 / 0.20 | 0.191 / 0.112 / **0.087** | 0.19 / 1.35 / 0.38 |
+|  | q12 | flat | 0.246 / 0.202 / 0.218 | 0.25 / 0.21 / 0.22 | 0.237 / 0.150 / **0.102** | 0.24 / 1.79 / 0.45 |
+| XMark (1 RG) | q02 | node | 0.047 / 0.048 / 0.045 | 0.05 / 0.05 / 0.05 | 0.045 / 0.030 / **0.041** | 0.10 / 0.13 / 0.06 |
+|  | q02 | flat_minmax | 0.052 / 0.063 / 0.052 | 0.05 / 0.06 / 0.05 | 0.057 / 0.052 / **0.057** | 0.06 / 0.13 / 0.08 |
+|  | q02 | flat_umbra | 0.083 / 0.086 / 0.085 | 0.08 / 0.09 / 0.08 | 0.102 / 0.082 / **0.092** | 0.12 / 0.21 / 0.15 |
+|  | q03 | node | 0.057 / 0.060 / 0.057 | 0.06 / 0.06 / 0.06 | 0.064 / 0.042 / **0.067** | 0.08 / 0.13 / 0.08 |
+|  | q03 | flat_minmax | 0.097 / 0.102 / 0.100 | 0.10 / 0.10 / 0.10 | 0.112 / 0.090 / **0.124** | 0.13 / 0.21 / 0.14 |
+|  | q03 | flat_umbra | 0.508 / 0.516 / 0.507 | 0.51 / 0.52 / 0.50 | 0.396 / 0.210 / **0.406** | 0.69 / 0.89 / 0.87 |
+|  | q04 | node | 0.048 / 0.060 / 0.049 | 0.05 / 0.06 / 0.05 | 0.062 / 0.037 / **0.048** | 0.07 / 0.14 / 0.16 |
+|  | q04 | flat_minmax | 0.068 / 0.059 / 0.052 | 0.07 / 0.06 / 0.05 | 0.064 / 0.056 / **0.048** | 0.08 / 0.18 / 0.13 |
+|  | q04 | flat_umbra | 0.075 / 0.073 / 0.073 | 0.07 / 0.07 / 0.07 | 0.056 / 0.062 / **0.064** | 0.10 / 0.22 / 0.19 |
+|  | q04p | node | 0.060 / 0.064 / 0.052 | 0.06 / 0.06 / 0.05 | 0.067 / 0.041 / **0.051** | 0.08 / 0.14 / 0.17 |
+|  | q04p | flat_minmax | 0.070 / 0.072 / 0.067 | 0.07 / 0.07 / 0.07 | 0.075 / 0.062 / **0.059** | 0.09 / 0.18 / 0.15 |
+|  | q04p | flat_umbra | 0.100 / 0.106 / 0.096 | 0.10 / 0.11 / 0.10 | 0.087 / 0.084 / **0.065** | 0.13 / 0.29 / 0.21 |
+| DBLP (6 RG) | q06 | node | 2.987 / 2.993 / 3.194 | 2.98 / 2.99 / 3.18 | 1.192 / 0.959 / **1.062** | 6.60 / 13.29 / 14.20 |
+|  | q06 | flat | 2.695 / 2.798 / 2.653 | 2.69 / 2.79 / 2.65 | 1.112 / 0.921 / **0.983** | 6.27 / 12.59 / 13.06 |
+|  | q07 | node | 3.721 / 3.631 / 3.739 | 3.72 / 3.62 / 3.73 | 1.407 / 1.112 / **0.917** | 7.70 / 14.15 / 11.53 |
+|  | q07 | flat | 3.654 / 4.129 / 4.056 | 3.65 / 4.12 / 4.05 | 1.073 / 1.027 / **0.807** | 6.87 / 12.59 / 10.63 |
+|  | q08 | node | 1.141 / 1.160 / 1.128 | 1.14 / 1.16 / 1.13 | 0.378 / 0.341 / **0.378** | 1.51 / 4.56 / 4.90 |
+|  | q08 | flat | 1.175 / 1.164 / 1.171 | 1.17 / 1.16 / 1.17 | 0.387 / 0.385 / **0.384** | 1.77 / 5.41 / 4.99 |
+|  | q09 | node | 1.566 / 1.567 / 1.593 | 1.56 / 1.57 / 1.59 | 0.588 / 0.441 / **0.497** | 2.49 / 5.98 / 6.59 |
+|  | q09 | flat | 1.570 / 1.572 / 1.599 | 1.57 / 1.57 / 1.60 | 0.527 / 0.444 / **0.529** | 2.23 / 5.83 / 7.18 |
+| TPC-H SF10 (22 RG) | q01 | node | 3.576 / 3.679 / 3.499 | 3.57 / 3.67 / 3.50 | 0.626 / 0.668 / **0.950** | 7.32 / 7.88 / 11.32 |
+|  | q01 | flat | 3.459 / 3.517 / 3.503 | 3.45 / 3.51 / 3.50 | 0.902 / 0.870 / **0.866** | 10.40 / 10.07 / 10.05 |
+|  | q03 | node | 2.272 / 2.028 / 2.022 | 2.27 / 2.02 / 2.02 | 0.407 / 0.401 / **0.408** | 4.95 / 4.69 / 4.91 |
+|  | q03 | flat | 2.013 / 1.989 / 2.091 | 2.01 / 1.98 / 2.09 | 0.375 / 0.365 / **0.381** | 4.33 / 4.48 / 4.58 |
+|  | q04 | node | 1.616 / 1.607 / 1.603 | 1.61 / 1.60 / 1.60 | 0.318 / 0.329 / **0.325** | 3.35 / 3.70 / 3.55 |
+|  | q04 | flat | 1.605 / 1.650 / 1.610 | 1.60 / 1.65 / 1.61 | 0.327 / 0.322 / **0.314** | 3.30 / 3.49 / 3.51 |
+|  | q06 | node | 1.523 / 1.537 / 1.521 | 1.52 / 1.54 / 1.52 | 0.328 / 0.277 / **0.267** | 3.84 / 2.99 / 3.21 |
+|  | q06 | flat | 1.735 / 1.687 / 1.617 | 1.73 / 1.68 / 1.62 | 0.260 / 0.250 / **0.260** | 3.02 / 3.00 / 3.00 |
+|  | q12 | node | 1.727 / 1.714 / 1.700 | 1.72 / 1.71 / 1.70 | 0.430 / 0.380 / **0.414** | 5.07 / 4.29 / 4.77 |
+|  | q12 | flat | 1.684 / 1.721 / 1.661 | 1.68 / 1.72 / 1.66 | 0.379 / 0.380 / **0.383** | 4.22 / 4.20 / 3.93 |
+
+With 1 thread, page/base (the scan of 1 thread is unchanged; builtin/split in the same run show the noise):
+
+| dataset | node/flat wall | node/flat CPU | builtin/split wall (unchanged code) |
+|---|---|---|---|
+| TPC-H SF1 (1 RG) | 0.76-1.27 | 0.76-1.30 | 0.76-1.25 |
+| XMark (1 RG) | 0.76-1.03 | 0.77-1.03 | 0.74-1.05 |
+| DBLP (6 RG) | 0.98-1.11 | 0.98-1.11 | 0.89-1.05 |
+| TPC-H SF10 (22 RG) | 0.89-1.04 | 0.89-1.04 | 0.82-1.14 |
+
+- **TPC-H SF1, 16 threads**: page is the fastest for all queries but Q10 node (0.170s vs slot 0.141s; flat Q10 equal),
+  and uses 31-75% less CPU than slot - e.g. Q4 node 0.089s (slot 0.158s, base 0.182s), Q12 node CPU 0.38s (slot
+  1.35s). From 1 to 16 threads SF1 now gets 1.4-4.0x (slot 1.3-3.1x, base 0.8-1.3x); Q10 node is the lowest.
+- **XMark**: page is slower than slot - the columns of the bidders have 1-8 pages, so there are few parts or none
+  (`increase` has one page). The queries take 30-70 ms.
+- **DBLP**: Q7 is faster (node 0.917s vs slot 1.112s), Q6/Q9 node are between base and slot and Q8 node equals base;
+  the flat variants are equal to slot or faster. Its CPU with 16 threads is about twice the CPU with 1 thread for all
+  binaries, like TPC-H SF10 (the cost of 16 hardware threads).
+- **TPC-H SF10** (more row groups than threads, not split by any binary): equal within the noise; Q1 node at 16
+  threads measured 0.95s once, and 0.55-0.68s for all binaries in three repetitions of 10 runs.
+
+## Why 16 threads gave only ~2x on the files with a single row group (slot version)
 
 Measured with `profile_breakdown.py` (perf samples of all threads, mapped to functions with `nm`; this perf has no
 call stacks) and the operator timings of `EXPLAIN ANALYZE` (CPU summed over threads, without the pre-pass, which runs

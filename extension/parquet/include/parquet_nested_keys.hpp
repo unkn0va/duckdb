@@ -14,7 +14,9 @@
 #include "duckdb/common/types/selection_vector.hpp"
 #include "duckdb/function/table_function.hpp"
 #include "duckdb/planner/operator/logical_get.hpp"
+#include "column_reader.hpp"
 #include "parquet_column_schema.hpp"
+#include "duckdb/common/mutex.hpp"
 
 namespace duckdb {
 class ParquetReader;
@@ -110,6 +112,20 @@ public:
 	                                       const ParquetNodeInfo &node);
 };
 
+//! The data pages of a column chunk, and how many rows of every nesting level start in each of them. Read when a row
+//! group is split, and shared by the parts and by all scans of the column chunk in a query
+struct ParquetColumnPages {
+	vector<ColumnPageInfo> pages;
+	//! level_rows[p][k]: the slots of page p with a repetition level <= k - counted only when keys need them
+	vector<vector<idx_t>> level_rows;
+	bool directory_read = false;
+	bool levels_counted = false;
+	mutex lock;
+};
+
+//! The index of the page that holds a slot of the column chunk
+idx_t FindPageOfSlot(const vector<ColumnPageInfo> &pages, idx_t slot);
+
 //! A part of a row group that one thread scans: a range of the slots of the columns of the node, which all have the
 //! same slots
 struct ParquetNodeTask {
@@ -121,19 +137,24 @@ struct ParquetNodeTask {
 	vector<idx_t> rows_before;
 	//! For every level: the number of rows of the level that start in the task, if known
 	vector<optional_idx> rows_in_task;
+	//! For a part of a row group: the pages of every column that is read, to start reading at the first slot
+	vector<shared_ptr<ParquetColumnPages>> leaf_pages;
 };
 
-//! The parts in which the row groups of a file are scanned. A row group is split only when several threads scan it;
-//! the keys at the start of a part are then computed by counting the repetition levels before it ("per-page key
-//! jumps"), in parallel and only for the levels whose keys are needed
+//! The parts in which the row groups of a file are scanned. A row group is split only when the file has fewer row
+//! groups than threads, into about one part per thread that starts at a page of the largest column that is read - so
+//! that its pages are decompressed once. The keys at the start of a part are the rows before it, counted per page of
+//! the cheapest column of the node ("per-page key jumps"), in parallel, once per query and only for the levels whose
+//! keys are needed
 struct ParquetNodeTaskPlan {
 	vector<ParquetNodeTask> tasks;
 
 public:
-	//! slot_leaf: a column with the slots that are scanned. needed_levels: the levels whose keys are needed
+	//! read_leaves: the columns that are scanned, the first one has the slots of the scan. needed_levels: the levels
+	//! whose keys are needed
 	static ParquetNodeTaskPlan Create(ClientContext &context, const ParquetReader &reader, const ParquetNodeInfo &node,
-	                                  const ParquetColumnSchema &slot_leaf, const vector<bool> &needed_levels,
-	                                  idx_t threads, idx_t min_task_slots);
+	                                  const vector<reference<const ParquetColumnSchema>> &read_leaves,
+	                                  const vector<bool> &needed_levels, idx_t threads, idx_t min_task_slots);
 };
 
 //! read_parquet_node(file, node := 'a.b') - reads a node of a nested file as a flat relation with key columns

@@ -5,6 +5,11 @@
 #include "duckdb/common/string_util.hpp"
 #include "duckdb/common/types/data_chunk.hpp"
 #include "duckdb/parallel/task_executor.hpp"
+#include "duckdb/logging/logger.hpp"
+#include "duckdb/main/client_context.hpp"
+#include "duckdb/main/client_context_state.hpp"
+
+#include <algorithm>
 
 namespace duckdb {
 
@@ -314,28 +319,99 @@ ParquetNodeRowGroupRows ParquetNodeRowGroupRows::Compute(ClientContext &context,
 	return result;
 }
 
-//! Counts the slots of a part of a row group that start a row of the given levels - reading only their levels
-class CountTaskLevelRows : public BaseExecutorTask {
+//! The pages of the column chunks of the files a query reads - shared by its scans, and dropped when it ends
+class ParquetNodePageCache : public ClientContextState {
 public:
-	CountTaskLevelRows(TaskExecutor &executor, ClientContext &context, const ParquetReader &reader,
-	                   const ParquetColumnSchema &leaf, const ParquetNodeTask &task, const vector<idx_t> &levels,
+	static constexpr const char *NAME = "parquet_node_page_cache";
+
+	shared_ptr<ParquetColumnPages> Get(const ParquetReader &reader, idx_t row_group, idx_t column_index) {
+		auto key = reader.GetFileName() + "|" + to_string(row_group) + "|" + to_string(column_index);
+		lock_guard<mutex> guard(lock);
+		auto &entry = entries[key];
+		if (!entry) {
+			entry = make_shared_ptr<ParquetColumnPages>();
+		}
+		return entry;
+	}
+	void QueryEnd() override {
+		lock_guard<mutex> guard(lock);
+		entries.clear();
+	}
+
+private:
+	mutex lock;
+	unordered_map<string, shared_ptr<ParquetColumnPages>> entries;
+};
+
+idx_t FindPageOfSlot(const vector<ColumnPageInfo> &pages, idx_t slot) {
+	auto page = std::upper_bound(pages.begin(), pages.end(), slot,
+	                             [](idx_t value, const ColumnPageInfo &info) { return value < info.first_value; });
+	if (page == pages.begin()) {
+		throw InternalException("read_parquet_node: no page holds slot %llu", slot);
+	}
+	return NumericCast<idx_t>(page - pages.begin()) - 1;
+}
+
+//! A column reader positioned at the start of the column chunk of a row group
+static unique_ptr<ColumnReader> OpenColumnChunk(const ParquetReader &reader, const ParquetColumnSchema &leaf,
+                                                idx_t row_group, TProtocol &protocol) {
+	auto &group = reader.GetFileMetadata()->row_groups[row_group];
+	auto column_reader = ColumnReader::CreateReader(reader, leaf);
+	column_reader->InitializeRead(row_group, NumericCast<idx_t>(group.num_rows), group.columns, protocol);
+	return column_reader;
+}
+
+//! Reads the page headers of a column chunk
+class ReadPageDirectoryTask : public BaseExecutorTask {
+public:
+	ReadPageDirectoryTask(TaskExecutor &executor, ClientContext &context, const ParquetReader &reader,
+	                      const ParquetColumnSchema &leaf, idx_t row_group, ParquetColumnPages &pages)
+	    : BaseExecutorTask(executor), context(context), reader(reader), leaf(leaf), row_group(row_group),
+	      pages(pages) {
+	}
+
+	void ExecuteTask() override {
+		lock_guard<mutex> guard(pages.lock);
+		if (pages.directory_read) {
+			return;
+		}
+		auto protocol = reader.OpenColumnProtocol(context);
+		pages.pages = OpenColumnChunk(reader, leaf, row_group, *protocol)->ReadPageDirectory();
+		pages.directory_read = true;
+	}
+
+	string TaskType() const override {
+		return "ReadPageDirectoryTask";
+	}
+
+private:
+	ClientContext &context;
+	const ParquetReader &reader;
+	const ParquetColumnSchema &leaf;
+	idx_t row_group;
+	ParquetColumnPages &pages;
+};
+
+//! Counts the slots of a page that start a row of each level - reading only their levels
+class CountPageLevelRows : public BaseExecutorTask {
+public:
+	CountPageLevelRows(TaskExecutor &executor, ClientContext &context, const ParquetReader &reader,
+	                   const ParquetColumnSchema &leaf, idx_t row_group, const ColumnPageInfo &page, idx_t slot_count,
 	                   vector<idx_t> &result)
-	    : BaseExecutorTask(executor), context(context), reader(reader), leaf(leaf), task(task), levels(levels),
-	      result(result) {
+	    : BaseExecutorTask(executor), context(context), reader(reader), leaf(leaf), row_group(row_group), page(page),
+	      slot_count(slot_count), result(result) {
 	}
 
 	void ExecuteTask() override {
 		auto protocol = reader.OpenColumnProtocol(context);
-		auto &group = reader.GetFileMetadata()->row_groups[task.row_group];
-		auto column_reader = ColumnReader::CreateReader(reader, leaf);
-		column_reader->InitializeRead(task.row_group, NumericCast<idx_t>(group.num_rows), group.columns, *protocol);
-		// the pages before the task are skipped by their headers only
-		column_reader->Skip(task.slot_start);
+		auto column_reader = OpenColumnChunk(reader, leaf, row_group, *protocol);
+		column_reader->SeekToPage(page);
 		ResizeableBuffer define_buf(reader.allocator, STANDARD_VECTOR_SIZE);
 		ResizeableBuffer repeat_buf(reader.allocator, STANDARD_VECTOR_SIZE);
 		auto defines = reinterpret_cast<uint8_t *>(define_buf.ptr);
 		auto repeats = reinterpret_cast<uint8_t *>(repeat_buf.ptr);
-		auto slots_left = task.slot_end - task.slot_start;
+		const auto max_level = result.size() - 1;
+		auto slots_left = slot_count;
 		while (slots_left > 0) {
 			auto count = MinValue<idx_t>(STANDARD_VECTOR_SIZE, slots_left);
 			memset(defines, 0, count);
@@ -343,8 +419,9 @@ public:
 			ColumnReaderInput input(count, defines, repeats);
 			column_reader->ReadLevels(input);
 			for (idx_t i = 0; i < count; i++) {
-				for (auto level : levels) {
-					result[level] += repeats[i] <= level;
+				// a slot repeated at level r starts a row on every level >= r
+				for (idx_t k = repeats[i]; k <= max_level; k++) {
+					result[k]++;
 				}
 			}
 			slots_left -= count;
@@ -352,22 +429,46 @@ public:
 	}
 
 	string TaskType() const override {
-		return "CountTaskLevelRows";
+		return "CountPageLevelRows";
 	}
 
 private:
 	ClientContext &context;
 	const ParquetReader &reader;
 	const ParquetColumnSchema &leaf;
-	const ParquetNodeTask &task;
-	const vector<idx_t> &levels;
+	idx_t row_group;
+	const ColumnPageInfo &page;
+	//! The slots at the start of the page that are counted
+	idx_t slot_count;
 	vector<idx_t> &result;
 };
 
+//! Count the rows of every level per page of a column chunk, once per query, the pages in parallel
+static void CountLevelRowsPerPage(ClientContext &context, const ParquetReader &reader,
+                                  const ParquetColumnSchema &leaf, idx_t row_group, ParquetColumnPages &pages) {
+	lock_guard<mutex> guard(pages.lock);
+	if (pages.levels_counted) {
+		return;
+	}
+	pages.level_rows.assign(pages.pages.size(), vector<idx_t>(leaf.max_repeat + 1, 0));
+	TaskExecutor executor(context);
+	for (idx_t p = 0; p < pages.pages.size(); p++) {
+		executor.ScheduleTask(make_uniq<CountPageLevelRows>(executor, context, reader, leaf, row_group, pages.pages[p],
+		                                                    pages.pages[p].num_values, pages.level_rows[p]));
+	}
+	executor.WorkOnTasks();
+	pages.levels_counted = true;
+	DUCKDB_LOG_DEBUG(context, StringUtil::Format("read_parquet_node: counted the levels of %llu pages of column \"%s\" "
+	                                             "in row group %llu of \"%s\"",
+	                                             pages.pages.size(), leaf.name, row_group, reader.GetFileName()));
+}
+
 ParquetNodeTaskPlan ParquetNodeTaskPlan::Create(ClientContext &context, const ParquetReader &reader,
-                                                const ParquetNodeInfo &node, const ParquetColumnSchema &slot_leaf,
+                                                const ParquetNodeInfo &node,
+                                                const vector<reference<const ParquetColumnSchema>> &read_leaves,
                                                 const vector<bool> &needed_levels, idx_t threads,
                                                 idx_t min_task_slots) {
+	auto &slot_leaf = read_leaves[0].get();
 	auto rows = ParquetNodeRowGroupRows::Compute(context, reader, node);
 	auto &row_groups = reader.GetFileMetadata()->row_groups;
 	vector<idx_t> row_group_slots;
@@ -380,7 +481,33 @@ ParquetNodeTaskPlan ParquetNodeTaskPlan::Create(ClientContext &context, const Pa
 	auto task_slots = threads <= 1 || row_groups.size() >= threads
 	                      ? NumericLimits<idx_t>::Maximum()
 	                      : MaxValue<idx_t>(MaxValue<idx_t>(min_task_slots, 1), total_slots / (threads * 4));
-	// every slot of a column directly in the node starts one of its rows (or a placeholder)
+
+	ParquetNodeTaskPlan result;
+	auto add_whole_row_group = [&](idx_t rg) {
+		ParquetNodeTask task;
+		task.row_group = rg;
+		task.slot_end = row_group_slots[rg];
+		task.rows_before = rows.offsets[rg];
+		task.rows_in_task = rows.counts[rg];
+		result.tasks.push_back(std::move(task));
+	};
+	vector<idx_t> split_candidates;
+	for (idx_t rg = 0; rg < row_groups.size(); rg++) {
+		if (row_group_slots[rg] > task_slots) {
+			split_candidates.push_back(rg);
+		}
+	}
+	if (split_candidates.empty()) {
+		for (idx_t rg = 0; rg < row_groups.size(); rg++) {
+			add_whole_row_group(rg);
+		}
+		return result;
+	}
+
+	// every slot of a column directly in the node starts one of its rows (or a placeholder). These columns have the
+	// same levels, so a part can start at the pages of any of them: at those of a large column that is read, whose
+	// pages are then decompressed only once. The rows before a part are counted per page of a cheap column of the
+	// node - with a page for every part, so that the pages are counted in parallel and a part starts in a small page
 	const bool slots_are_rows = !node.leaves.empty();
 	vector<idx_t> counted_levels;
 	for (idx_t k = 0; k <= node.level; k++) {
@@ -388,99 +515,179 @@ ParquetNodeTaskPlan ParquetNodeTaskPlan::Create(ClientContext &context, const Pa
 			counted_levels.push_back(k);
 		}
 	}
-
-	ParquetNodeTaskPlan result;
-	bool any_split = false;
-	for (idx_t rg = 0; rg < row_groups.size(); rg++) {
-		auto slots = row_group_slots[rg];
-		if (slots <= task_slots) {
-			ParquetNodeTask task;
-			task.row_group = rg;
-			task.slot_end = slots;
-			task.rows_before = rows.offsets[rg];
-			task.rows_in_task = rows.counts[rg];
-			result.tasks.push_back(std::move(task));
-			continue;
-		}
-		any_split = true;
-		auto task_count = (slots + task_slots - 1) / task_slots;
-		for (idx_t i = 0; i < task_count; i++) {
-			ParquetNodeTask task;
-			task.row_group = rg;
-			task.slot_start = slots * i / task_count;
-			task.slot_end = slots * (i + 1) / task_count;
-			task.rows_before.resize(node.level + 1, 0);
-			task.rows_in_task.resize(node.level + 1);
-			result.tasks.push_back(std::move(task));
-		}
-	}
-	if (!any_split) {
-		return result;
-	}
-
-	// count the rows of the levels in the parts of the split row groups, in parallel. The columns directly in the node
-	// have the same levels - they are read from the one that is the cheapest to read
-	reference<const ParquetColumnSchema> count_leaf(slot_leaf);
+	vector<reference<const ParquetColumnSchema>> count_candidates;
 	if (slots_are_rows) {
-		idx_t smallest_size = NumericLimits<idx_t>::Maximum();
 		for (auto &leaf : node.leaves) {
-			idx_t size = 0;
-			for (auto &group : row_groups) {
-				size += NumericCast<idx_t>(group.columns[leaf.schema->column_index].meta_data.total_compressed_size);
-			}
-			if (size < smallest_size) {
-				smallest_size = size;
-				count_leaf = *leaf.schema;
-			}
+			count_candidates.push_back(*leaf.schema);
 		}
+	} else {
+		count_candidates.push_back(slot_leaf);
 	}
-	vector<vector<idx_t>> level_rows(result.tasks.size());
-	if (!counted_levels.empty()) {
+	auto compressed_size = [&](idx_t rg, const ParquetColumnSchema &leaf) {
+		return NumericCast<idx_t>(row_groups[rg].columns[leaf.column_index].meta_data.total_compressed_size);
+	};
+	auto &cache = *context.registered_state->GetOrCreate<ParquetNodePageCache>(ParquetNodePageCache::NAME);
+	{
 		TaskExecutor executor(context);
-		for (idx_t task_idx = 0; task_idx < result.tasks.size(); task_idx++) {
-			auto &task = result.tasks[task_idx];
-			if (task.slot_start == 0 && task.slot_end == row_group_slots[task.row_group]) {
-				continue;
+		for (auto rg : split_candidates) {
+			auto schedule = [&](const ParquetColumnSchema &leaf) {
+				auto pages = cache.Get(reader, rg, leaf.column_index);
+				executor.ScheduleTask(make_uniq<ReadPageDirectoryTask>(executor, context, reader, leaf, rg, *pages));
+			};
+			for (auto &leaf : read_leaves) {
+				schedule(leaf.get());
 			}
-			level_rows[task_idx].resize(node.level + 1, 0);
-			executor.ScheduleTask(make_uniq<CountTaskLevelRows>(executor, context, reader, count_leaf.get(), task,
-			                                                     counted_levels, level_rows[task_idx]));
+			if (!counted_levels.empty()) {
+				for (auto &leaf : count_candidates) {
+					schedule(leaf.get());
+				}
+			}
 		}
 		executor.WorkOnTasks();
 	}
-	// the rows before a part are those of the row groups before it and of the parts before it in its row group
-	for (idx_t task_idx = 0; task_idx < result.tasks.size(); task_idx++) {
-		auto &task = result.tasks[task_idx];
-		auto rg = task.row_group;
-		if (task.slot_start != 0 || task.slot_end != row_group_slots[rg]) {
+
+	idx_t next_candidate = 0;
+	for (idx_t rg = 0; rg < row_groups.size(); rg++) {
+		if (next_candidate >= split_candidates.size() || split_candidates[next_candidate] != rg) {
+			add_whole_row_group(rg);
+			continue;
+		}
+		next_candidate++;
+		auto page_count = [&](const ParquetColumnSchema &leaf) {
+			return cache.Get(reader, rg, leaf.column_index)->pages.size();
+		};
+		// about one part per thread
+		auto wanted_parts = MinValue<idx_t>(threads, row_group_slots[rg] / task_slots);
+		// the largest column that is read and has a page for every part - or else the one with the most pages
+		optional_ptr<const ParquetColumnSchema> boundary_leaf;
+		string page_counts;
+		for (auto &leaf : read_leaves) {
+			page_counts += StringUtil::Format("%s%s: %llu", page_counts.empty() ? "" : ", ", leaf.get().name,
+			                                  page_count(leaf.get()));
+			if (page_count(leaf.get()) <= 1) {
+				continue;
+			}
+			if (!boundary_leaf) {
+				boundary_leaf = leaf.get();
+				continue;
+			}
+			bool enough = page_count(leaf.get()) >= wanted_parts;
+			bool boundary_enough = page_count(*boundary_leaf) >= wanted_parts;
+			bool better;
+			if (enough != boundary_enough) {
+				better = enough;
+			} else if (enough) {
+				better = compressed_size(rg, leaf.get()) > compressed_size(rg, *boundary_leaf);
+			} else {
+				better = page_count(leaf.get()) > page_count(*boundary_leaf);
+			}
+			if (better) {
+				boundary_leaf = leaf.get();
+			}
+		}
+		if (!boundary_leaf || wanted_parts < 2) {
+			DUCKDB_LOG_DEBUG(context, StringUtil::Format("read_parquet_node: row group %llu of \"%s\" is not split, "
+			                                             "its columns have a single page (%s)",
+			                                             rg, reader.GetFileName(), page_counts));
+			add_whole_row_group(rg);
+			continue;
+		}
+		auto boundary_pages = cache.Get(reader, rg, boundary_leaf->column_index);
+		auto &pages = boundary_pages->pages;
+		auto part_slots = MaxValue<idx_t>(task_slots, row_group_slots[rg] / wanted_parts);
+		vector<idx_t> slot_starts {0};
+		for (idx_t p = 1; p < pages.size(); p++) {
+			if (pages[p].first_value - slot_starts.back() >= part_slots) {
+				slot_starts.push_back(pages[p].first_value);
+			}
+		}
+		if (slot_starts.size() == 1) {
+			add_whole_row_group(rg);
+			continue;
+		}
+		slot_starts.push_back(row_group_slots[rg]);
+		const auto part_count = slot_starts.size() - 1;
+
+		// the rows of the counted levels before every part: those of the pages of the count column before it, and of
+		// the slots of the page it starts in
+		vector<vector<idx_t>> rows_at_start(slot_starts.size(), vector<idx_t>(node.level + 1, 0));
+		optional_ptr<const ParquetColumnSchema> count_leaf;
+		if (!counted_levels.empty()) {
+			// the cheapest column with a page for every part - or else the column of the boundaries
+			for (auto &leaf : count_candidates) {
+				if (page_count(leaf.get()) >= part_count &&
+				    (!count_leaf || compressed_size(rg, leaf.get()) < compressed_size(rg, *count_leaf))) {
+					count_leaf = leaf.get();
+				}
+			}
+			if (!count_leaf) {
+				count_leaf = boundary_leaf;
+			}
+			auto count_pages = cache.Get(reader, rg, count_leaf->column_index);
+			CountLevelRowsPerPage(context, reader, *count_leaf, rg, *count_pages);
+			auto &cpages = count_pages->pages;
+			vector<vector<idx_t>> partial(slot_starts.size(), vector<idx_t>(count_leaf->max_repeat + 1, 0));
+			vector<idx_t> start_page(slot_starts.size(), cpages.size());
+			TaskExecutor executor(context);
+			for (idx_t i = 0; i < part_count; i++) {
+				start_page[i] = FindPageOfSlot(cpages, slot_starts[i]);
+				auto &page = cpages[start_page[i]];
+				if (slot_starts[i] > page.first_value) {
+					executor.ScheduleTask(make_uniq<CountPageLevelRows>(executor, context, reader, *count_leaf, rg,
+					                                                    page, slot_starts[i] - page.first_value,
+					                                                    partial[i]));
+				}
+			}
+			executor.WorkOnTasks();
+			for (auto k : counted_levels) {
+				for (idx_t i = 0; i < slot_starts.size(); i++) {
+					idx_t before = 0;
+					for (idx_t p = 0; p < start_page[i]; p++) {
+						before += count_pages->level_rows[p][k];
+					}
+					rows_at_start[i][k] = before + partial[i][k];
+				}
+				// the rows of the row group: those of all pages
+				if (rows.counts[rg][k].IsValid() && rows_at_start.back()[k] != rows.counts[rg][k].GetIndex()) {
+					throw InvalidInputException("read_parquet_node: corrupt file \"%s\": row group %llu has %llu rows "
+					                            "on nesting level %llu according to its repetition levels, but %llu "
+					                            "according to its metadata",
+					                            reader.GetFileName(), rg, rows_at_start.back()[k], k,
+					                            rows.counts[rg][k].GetIndex());
+				}
+			}
+		}
+		vector<shared_ptr<ParquetColumnPages>> leaf_pages;
+		for (auto &leaf : read_leaves) {
+			leaf_pages.push_back(cache.Get(reader, rg, leaf.get().column_index));
+		}
+		for (idx_t i = 0; i + 1 < slot_starts.size(); i++) {
+			ParquetNodeTask task;
+			task.row_group = rg;
+			task.slot_start = slot_starts[i];
+			task.slot_end = slot_starts[i + 1];
+			task.rows_before.resize(node.level + 1, 0);
+			task.rows_in_task.resize(node.level + 1);
+			task.leaf_pages = leaf_pages;
 			if (slots_are_rows) {
 				task.rows_before[node.level] = rows.offsets[rg][node.level] + task.slot_start;
 				task.rows_in_task[node.level] = task.slot_end - task.slot_start;
 			}
 			for (auto k : counted_levels) {
-				auto before = task.slot_start == 0 ? rows.offsets[rg][k] : result.tasks[task_idx - 1].rows_before[k] +
-				                                                               level_rows[task_idx - 1][k];
-				task.rows_before[k] = before;
-				task.rows_in_task[k] = level_rows[task_idx][k];
+				task.rows_before[k] = rows.offsets[rg][k] + rows_at_start[i][k];
+				task.rows_in_task[k] = rows_at_start[i + 1][k] - rows_at_start[i][k];
 			}
+			result.tasks.push_back(std::move(task));
 		}
-	}
-	// the parts of a split row group together have the rows of the row group
-	for (idx_t task_idx = 0; task_idx < result.tasks.size(); task_idx++) {
-		auto &task = result.tasks[task_idx];
-		auto rg = task.row_group;
-		if (task.slot_start == 0 || task.slot_end != row_group_slots[rg]) {
-			continue;
+		string counting;
+		if (count_leaf) {
+			counting = StringUtil::Format(", counting levels in column \"%s\" (%llu pages)", count_leaf->name,
+			                              page_count(*count_leaf));
 		}
-		for (auto k : counted_levels) {
-			auto total = task.rows_before[k] + level_rows[task_idx][k] - rows.offsets[rg][k];
-			if (rows.counts[rg][k].IsValid() && total != rows.counts[rg][k].GetIndex()) {
-				throw InvalidInputException("read_parquet_node: corrupt file \"%s\": row group %llu has %llu rows on "
-				                            "nesting level %llu according to its repetition levels, but %llu according "
-				                            "to its metadata",
-				                            reader.GetFileName(), rg, total, k, rows.counts[rg][k].GetIndex());
-			}
-		}
+		DUCKDB_LOG_DEBUG(context, StringUtil::Format("read_parquet_node: row group %llu of \"%s\" is scanned in %llu "
+		                                             "parts, at the pages of column \"%s\" (pages: %s)%s",
+		                                             rg, reader.GetFileName(), part_count, boundary_leaf->name,
+		                                             page_counts, counting));
 	}
 	return result;
 }

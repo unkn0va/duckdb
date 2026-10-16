@@ -84,6 +84,15 @@ enum class ColumnEncoding {
 	PLAIN
 };
 
+//! A data page of a column chunk
+struct ColumnPageInfo {
+	//! The offset of its header in the file
+	idx_t offset;
+	//! The number of values in the pages before it
+	idx_t first_value;
+	idx_t num_values;
+};
+
 struct ColumnReaderInput {
 public:
 	ColumnReaderInput(uint64_t num_values, data_ptr_t define_out, data_ptr_t repeat_out)
@@ -115,6 +124,10 @@ public:
 	virtual idx_t Read(ColumnReaderInput &input, Vector &result);
 	//! Read only the repetition and definition levels of the next values - their values are skipped, not decoded
 	idx_t ReadLevels(ColumnReaderInput &input);
+	//! The data pages of the column chunk of the row group, read from their headers - right after InitializeRead
+	vector<ColumnPageInfo> ReadPageDirectory();
+	//! Continue reading at the start of a data page of the column chunk (loading its dictionary first, if it has one)
+	void SeekToPage(const ColumnPageInfo &page);
 	virtual void Select(ColumnReaderInput &input, Vector &result, const SelectionVector &sel,
 	                    idx_t approved_tuple_count);
 	virtual void Filter(ColumnReaderInput &input, Vector &result, const TableFilter &filter,
@@ -269,6 +282,8 @@ private:
 	idx_t ReadInternal(ColumnReaderInput &input, Vector &result);
 	//! Skip the values of the current page whose levels were just read
 	void SkipPageValues(uint8_t *defines, idx_t num_values);
+	//! Read the page header at the current location of the protocol
+	void ReadPageHeader(PageHeader &page_hdr);
 	//! Prepare a read of up to "max_read" rows and read the defines/repeats.
 	//! Returns whether all values are valid (i.e., not NULL)
 	bool PrepareRead(idx_t read_count, data_ptr_t define_out, data_ptr_t repeat_out, idx_t result_offset);

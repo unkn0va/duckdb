@@ -360,24 +360,8 @@ void ColumnReader::PrepareRead(optional_ptr<const TableFilter> filter, optional_
 	page_is_filtered_out = false;
 	block.reset();
 	PageHeader page_hdr;
+	ReadPageHeader(page_hdr);
 	auto &trans = reinterpret_cast<ThriftFileTransport &>(*protocol->getTransport());
-
-	if (trans.HasPrefetch()) {
-		// Already has some data prefetched, let's not mess with it
-		Read(page_hdr);
-	} else {
-		// No prefetch yet, prefetch the full header in one go (so thrift won't read byte-by-byte from storage)
-		// 256 bytes should cover almost all headers (unless it's a V2 header with really LONG string statistics)
-		static constexpr idx_t ASSUMED_HEADER_SIZE = 256;
-		const auto prefetch_size = MinValue(trans.GetSize() - trans.GetLocation(), ASSUMED_HEADER_SIZE);
-		trans.Prefetch(trans.GetLocation(), prefetch_size);
-		Read(page_hdr);
-		trans.ClearPrefetch();
-	}
-	// some basic sanity check
-	if (page_hdr.compressed_page_size < 0 || page_hdr.uncompressed_page_size < 0) {
-		throw InvalidInputException("Failed to read file \"%s\": Page sizes must be >= 0", Reader().GetFileName());
-	}
 
 	if (PageIsFilteredOut(page_hdr, filter)) {
 		return;
@@ -421,6 +405,79 @@ void ColumnReader::PrepareRead(optional_ptr<const TableFilter> filter, optional_
 }
 
 void ColumnReader::ResetPage() {
+}
+
+void ColumnReader::ReadPageHeader(PageHeader &page_hdr) {
+	auto &trans = reinterpret_cast<ThriftFileTransport &>(*protocol->getTransport());
+	if (trans.HasPrefetch()) {
+		// Already has some data prefetched, let's not mess with it
+		Read(page_hdr);
+	} else {
+		// No prefetch yet, prefetch the full header in one go (so thrift won't read byte-by-byte from storage)
+		// 256 bytes should cover almost all headers (unless it's a V2 header with really LONG string statistics)
+		static constexpr idx_t ASSUMED_HEADER_SIZE = 256;
+		const auto prefetch_size = MinValue(trans.GetSize() - trans.GetLocation(), ASSUMED_HEADER_SIZE);
+		trans.Prefetch(trans.GetLocation(), prefetch_size);
+		Read(page_hdr);
+		trans.ClearPrefetch();
+	}
+	// some basic sanity check
+	if (page_hdr.compressed_page_size < 0 || page_hdr.uncompressed_page_size < 0) {
+		throw InvalidInputException("Failed to read file \"%s\": Page sizes must be >= 0", Reader().GetFileName());
+	}
+}
+
+vector<ColumnPageInfo> ColumnReader::ReadPageDirectory() {
+	D_ASSERT(chunk && pending_skips == 0);
+	auto &trans = reinterpret_cast<ThriftFileTransport &>(*protocol->getTransport());
+	vector<ColumnPageInfo> result;
+	const auto chunk_values = NumericCast<idx_t>(chunk->meta_data.num_values);
+	const auto chunk_end = chunk_read_offset + NumericCast<idx_t>(chunk->meta_data.total_compressed_size);
+	idx_t location = chunk_read_offset;
+	idx_t values = 0;
+	while (values < chunk_values) {
+		if (location >= chunk_end) {
+			throw InvalidInputException("Failed to read file \"%s\": the pages of a column chunk have fewer values "
+			                            "than its metadata",
+			                            Reader().GetFileName());
+		}
+		trans.SetLocation(location);
+		PageHeader page_hdr;
+		ReadPageHeader(page_hdr);
+		idx_t page_values = 0;
+		if (page_hdr.type == PageType::DATA_PAGE) {
+			page_values = NumericCast<idx_t>(page_hdr.data_page_header.num_values);
+		} else if (page_hdr.type == PageType::DATA_PAGE_V2) {
+			page_values = NumericCast<idx_t>(page_hdr.data_page_header_v2.num_values);
+		}
+		if (page_values > 0) {
+			result.push_back(ColumnPageInfo {location, values, page_values});
+			values += page_values;
+		}
+		location = trans.GetLocation() + NumericCast<idx_t>(page_hdr.compressed_page_size);
+	}
+	return result;
+}
+
+void ColumnReader::SeekToPage(const ColumnPageInfo &page) {
+	D_ASSERT(chunk && pending_skips == 0);
+	auto &trans = reinterpret_cast<ThriftFileTransport &>(*protocol->getTransport());
+	// the values of the data pages can refer to the dictionary, which is the first page of the chunk
+	trans.SetLocation(chunk_read_offset);
+	PageHeader page_hdr;
+	ReadPageHeader(page_hdr);
+	if (page_hdr.type == PageType::DICTIONARY_PAGE) {
+		PreparePage(page_hdr);
+		auto dictionary_size = page_hdr.dictionary_page_header.num_values;
+		if (dictionary_size < 0) {
+			throw InvalidInputException("Failed to read file \"%s\": Invalid dictionary page header (num_values < 0)",
+			                            Reader().GetFileName());
+		}
+		dictionary_decoder.InitializeDictionary(dictionary_size, nullptr, nullptr, HasDefines());
+	}
+	chunk_read_offset = page.offset;
+	page_rows_available = 0;
+	group_rows_available = NumericCast<idx_t>(chunk->meta_data.num_values) - page.first_value;
 }
 
 void ColumnReader::PreparePageV2(PageHeader &page_hdr) {

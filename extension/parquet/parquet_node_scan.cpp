@@ -162,8 +162,8 @@ static unique_ptr<GlobalTableFunctionState> ReadParquetNodeInitGlobal(ClientCont
 	if (context.TryGetCurrentSetting("parquet_node_task_slots", task_slots) && !task_slots.IsNull()) {
 		min_task_slots = task_slots.GetValue<idx_t>();
 	}
-	result->plan = ParquetNodeTaskPlan::Create(context, *data.reader, node, result->read_leaves[0], needed_levels,
-	                                           threads, min_task_slots);
+	result->plan = ParquetNodeTaskPlan::Create(context, *data.reader, node, result->read_leaves, needed_levels, threads,
+	                                           min_task_slots);
 	result->max_threads = MaxValue<idx_t>(result->plan.tasks.size(), 1);
 	return std::move(result);
 }
@@ -217,8 +217,15 @@ static bool ReadParquetNodeNextTask(ClientContext &context, const ReadParquetNod
 			                            "different number of values in row group %llu",
 			                            reader.GetFileName(), row_group_idx);
 		}
-		// the pages before the part are skipped by their headers only
-		column_reader->Skip(task.slot_start);
+	}
+	if (!task.leaf_pages.empty()) {
+		// a part of a row group: every column starts at the page that holds its first slot
+		for (idx_t i = 0; i < lstate.readers.size(); i++) {
+			auto &pages = task.leaf_pages[i]->pages;
+			auto &page = pages[FindPageOfSlot(pages, task.slot_start)];
+			lstate.readers[i]->SeekToPage(page);
+			lstate.readers[i]->Skip(task.slot_start - page.first_value);
+		}
 	}
 	lstate.slots_left = task.slot_end - task.slot_start;
 	lstate.generator.BeginTask(task.rows_before);
