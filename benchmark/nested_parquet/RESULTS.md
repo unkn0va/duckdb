@@ -450,11 +450,23 @@ during the runs (`busy_cpu` 0).
   counted first.** `split` in `join` reaches 0.017-0.032s at 16 threads and 0.018-0.032s even with 1 thread (N >= 10 in
   (B), N = 10^6 in (A)): its keys are stored, and the row group statistics of `_psk0` let it skip 9 of its 10 child row
   groups without reading them. The node scan has no stored keys: the keys at the start of every part are only known
-  after the levels of all pages of the child column have been counted, which decompresses the whole 80 MB column
-  chunk before any part can be skipped (EXPLAIN ANALYZE of (B) N = 10^6: 173 MB read for an 84 MB file). The parts
-  that remain are not the cost - this pre-pass is, and it is the same work whatever the selectivity. Skipping without
-  it would need the key ranges of the pages without reading them: stored keys, or page-level skipping (phase 2) with
-  page statistics (phase 3), which these parquet-cpp-arrow files do not have.
+  after the repetition levels of all pages of the child column have been counted, which decompresses the whole 80 MB
+  column chunk before any part can be skipped (EXPLAIN ANALYZE of (B) N = 10^6: 173 MB read for an 84 MB file). The
+  parts that remain are not the cost - this pre-pass is, and it is the same work whatever the selectivity.
+- **This is a structural cost of the paper's approach, not of this implementation.** The paper says so itself: in
+  Section 6.5, that the values of inner levels cannot be skipped, and in the explanation of Listing 3, that the
+  repetition levels of the preceding pages are not known from the metadata and have to be scanned. `split` avoids the
+  cost by storing the keys - in exchange for the paper's premise of reading the original nested file as it is
+  (in situ): it needs a second, pre-split copy of the data, written in advance. Skipping without the pre-pass would
+  need the key ranges of the pages without reading them - stored keys, or page-level skipping (phase 2) with page
+  statistics (phase 3), which these parquet-cpp-arrow files do not have.
+- **Page format of the paper's files**: all of them - nested and pre-split, parquet-mr (TPC-H SF10) and
+  parquet-cpp-arrow (all others) - use data pages of version 1 (the type of the first data page of every column
+  chunk, read from its page header), in which the levels are compressed together with the values.
+  *Possible improvement*: with data pages v2 the repetition and definition levels are stored uncompressed, before and
+  separate from the values, so the pre-pass could count the repetition levels without decompressing the values - this
+  needs files written with v2 pages and a levels-only page read in the column reader (DuckDB's reader decompresses the
+  values of a v2 page when it loads the page).
 - `builtin` gets faster with selectivity at 1 thread (0.105-0.115s -> 0.033-0.043s): `read_parquet` evaluates the
   predicate on `a` first and decodes the list `b` only for the selected rows, within a single scan.
 

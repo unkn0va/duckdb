@@ -20,14 +20,21 @@ With SKIPS=1, every node and flat query is run once more with debug logging, and
 scans skipped are recorded as <variant>_<suffix>_skipped: "<by the query's filters>+<by join filters>/<tasks>", summed
 over the scans of the query.
 
-Before every query the CPU use of the other processes is sampled; when they keep a core busy a warning is printed and
-the CPU use is recorded in the busy_cpu column, as their load distorts the timings.
+Before the first query the CPU use of the other processes is sampled three times: when they keep more than half a core
+busy in every sample (a leftover query, a search running in the background), the benchmark does not start - it lists
+them and exits with status 2 (ALLOW_BUSY=1 starts it anyway). Before every query the CPU use is sampled again; a
+warning is printed when it is high, and it is recorded in the busy_cpu column, as the load distorts the timings.
 
-Usage: [RUNS=n] [THREADS=n[,n...]] [SKIPS=1] run_bench.py <duckdb binary | label=path,...> <query dir> <data dir> <result csv>
+Every DuckDB process runs in a process group of its own, which is killed when it exceeds QUERY_TIMEOUT and when the
+benchmark itself is interrupted or terminated - so that no query keeps running after the benchmark and loads the
+machine during later measurements.
+
+Usage: [RUNS=n] [THREADS=n[,n...]] [SKIPS=1] [ALLOW_BUSY=1] run_bench.py <duckdb binary | label=path,...> <query dir> <data dir> <result csv>
 """
 import csv
 import os
 import re
+import signal
 import subprocess
 import sys
 import time
@@ -54,13 +61,50 @@ for label, path, setup in BINARIES:
                         "suffix": "".join("_" + part for part in parts)})
 DUCKDB = BINARIES[0][1]
 
+#: The process groups of the DuckDB processes that are running, killed when the benchmark stops
+RUNNING_GROUPS = set()
+
+
+def run_process(args, input=None, timeout=None):
+    """Like subprocess.run(capture_output=True, text=True, cwd=DATA_DIR), in a process group of its own that is killed
+    on a timeout - with everything the process started."""
+    proc = subprocess.Popen(args, stdin=subprocess.PIPE if input is not None else subprocess.DEVNULL,
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, cwd=DATA_DIR,
+                            start_new_session=True)
+    RUNNING_GROUPS.add(proc.pid)
+    try:
+        stdout, stderr = proc.communicate(input, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        kill_group(proc.pid)
+        proc.communicate()
+        raise
+    finally:
+        RUNNING_GROUPS.discard(proc.pid)
+    return subprocess.CompletedProcess(args, proc.returncode, stdout, stderr)
+
+
+def kill_group(pgid):
+    try:
+        os.killpg(pgid, signal.SIGKILL)
+    except ProcessLookupError:
+        pass
+
+
+def stop(signum, frame):
+    for pgid in list(RUNNING_GROUPS):
+        kill_group(pgid)
+    sys.exit(128 + signum)
+
+
+for stop_signal in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
+    signal.signal(stop_signal, stop)
+
 
 def run_timed(sql, binary, threads, config_setup=""):
     setup = (f"SET threads = {threads};\n" if threads else "") + config_setup
     script = setup + ".timer on\n.mode trash\n" + "\n".join([sql.strip().rstrip(";") + ";"] * RUNS) + "\n"
     try:
-        proc = subprocess.run([binary, "-no-agent"], input=script, capture_output=True, text=True, cwd=DATA_DIR,
-                              timeout=TIMEOUT * RUNS)
+        proc = run_process([binary, "-no-agent"], input=script, timeout=TIMEOUT * RUNS)
     except subprocess.TimeoutExpired:
         return None, "timeout"
     timings = re.findall(r"Run Time \(s\): real ([0-9.]+) user ([0-9.]+) sys ([0-9.]+)", proc.stdout + proc.stderr)
@@ -77,8 +121,10 @@ def result_hash(sql, binary=None, setup=""):
     query = ("SELECT count(*), hash(list(r ORDER BY r)) FROM (SELECT list_transform(list_value(COLUMNS(*)::VARCHAR), "
              "lambda x: CASE WHEN TRY_CAST(x AS DOUBLE) IS NULL THEN x ELSE round(x::DOUBLE, 2)::VARCHAR END)::VARCHAR AS r "
              f"FROM ({inner}))")
-    proc = subprocess.run([binary or DUCKDB, "-no-agent", "-csv", "-noheader", "-c", setup + query], capture_output=True,
-                          text=True, cwd=DATA_DIR, timeout=TIMEOUT)
+    try:
+        proc = run_process([binary or DUCKDB, "-no-agent", "-csv", "-noheader", "-c", setup + query], timeout=TIMEOUT)
+    except subprocess.TimeoutExpired:
+        return "error: timeout"
     return proc.stdout.strip() if proc.returncode == 0 else "error: " + proc.stderr.strip()[-200:]
 
 
@@ -91,8 +137,10 @@ def skipped_tasks(sql, binary, threads, config_setup):
     script = (setup + "CALL enable_logging(level := 'debug', storage := 'memory');\n.mode trash\n" +
               sql.strip().rstrip(";") + ";\n.mode list\n.headers off\n"
               "SELECT message FROM duckdb_logs WHERE message LIKE 'read_parquet_node: the filters%';\n")
-    proc = subprocess.run([binary, "-no-agent"], input=script, capture_output=True, text=True, cwd=DATA_DIR,
-                          timeout=TIMEOUT)
+    try:
+        proc = run_process([binary, "-no-agent"], input=script, timeout=TIMEOUT)
+    except subprocess.TimeoutExpired:
+        return "timeout"
     by_query = by_join = tasks = 0
     for match in SKIP_MESSAGE.finditer(proc.stdout):
         by_query += int(match.group(1))
@@ -156,12 +204,27 @@ def check_system_load(context):
     return busy_cpu
 
 
+def require_idle_system():
+    """Exit when other processes keep the CPU busy in every one of three samples - a spike does not stop the start."""
+    samples = [busy_processes(interval=1.0) for _ in range(3)]
+    busy = [sum(p[0] for p in processes) for processes in samples]
+    if min(busy) <= BUSY_CPU_THRESHOLD:
+        return
+    print(f"ERROR: other processes use {min(busy):.0f}-{max(busy):.0f}% CPU (threshold {BUSY_CPU_THRESHOLD:.0f}%) - "
+          f"not starting the benchmark. Stop them, or set ALLOW_BUSY=1:", file=sys.stderr)
+    for percent, pid, command in samples[-1][:5]:
+        print(f"  {percent:6.1f}%  pid {pid}  {command}", file=sys.stderr)
+    sys.exit(2)
+
+
 def ratio(entry, numerator, denominator, suffix):
     a, b = entry.get(f"{numerator}{suffix}_s"), entry.get(f"{denominator}{suffix}_s")
     if a and b:
         entry[f"{numerator}_over_{denominator}{suffix}"] = f"{float(a) / float(b):.2f}"
 
 
+if os.environ.get("ALLOW_BUSY", "") != "1":
+    require_idle_system()
 check_system_load("start")
 rows = []
 names = sorted({f.rsplit(".", 2)[0] for f in os.listdir(QUERY_DIR) if f.endswith(".sql")})
