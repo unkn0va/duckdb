@@ -1144,6 +1144,10 @@ static void LoadInternal(ExtensionLoader &loader) {
 	                          "The number of slots of a nested column below which read_parquet_node does not split a "
 	                          "row group into parts for several threads",
 	                          LogicalType::UBIGINT, Value::UBIGINT(122880));
+	config.AddExtensionOption("parquet_node_join_filter_pruning",
+	                          "Let read_parquet_node also use the filters that joins create while a query runs, to "
+	                          "skip the parts of a file and the rows that they exclude",
+	                          LogicalType::BOOLEAN, Value::BOOLEAN(false));
 	config.AddExtensionOption("binary_as_string", "In Parquet files, interpret binary data as a string.",
 	                          LogicalType::BOOLEAN, Value(false));
 	config.AddExtensionOption("disable_parquet_prefetching", "Disable the prefetching mechanism in Parquet",

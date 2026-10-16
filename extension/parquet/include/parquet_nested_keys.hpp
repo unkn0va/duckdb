@@ -139,6 +139,11 @@ struct ParquetNodeTask {
 	vector<optional_idx> rows_in_task;
 	//! For a part of a row group: the pages of every column that is read, to start reading at the first slot
 	vector<shared_ptr<ParquetColumnPages>> leaf_pages;
+
+public:
+	//! The smallest and largest key of a level that the rows of the task can have - for a level whose keys are
+	//! needed. key_upper_bound bounds the keys of the level in the file
+	void KeyRange(idx_t key_level, idx_t key_upper_bound, idx_t &min_key, idx_t &max_key) const;
 };
 
 //! The parts in which the row groups of a file are scanned. A row group is split only when the file has fewer row

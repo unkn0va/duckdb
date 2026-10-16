@@ -352,6 +352,17 @@ idx_t FindPageOfSlot(const vector<ColumnPageInfo> &pages, idx_t slot) {
 	return NumericCast<idx_t>(page - pages.begin()) - 1;
 }
 
+void ParquetNodeTask::KeyRange(idx_t key_level, idx_t key_upper_bound, idx_t &min_key, idx_t &max_key) const {
+	auto before = rows_before[key_level];
+	// a part can start within a row that started before it
+	min_key = slot_start > 0 && before > 0 ? before - 1 : before;
+	idx_t end = key_upper_bound;
+	if (rows_in_task[key_level].IsValid()) {
+		end = before + rows_in_task[key_level].GetIndex();
+	}
+	max_key = MaxValue<idx_t>(min_key, end > 0 ? end - 1 : 0);
+}
+
 //! A column reader positioned at the start of the column chunk of a row group
 static unique_ptr<ColumnReader> OpenColumnChunk(const ParquetReader &reader, const ParquetColumnSchema &leaf,
                                                 idx_t row_group, TProtocol &protocol) {
@@ -506,8 +517,9 @@ ParquetNodeTaskPlan ParquetNodeTaskPlan::Create(ClientContext &context, const Pa
 
 	// every slot of a column directly in the node starts one of its rows (or a placeholder). These columns have the
 	// same levels, so a part can start at the pages of any of them: at those of a large column that is read, whose
-	// pages are then decompressed only once - or within its pages, when it has fewer pages than parts. The rows before a part are counted per page of a cheap column of the
-	// node - with a page for every part, so that the pages are counted in parallel and a part starts in a small page
+	// pages are then decompressed only once - or within its pages, when it has fewer pages than parts. The rows before
+	// a part are counted per page of a cheap column of the node - with a page for every part, so that the pages are
+	// counted in parallel and a part starts in a small page
 	const bool slots_are_rows = !node.leaves.empty();
 	vector<idx_t> counted_levels;
 	for (idx_t k = 0; k <= node.level; k++) {

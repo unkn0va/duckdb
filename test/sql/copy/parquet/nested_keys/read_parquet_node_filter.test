@@ -1,0 +1,289 @@
+# name: test/sql/copy/parquet/nested_keys/read_parquet_node_filter.test
+# description: Filters pushed into read_parquet_node: evaluated on the rows of the node, and used to skip parts of the file
+# group: [nested_keys]
+
+require parquet
+
+# written with pyarrow (data/parquet-testing/nested_pages/generate.py): nested_pages_v1 has one row group, nested_pages_v2
+# three - "l" is a list of structs (a: ascending, b: dictionary encoded, c: strings) with NULL and empty lists, "m" a list
+# of lists
+foreach file nested_pages_v1 nested_pages_v2
+
+statement ok
+SET threads = 1
+
+statement ok
+CREATE OR REPLACE TABLE expected_root AS FROM read_parquet_node('data/parquet-testing/nested_pages/{file}.parquet')
+
+statement ok
+CREATE OR REPLACE TABLE expected_l AS FROM read_parquet_node('data/parquet-testing/nested_pages/{file}.parquet', node := 'l', include_empty := true)
+
+statement ok
+CREATE OR REPLACE TABLE expected_element AS FROM read_parquet_node('data/parquet-testing/nested_pages/{file}.parquet', node := 'm.element')
+
+statement ok
+CREATE OR REPLACE VIEW l AS FROM read_parquet_node('data/parquet-testing/nested_pages/{file}.parquet', node := 'l', include_empty := true)
+
+statement ok
+CREATE OR REPLACE VIEW element AS FROM read_parquet_node('data/parquet-testing/nested_pages/{file}.parquet', node := 'm.element')
+
+statement ok
+CREATE OR REPLACE VIEW root AS FROM read_parquet_node('data/parquet-testing/nested_pages/{file}.parquet')
+
+statement ok
+SET parquet_node_task_slots = 100
+
+# a single scan, parts at the pages of a column, and parts within the pages of a column
+foreach threads 1 8 32
+
+statement ok
+SET threads = {threads}
+
+# the filters are evaluated in the scan
+query II
+EXPLAIN SELECT * FROM read_parquet_node('data/parquet-testing/nested_pages/{file}.parquet', node := 'l', include_empty := true) WHERE a % 7 = 0
+----
+physical_plan	<!REGEX>:(?s).*Filter.*Read Parquet Node.*
+
+query II
+EXPLAIN SELECT * FROM read_parquet_node('data/parquet-testing/nested_pages/{file}.parquet', node := 'l', include_empty := true) WHERE a % 7 = 0
+----
+physical_plan	<REGEX>:(?s).*Node: l.*Filters: \(a % 7\) = 0.*
+
+query II
+EXPLAIN SELECT * FROM l WHERE b = 1 AND _ak0 > 10
+----
+physical_plan	<REGEX>:(?s).*Node: l.*Filters:.*b = 1.*_ak0 > 10.*
+
+# the other columns are decoded for the rows that pass
+query I
+SELECT count(*) FROM ((SELECT * FROM read_parquet_node('data/parquet-testing/nested_pages/{file}.parquet', node := 'l', include_empty := true) WHERE a % 7 = 0) EXCEPT ALL (SELECT * FROM expected_l WHERE a % 7 = 0)
+	UNION ALL (SELECT * FROM expected_l WHERE a % 7 = 0) EXCEPT ALL (SELECT * FROM read_parquet_node('data/parquet-testing/nested_pages/{file}.parquet', node := 'l', include_empty := true) WHERE a % 7 = 0))
+----
+0
+
+query I
+SELECT count(*) FROM ((SELECT * FROM l WHERE a <= 300 OR a > 59000) EXCEPT ALL (SELECT * FROM expected_l WHERE a <= 300 OR a > 59000)
+	UNION ALL (SELECT * FROM expected_l WHERE a <= 300 OR a > 59000) EXCEPT ALL (SELECT * FROM l WHERE a <= 300 OR a > 59000))
+----
+0
+
+# a dictionary encoded column
+query I
+SELECT count(*) FROM ((SELECT * FROM l WHERE b = 1) EXCEPT ALL (SELECT * FROM expected_l WHERE b = 1)
+	UNION ALL (SELECT * FROM expected_l WHERE b = 1) EXCEPT ALL (SELECT * FROM l WHERE b = 1))
+----
+0
+
+query I
+SELECT count(*) FROM ((SELECT * FROM l WHERE c LIKE '%-2') EXCEPT ALL (SELECT * FROM expected_l WHERE c LIKE '%-2')
+	UNION ALL (SELECT * FROM expected_l WHERE c LIKE '%-2') EXCEPT ALL (SELECT * FROM l WHERE c LIKE '%-2'))
+----
+0
+
+# keys
+query I
+SELECT count(*) FROM ((SELECT * FROM l WHERE _ak0 BETWEEN 100 AND 3000) EXCEPT ALL (SELECT * FROM expected_l WHERE _ak0 BETWEEN 100 AND 3000)
+	UNION ALL (SELECT * FROM expected_l WHERE _ak0 BETWEEN 100 AND 3000) EXCEPT ALL (SELECT * FROM l WHERE _ak0 BETWEEN 100 AND 3000))
+----
+0
+
+query I
+SELECT count(*) FROM ((SELECT * FROM l WHERE _sk IN (3, 4000, 7999)) EXCEPT ALL (SELECT * FROM expected_l WHERE _sk IN (3, 4000, 7999))
+	UNION ALL (SELECT * FROM expected_l WHERE _sk IN (3, 4000, 7999)) EXCEPT ALL (SELECT * FROM l WHERE _sk IN (3, 4000, 7999)))
+----
+0
+
+# keys and columns together
+query I
+SELECT count(*) FROM ((SELECT c, _sk FROM l WHERE _ak0 >= 2600 AND b = 2 AND c LIKE '%-1') EXCEPT ALL (SELECT c, _sk FROM expected_l WHERE _ak0 >= 2600 AND b = 2 AND c LIKE '%-1')
+	UNION ALL (SELECT c, _sk FROM expected_l WHERE _ak0 >= 2600 AND b = 2 AND c LIKE '%-1') EXCEPT ALL (SELECT c, _sk FROM l WHERE _ak0 >= 2600 AND b = 2 AND c LIKE '%-1'))
+----
+0
+
+# the placeholders of empty and NULL lists are NULL rows
+query I
+SELECT count(*) FROM ((SELECT * FROM l WHERE a IS NULL) EXCEPT ALL (SELECT * FROM expected_l WHERE a IS NULL)
+	UNION ALL (SELECT * FROM expected_l WHERE a IS NULL) EXCEPT ALL (SELECT * FROM l WHERE a IS NULL))
+----
+0
+
+query I
+SELECT count(*) > 0 FROM l WHERE a IS NULL
+----
+true
+
+query I
+SELECT count(*) FROM l WHERE a IS NULL AND b IS NOT NULL
+----
+0
+
+# no row passes
+query II
+SELECT count(*), count(c) FROM l WHERE a = -1
+----
+0	0
+
+# a list of lists: the outer lists have no column of their own
+query I
+SELECT count(*) FROM ((SELECT * FROM element WHERE _ak1 BETWEEN 1000 AND 2000 AND element > 3) EXCEPT ALL (SELECT * FROM expected_element WHERE _ak1 BETWEEN 1000 AND 2000 AND element > 3)
+	UNION ALL (SELECT * FROM expected_element WHERE _ak1 BETWEEN 1000 AND 2000 AND element > 3) EXCEPT ALL (SELECT * FROM element WHERE _ak1 BETWEEN 1000 AND 2000 AND element > 3))
+----
+0
+
+query I
+SELECT count(*) FROM ((SELECT * FROM root WHERE id % 5 = 0 OR _sk >= 5990) EXCEPT ALL (SELECT * FROM expected_root WHERE id % 5 = 0 OR _sk >= 5990)
+	UNION ALL (SELECT * FROM expected_root WHERE id % 5 = 0 OR _sk >= 5990) EXCEPT ALL (SELECT * FROM root WHERE id % 5 = 0 OR _sk >= 5990))
+----
+0
+
+# the filters of the flat scan reach the scans of its nodes
+query I
+SELECT sum(id * "l.a") = (SELECT sum(id * e.a) FROM (SELECT id, unnest(l) AS e FROM read_parquet('data/parquet-testing/nested_pages/{file}.parquet')) WHERE id < 100 AND e.b = 1)
+FROM read_parquet_flat('data/parquet-testing/nested_pages/{file}.parquet') WHERE id < 100 AND "l.b" = 1
+----
+true
+
+endloop
+
+# skipping: the key ranges of the parts and the statistics of the row groups
+statement ok
+CALL enable_logging(level := 'debug', storage := 'memory')
+
+statement ok
+SET threads = 8
+
+query I
+SELECT count(*) FROM ((SELECT * FROM l WHERE _ak0 < 100) EXCEPT ALL (SELECT * FROM expected_l WHERE _ak0 < 100)
+	UNION ALL (SELECT * FROM expected_l WHERE _ak0 < 100) EXCEPT ALL (SELECT * FROM l WHERE _ak0 < 100))
+----
+0
+
+query I
+SELECT count(*) > 0 FROM duckdb_logs WHERE message LIKE 'read_parquet_node: the filters of the query skip % of % tasks of node "l"%' AND message NOT LIKE '%skip 0 of%'
+----
+true
+
+statement ok
+CALL truncate_duckdb_logs()
+
+# a part that starts within the pages of "b" can start within a row of the top level, which it continues: these rows
+# have elements in two parts (for the pages pyarrow 26 writes)
+statement ok
+SET threads = 32
+
+foreach key 938 1875 4687 5062 5250 5811
+
+query I
+SELECT count(b) = (SELECT count(b) FROM expected_l WHERE _ak0 = {key}) FROM l WHERE _ak0 = {key}
+----
+true
+
+endloop
+
+statement ok
+CALL truncate_duckdb_logs()
+
+statement ok
+SET threads = 1
+
+# with a single thread, a task is a row group
+query II
+SELECT count(*), sum(_sk) = (SELECT sum(_sk) FROM expected_l WHERE a >= 59990) FROM l WHERE a >= 59990
+----
+3	true
+
+query I
+SELECT message LIKE '%skip ' || CASE WHEN '{file}' = 'nested_pages_v1' THEN '0 of 1' ELSE '2 of 3' END || ' tasks%' FROM duckdb_logs WHERE message LIKE 'read_parquet_node: the filters%'
+----
+true
+
+statement ok
+CALL truncate_duckdb_logs()
+
+# placeholders are NULL rows, also where the statistics of the column chunk count no NULL values
+query I
+SELECT count(*) = (SELECT count(*) FROM expected_l WHERE a IS NULL) FROM l WHERE a IS NULL
+----
+true
+
+query I
+SELECT message LIKE '%skip 0 of%' FROM duckdb_logs WHERE message LIKE 'read_parquet_node: the filters%'
+----
+true
+
+statement ok
+CALL truncate_duckdb_logs()
+
+# the filters that joins create while the query runs are only used with parquet_node_join_filter_pruning
+statement ok
+SET threads = 8
+
+foreach join_filters false true
+
+statement ok
+SET parquet_node_join_filter_pruning = {join_filters}
+
+query I
+SELECT sum(id * "l.a") = (SELECT sum(id * e.a) FROM (SELECT id, unnest(l) AS e FROM read_parquet('data/parquet-testing/nested_pages/{file}.parquet')) WHERE id < 100)
+FROM read_parquet_flat('data/parquet-testing/nested_pages/{file}.parquet') WHERE id < 100
+----
+true
+
+query I
+SELECT count(*) FROM ((SELECT l.* FROM l JOIN root ON l._ak0 = root._sk WHERE root.id BETWEEN 1000 AND 1100) EXCEPT ALL (SELECT * FROM expected_l WHERE _ak0 BETWEEN 1000 AND 1100)
+	UNION ALL (SELECT * FROM expected_l WHERE _ak0 BETWEEN 1000 AND 1100) EXCEPT ALL (SELECT l.* FROM l JOIN root ON l._ak0 = root._sk WHERE root.id BETWEEN 1000 AND 1100))
+----
+0
+
+endloop
+
+# with the setting, the scans of "l" skip the parts without the keys of the selected rows
+query I
+SELECT count(*) > 0 FROM duckdb_logs WHERE message LIKE 'read_parquet_node: % of node "l"%, the filters of joins % more' AND message NOT LIKE '%joins 0 more'
+----
+true
+
+# without it, the scans of "l" have no filters at all
+query I
+SELECT count(*) FROM duckdb_logs WHERE message LIKE 'read_parquet_node: % of node "l"%' AND message NOT LIKE '%the filters of joins%'
+----
+0
+
+statement ok
+CALL truncate_duckdb_logs()
+
+# the same as when the joins do not create filters
+statement ok
+SET disabled_optimizers = 'join_filter_pushdown'
+
+query I
+SELECT sum(id * "l.a") = (SELECT sum(id * e.a) FROM (SELECT id, unnest(l) AS e FROM read_parquet('data/parquet-testing/nested_pages/{file}.parquet')) WHERE id < 100)
+FROM read_parquet_flat('data/parquet-testing/nested_pages/{file}.parquet') WHERE id < 100
+----
+true
+
+query I
+SELECT count(*) FROM duckdb_logs WHERE message LIKE 'read_parquet_node: % of node "l"%'
+----
+0
+
+statement ok
+RESET disabled_optimizers
+
+statement ok
+RESET parquet_node_join_filter_pruning
+
+statement ok
+CALL disable_logging()
+
+statement ok
+CALL truncate_duckdb_logs()
+
+statement ok
+RESET parquet_node_task_slots
+
+statement ok
+RESET threads
+
+endloop

@@ -7,10 +7,17 @@
 #include "duckdb/common/vector/constant_vector.hpp"
 #include "duckdb/common/vector/flat_vector.hpp"
 #include "duckdb/common/vector/vector_writer.hpp"
+#include "duckdb/execution/operator/scan/physical_table_scan.hpp"
 #include "duckdb/function/table_function.hpp"
+#include "duckdb/logging/logger.hpp"
 #include "duckdb/parallel/task_scheduler.hpp"
 #include "duckdb/parser/tableref/table_function_ref.hpp"
+#include "duckdb/planner/filter/expression_filter.hpp"
+#include "duckdb/planner/table_filter_state.hpp"
 #include "duckdb/storage/statistics/numeric_stats.hpp"
+#include "duckdb/storage/table/column_segment.hpp"
+
+#include <algorithm>
 
 namespace duckdb {
 
@@ -35,11 +42,26 @@ struct ReadParquetNodeColumn {
 	idx_t index;
 };
 
+//! A filter on a projected column, which the scan applies to the rows of the node
+struct ReadParquetNodeFilter {
+	//! The position of the column among the projected columns
+	idx_t column;
+	reference<const TableFilter> filter;
+};
+
 struct ReadParquetNodeGlobalState : public GlobalTableFunctionState {
 	ParquetNodeTaskPlan plan;
 	vector<ReadParquetNodeColumn> columns;
-	//! The columns that are read - the first one drives the keys
+	//! The columns that are read - the first one drives the keys, followed by the other columns that filters use
 	vector<reference<const ParquetColumnSchema>> read_leaves;
+	//! The filters, in the order they are evaluated
+	vector<ReadParquetNodeFilter> filters;
+	//! For every projected column: whether a filter uses it
+	vector<bool> filtered_columns;
+	//! With filters: the columns that are read before them - the others are only decoded for the rows that pass
+	idx_t filter_leaf_count = 0;
+	//! The tasks whose rows the filters exclude according to statistics
+	vector<bool> skipped_tasks;
 	atomic<idx_t> next_task {0};
 	idx_t max_threads = 1;
 
@@ -65,6 +87,7 @@ struct ReadParquetNodeLocalState : public LocalTableFunctionState {
 	ResizeableBuffer scratch_define_buf;
 	ResizeableBuffer scratch_repeat_buf;
 	ParquetNodeKeyGenerator generator;
+	vector<unique_ptr<TableFilterState>> filter_states;
 };
 
 static unique_ptr<FunctionData> ReadParquetNodeBind(ClientContext &context, TableFunctionBindInput &input,
@@ -126,17 +149,99 @@ static unique_ptr<FunctionData> ReadParquetNodeBind(ClientContext &context, Tabl
 	return std::move(result);
 }
 
+static bool FilterExcludesAll(FilterPropagateResult result) {
+	return result == FilterPropagateResult::FILTER_ALWAYS_FALSE ||
+	       result == FilterPropagateResult::FILTER_FALSE_OR_NULL;
+}
+
+//! Mark the tasks that have no row the filters accept, according to the key ranges of the tasks and the statistics of
+//! the column chunks of their row groups - returns how many tasks were newly marked
+static idx_t SkipFilteredTasks(ClientContext &context, const ReadParquetNodeData &data,
+                               ReadParquetNodeGlobalState &gstate, const TableFilterSet &filter_set) {
+	auto &reader = *data.reader;
+	auto &metadata = *reader.GetFileMetadata();
+	auto &tasks = gstate.plan.tasks;
+	idx_t skipped = 0;
+	for (auto &entry : filter_set) {
+		auto &column = gstate.columns[entry.GetIndex()];
+		auto &filter = ExpressionFilter::GetExpressionFilter(entry.Filter(), "read_parquet_node");
+		if (column.kind == ReadParquetNodeColumn::Kind::KEY) {
+			for (idx_t t = 0; t < tasks.size(); t++) {
+				if (gstate.skipped_tasks[t]) {
+					continue;
+				}
+				idx_t min_key, max_key;
+				tasks[t].KeyRange(column.index, data.key_upper_bounds[column.index], min_key, max_key);
+				auto stats = NumericStats::CreateUnknown(LogicalType::BIGINT);
+				NumericStats::SetMin(stats, Value::BIGINT(NumericCast<int64_t>(min_key)));
+				NumericStats::SetMax(stats, Value::BIGINT(NumericCast<int64_t>(max_key)));
+				stats.SetHasNoNull();
+				if (FilterExcludesAll(filter.CheckStatistics(context, stats))) {
+					gstate.skipped_tasks[t] = true;
+					skipped++;
+				}
+			}
+			continue;
+		}
+		if (column.kind != ReadParquetNodeColumn::Kind::LEAF) {
+			continue;
+		}
+		auto &leaf = gstate.read_leaves[column.index].get();
+		// NaN values are not within the minimum and maximum of a column chunk
+		if (leaf.type.id() == LogicalTypeId::FLOAT || leaf.type.id() == LogicalTypeId::DOUBLE) {
+			continue;
+		}
+		optional_idx checked_row_group;
+		bool excluded = false;
+		for (idx_t t = 0; t < tasks.size(); t++) {
+			auto row_group = tasks[t].row_group;
+			if (!checked_row_group.IsValid() || checked_row_group.GetIndex() != row_group) {
+				checked_row_group = row_group;
+				auto stats =
+				    leaf.Stats(metadata, reader.parquet_options, row_group, metadata.row_groups[row_group].columns);
+				if (stats) {
+					// placeholders and the slots of NULL structs are NULL rows, which the null count may not include
+					stats->SetHasNull();
+				}
+				excluded = stats && FilterExcludesAll(filter.CheckStatistics(context, *stats));
+			}
+			if (excluded && !gstate.skipped_tasks[t]) {
+				gstate.skipped_tasks[t] = true;
+				skipped++;
+			}
+		}
+	}
+	return skipped;
+}
+
 static unique_ptr<GlobalTableFunctionState> ReadParquetNodeInitGlobal(ClientContext &context,
                                                                       TableFunctionInitInput &input) {
 	auto &data = input.bind_data->Cast<ReadParquetNodeData>();
 	auto &node = data.node;
 	auto result = make_uniq<ReadParquetNodeGlobalState>();
 
+	// the filters of the query - and with parquet_node_join_filter_pruning those that joins create while it runs, which
+	// the joins apply themselves as well
+	optional_ptr<TableFilterSet> query_filters = input.filters;
+	if (input.op && input.op->type == PhysicalOperatorType::TABLE_SCAN) {
+		query_filters = input.op->Cast<PhysicalTableScan>().table_filters.get();
+	}
+	Value join_filter_pruning;
+	const bool use_join_filters =
+	    context.TryGetCurrentSetting("parquet_node_join_filter_pruning", join_filter_pruning) &&
+	    !join_filter_pruning.IsNull() && BooleanValue::Get(join_filter_pruning);
+	auto filter_set = use_join_filters ? input.filters : query_filters;
+	vector<bool> filtered(input.column_ids.size(), false);
+	if (filter_set) {
+		for (auto &entry : *filter_set) {
+			filtered[entry.GetIndex()] = true;
+		}
+	}
+
 	const auto leaf_count = node.leaves.size();
 	for (auto &column_id : input.column_ids) {
 		if (column_id < leaf_count) {
-			result->columns.push_back({ReadParquetNodeColumn::Kind::LEAF, result->read_leaves.size()});
-			result->read_leaves.push_back(*node.leaves[column_id].schema);
+			result->columns.push_back({ReadParquetNodeColumn::Kind::LEAF, 0});
 		} else if (column_id < leaf_count + node.level + 1) {
 			// the surrogate key comes first, followed by the ancestor keys of levels 0, 1, ...
 			auto key_index = column_id - leaf_count;
@@ -146,9 +251,39 @@ static unique_ptr<GlobalTableFunctionState> ReadParquetNodeInitGlobal(ClientCont
 			result->columns.push_back({ReadParquetNodeColumn::Kind::OTHER, 0});
 		}
 	}
+	// the columns that filters use are read first
+	for (auto filter_columns : {true, false}) {
+		for (idx_t i = 0; i < input.column_ids.size(); i++) {
+			if (result->columns[i].kind == ReadParquetNodeColumn::Kind::LEAF && filtered[i] == filter_columns) {
+				result->columns[i].index = result->read_leaves.size();
+				result->read_leaves.push_back(*node.leaves[input.column_ids[i]].schema);
+			}
+		}
+		if (filter_columns) {
+			result->filter_leaf_count = MaxValue<idx_t>(result->read_leaves.size(), 1);
+		}
+	}
 	if (result->read_leaves.empty()) {
 		// only keys are projected - read the levels of any column of the node
 		result->read_leaves.push_back(*node.key_leaf);
+	}
+	result->filtered_columns = filtered;
+	if (filter_set) {
+		for (auto &entry : *filter_set) {
+			result->filters.push_back({entry.GetIndex(), entry.Filter()});
+		}
+		// the keys are filtered first - they are not decoded
+		std::stable_sort(result->filters.begin(), result->filters.end(),
+		                 [&](const ReadParquetNodeFilter &a, const ReadParquetNodeFilter &b) {
+			                 auto &column_a = result->columns[a.column];
+			                 auto &column_b = result->columns[b.column];
+			                 auto key_a = column_a.kind == ReadParquetNodeColumn::Kind::KEY;
+			                 auto key_b = column_b.kind == ReadParquetNodeColumn::Kind::KEY;
+			                 if (key_a != key_b) {
+				                 return key_a;
+			                 }
+			                 return !key_a && column_a.index < column_b.index;
+		                 });
 	}
 	vector<bool> needed_levels(node.level + 1, false);
 	for (auto &column : result->columns) {
@@ -164,7 +299,28 @@ static unique_ptr<GlobalTableFunctionState> ReadParquetNodeInitGlobal(ClientCont
 	}
 	result->plan = ParquetNodeTaskPlan::Create(context, *data.reader, node, result->read_leaves, needed_levels, threads,
 	                                           min_task_slots);
-	result->max_threads = MaxValue<idx_t>(result->plan.tasks.size(), 1);
+	auto task_count = result->plan.tasks.size();
+	result->skipped_tasks.resize(task_count, false);
+	if (!result->filters.empty()) {
+		auto query_skipped = query_filters ? SkipFilteredTasks(context, data, *result, *query_filters) : 0;
+		string join_skipped;
+		if (use_join_filters) {
+			auto skipped = input.filters && input.filters != query_filters
+			                   ? SkipFilteredTasks(context, data, *result, *input.filters)
+			                   : 0;
+			join_skipped = StringUtil::Format(", the filters of joins %llu more", skipped);
+		}
+		DUCKDB_LOG_DEBUG(context,
+		                 StringUtil::Format("read_parquet_node: the filters of the query skip %llu of %llu tasks of "
+		                                    "node \"%s\" of \"%s\"%s",
+		                                    query_skipped, task_count, data.node_path, data.reader->GetFileName(),
+		                                    join_skipped));
+	}
+	idx_t scanned_tasks = 0;
+	for (auto skipped : result->skipped_tasks) {
+		scanned_tasks += skipped ? 0 : 1;
+	}
+	result->max_threads = MaxValue<idx_t>(scanned_tasks, 1);
 	return std::move(result);
 }
 
@@ -184,6 +340,9 @@ static unique_ptr<LocalTableFunctionState> ReadParquetNodeInitLocal(ExecutionCon
 	result->repeat_buf.resize(reader.allocator, STANDARD_VECTOR_SIZE);
 	result->scratch_define_buf.resize(reader.allocator, STANDARD_VECTOR_SIZE);
 	result->scratch_repeat_buf.resize(reader.allocator, STANDARD_VECTOR_SIZE);
+	for (auto &filter : gstate.filters) {
+		result->filter_states.push_back(TableFilterState::Initialize(context.client, filter.filter.get()));
+	}
 	return std::move(result);
 }
 
@@ -191,10 +350,13 @@ static unique_ptr<LocalTableFunctionState> ReadParquetNodeInitLocal(ExecutionCon
 static bool ReadParquetNodeNextTask(ClientContext &context, const ReadParquetNodeData &data,
                                     ReadParquetNodeGlobalState &gstate, ReadParquetNodeLocalState &lstate) {
 	auto &reader = *data.reader;
-	auto task_idx = gstate.next_task++;
-	if (task_idx >= gstate.plan.tasks.size()) {
-		return false;
-	}
+	idx_t task_idx;
+	do {
+		task_idx = gstate.next_task++;
+		if (task_idx >= gstate.plan.tasks.size()) {
+			return false;
+		}
+	} while (gstate.skipped_tasks[task_idx]);
 	auto &task = gstate.plan.tasks[task_idx];
 	auto row_group_idx = task.row_group;
 	if (!lstate.protocol) {
@@ -257,6 +419,107 @@ static void VerifyTaskRows(const ReadParquetNodeData &data, ReadParquetNodeGloba
 	                            expected);
 }
 
+//! Read the next slots of a column - with a selection, only the selected slots have to be decoded
+static void ReadLeafSlots(const ReadParquetNodeData &data, ReadParquetNodeLocalState &lstate, idx_t i, idx_t count,
+                          optional_ptr<const SelectionVector> selected_slots = nullptr, idx_t selected_count = 0) {
+	// the levels of the first column drive the keys. Columns without repetition or definition levels do not write
+	// them - they are all zero then
+	auto define_ptr = reinterpret_cast<uint8_t *>(i == 0 ? lstate.define_buf.ptr : lstate.scratch_define_buf.ptr);
+	auto repeat_ptr = reinterpret_cast<uint8_t *>(i == 0 ? lstate.repeat_buf.ptr : lstate.scratch_repeat_buf.ptr);
+	memset(define_ptr, 0, count);
+	memset(repeat_ptr, 0, count);
+	ColumnReaderInput reader_input(count, define_ptr, repeat_ptr);
+	auto &result = lstate.read_chunk.data[i];
+	if (selected_slots) {
+		lstate.readers[i]->Select(reader_input, result, *selected_slots, selected_count);
+		return;
+	}
+	auto read_count = lstate.readers[i]->Read(reader_input, result);
+	if (read_count != count) {
+		throw InvalidInputException("read_parquet_node: mismatch in the number of values of the columns of node \"%s\" "
+		                            "in file \"%s\"",
+		                            lstate.readers[i]->Schema().name, data.reader->GetFileName());
+	}
+}
+
+//! Set a returned column to "count" rows of the batch: those at the given slots for a column that is read, and the
+//! given rows (or the first ones) for a key
+static void SetColumn(const ReadParquetNodeGlobalState &gstate, ReadParquetNodeLocalState &lstate, idx_t col_idx,
+                      Vector &result, idx_t slot_count, const SelectionVector &slots,
+                      optional_ptr<const SelectionVector> rows, idx_t count) {
+	auto &column = gstate.columns[col_idx];
+	switch (column.kind) {
+	case ReadParquetNodeColumn::Kind::LEAF:
+		// the slots are ascending: all of them are selected in order
+		if (count == slot_count) {
+			result.Reference(lstate.read_chunk.data[column.index]);
+		} else {
+			result.Slice(lstate.read_chunk.data[column.index], slots, count);
+		}
+		break;
+	case ReadParquetNodeColumn::Kind::KEY: {
+		auto &keys = lstate.generator.keys[column.index];
+		auto writer = FlatVector::Writer<int64_t>(result, count);
+		for (idx_t i = 0; i < count; i++) {
+			writer.WriteValue(keys[rows ? rows->get_index(i) : i]);
+		}
+		break;
+	}
+	default:
+		ConstantVector::SetNull(result, count_t(count));
+		break;
+	}
+}
+
+//! Apply the filters to the rows of a batch, and set the returned columns to the rows that pass - returns their number
+static idx_t FilterRows(const ReadParquetNodeData &data, const ReadParquetNodeGlobalState &gstate,
+                        ReadParquetNodeLocalState &lstate, DataChunk &output, idx_t slot_count,
+                        const SelectionVector &row_slots, idx_t row_count) {
+	// the filters are evaluated on the columns as they are returned - the keys and the columns read so far
+	SelectionVector passed;
+	idx_t passed_count = row_count;
+	for (idx_t f = 0; f < gstate.filters.size() && passed_count > 0; f++) {
+		auto col_idx = gstate.filters[f].column;
+		auto &vector = output.data[col_idx];
+		SetColumn(gstate, lstate, col_idx, vector, slot_count, row_slots, nullptr, row_count);
+		ColumnSegment::FilterSelection(passed, vector, *lstate.filter_states[f], row_count, passed_count);
+	}
+	if (passed_count == 0) {
+		for (idx_t i = gstate.filter_leaf_count; i < lstate.readers.size(); i++) {
+			lstate.readers[i]->Skip(slot_count);
+		}
+		// the vectors carry their own size - drop the columns that were filtered
+		output.Reset();
+		return 0;
+	}
+	optional_ptr<const SelectionVector> passed_rows;
+	auto passed_slots = &row_slots;
+	SelectionVector passed_slot_sel;
+	if (passed_count < row_count) {
+		passed_rows = &passed;
+		passed_slot_sel.Initialize(passed_count);
+		for (idx_t i = 0; i < passed_count; i++) {
+			passed_slot_sel.set_index(i, row_slots.get_index(passed.get_index(i)));
+		}
+		passed_slots = &passed_slot_sel;
+	}
+	// the other columns are only decoded for the slots of the rows that pass
+	for (idx_t i = gstate.filter_leaf_count; i < lstate.readers.size(); i++) {
+		ReadLeafSlots(data, lstate, i, slot_count, passed_slots, passed_count);
+	}
+	for (idx_t col_idx = 0; col_idx < gstate.columns.size(); col_idx++) {
+		auto &result = output.data[col_idx];
+		if (gstate.filtered_columns[col_idx]) {
+			if (passed_rows) {
+				result.Slice(*passed_rows, passed_count);
+			}
+			continue;
+		}
+		SetColumn(gstate, lstate, col_idx, result, slot_count, *passed_slots, passed_rows, passed_count);
+	}
+	return passed_count;
+}
+
 static void ReadParquetNodeScan(ClientContext &context, TableFunctionInput &input, DataChunk &output) {
 	auto &data = input.bind_data->Cast<ReadParquetNodeData>();
 	auto &gstate = input.global_state->Cast<ReadParquetNodeGlobalState>();
@@ -264,8 +527,7 @@ static void ReadParquetNodeScan(ClientContext &context, TableFunctionInput &inpu
 
 	auto defines = reinterpret_cast<uint8_t *>(lstate.define_buf.ptr);
 	auto repeats = reinterpret_cast<uint8_t *>(lstate.repeat_buf.ptr);
-	auto scratch_defines = reinterpret_cast<uint8_t *>(lstate.scratch_define_buf.ptr);
-	auto scratch_repeats = reinterpret_cast<uint8_t *>(lstate.scratch_repeat_buf.ptr);
+	const bool has_filters = !gstate.filters.empty();
 	while (true) {
 		if (!lstate.has_row_group && !ReadParquetNodeNextTask(context, data, gstate, lstate)) {
 			return;
@@ -278,19 +540,10 @@ static void ReadParquetNodeScan(ClientContext &context, TableFunctionInput &inpu
 		}
 		lstate.read_chunk.Reset();
 		lstate.read_chunk.SetChildCardinality(count);
-		for (idx_t i = 0; i < lstate.readers.size(); i++) {
-			// columns without repetition or definition levels do not write them - they are all zero then
-			auto define_ptr = i == 0 ? defines : scratch_defines;
-			auto repeat_ptr = i == 0 ? repeats : scratch_repeats;
-			memset(define_ptr, 0, count);
-			memset(repeat_ptr, 0, count);
-			ColumnReaderInput reader_input(count, define_ptr, repeat_ptr);
-			auto read_count = lstate.readers[i]->Read(reader_input, lstate.read_chunk.data[i]);
-			if (read_count != count) {
-				throw InvalidInputException("read_parquet_node: mismatch in the number of values of the columns of "
-				                            "node \"%s\" in file \"%s\"",
-				                            lstate.readers[i]->Schema().name, data.reader->GetFileName());
-			}
+		// with filters, only the columns they use are read before them
+		auto read_first = has_filters ? gstate.filter_leaf_count : lstate.readers.size();
+		for (idx_t i = 0; i < read_first; i++) {
+			ReadLeafSlots(data, lstate, i, count);
 		}
 
 		lstate.slots_left -= count;
@@ -298,30 +551,19 @@ static void ReadParquetNodeScan(ClientContext &context, TableFunctionInput &inpu
 		SelectionVector sel(STANDARD_VECTOR_SIZE);
 		auto result_count = lstate.generator.Process(repeats, defines, count, sel);
 		if (result_count == 0) {
+			for (idx_t i = read_first; i < lstate.readers.size(); i++) {
+				lstate.readers[i]->Skip(count);
+			}
 			continue;
 		}
-		for (idx_t col_idx = 0; col_idx < gstate.columns.size(); col_idx++) {
-			auto &column = gstate.columns[col_idx];
-			auto &result = output.data[col_idx];
-			switch (column.kind) {
-			case ReadParquetNodeColumn::Kind::LEAF:
-				if (result_count == count) {
-					result.Reference(lstate.read_chunk.data[column.index]);
-				} else {
-					result.Slice(lstate.read_chunk.data[column.index], sel, result_count);
-				}
-				break;
-			case ReadParquetNodeColumn::Kind::KEY: {
-				auto &keys = lstate.generator.keys[column.index];
-				auto writer = FlatVector::Writer<int64_t>(result, result_count);
-				for (idx_t i = 0; i < result_count; i++) {
-					writer.WriteValue(keys[i]);
-				}
-				break;
+		if (has_filters) {
+			result_count = FilterRows(data, gstate, lstate, output, count, sel, result_count);
+			if (result_count == 0) {
+				continue;
 			}
-			default:
-				ConstantVector::SetNull(result, count_t(result_count));
-				break;
+		} else {
+			for (idx_t col_idx = 0; col_idx < gstate.columns.size(); col_idx++) {
+				SetColumn(gstate, lstate, col_idx, output.data[col_idx], count, sel, nullptr, result_count);
 			}
 		}
 		output.SetChildCardinality(result_count);
@@ -373,6 +615,11 @@ static unique_ptr<BaseStatistics> ReadParquetNodeStatistics(ClientContext &conte
 	return stats.ToUnique();
 }
 
+//! The scan evaluates any expression on a single column
+static bool ReadParquetNodePushdownExpression(ClientContext &context, const LogicalGet &get, Expression &expr) {
+	return true;
+}
+
 static InsertionOrderPreservingMap<string> ReadParquetNodeToString(TableFunctionToStringInput &input) {
 	InsertionOrderPreservingMap<string> result;
 	if (input.bind_data) {
@@ -420,6 +667,8 @@ TableFunction ReadParquetNodeFunction::GetFunction() {
 	function.table_scan_progress = ReadParquetNodeProgress;
 	function.to_string = ReadParquetNodeToString;
 	function.projection_pushdown = true;
+	function.filter_pushdown = true;
+	function.pushdown_expression = ReadParquetNodePushdownExpression;
 	return function;
 }
 

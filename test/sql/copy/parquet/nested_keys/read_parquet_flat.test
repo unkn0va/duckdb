@@ -66,7 +66,7 @@ movie night!
 query II
 EXPLAIN SELECT "Posts.Text" FROM flat WHERE "Posts.Comments.Text" LIKE '%fun%'
 ----
-physical_plan	<REGEX>:(?s).*(_sk = _ak1|_ak1 = _sk).*Filter.*contains.*Node: Posts.Comments.*
+physical_plan	<REGEX>:(?s).*(_sk = _ak1|_ak1 = _sk).*Node: Posts.Comments.*Filters: contains\(Text, 'fun'\).*
 
 # I. a single node is scanned without joins
 query I
