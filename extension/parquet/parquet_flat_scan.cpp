@@ -17,8 +17,11 @@ struct ReadParquetFlatData : public TableFunctionData {
 	string file;
 	//! The nodes of the file in preorder - the first one is the top level
 	vector<ParquetFlatNode> nodes;
-	//! The node and the column within the node of every column of the scan
+	//! The node and the column within the node of every column of the scan - the column after the columns of the node
+	//! is its surrogate key, as read_parquet_node returns it
 	vector<pair<idx_t, idx_t>> columns;
+	vector<string> column_names;
+	vector<LogicalType> column_types;
 };
 
 static unique_ptr<FunctionData> ReadParquetFlatBind(ClientContext &context, TableFunctionBindInput &input,
@@ -32,17 +35,25 @@ static unique_ptr<FunctionData> ReadParquetFlatBind(ClientContext &context, Tabl
 	result->nodes = ParquetFlatNode::EnumerateNodes(*reader.root_schema);
 
 	case_insensitive_set_t column_names;
+	auto add_column = [&](idx_t node_idx, idx_t leaf_idx, const string &name, const LogicalType &type) {
+		if (!column_names.insert(name).second) {
+			throw BinderException("read_parquet_flat: the file \"%s\" has several columns with the path \"%s\"",
+			                      result->file, name);
+		}
+		names.emplace_back(name);
+		return_types.push_back(type);
+		result->columns.emplace_back(node_idx, leaf_idx);
+		result->column_names.push_back(name);
+		result->column_types.push_back(type);
+	};
 	for (idx_t node_idx = 0; node_idx < result->nodes.size(); node_idx++) {
 		auto &node = result->nodes[node_idx];
 		for (idx_t leaf_idx = 0; leaf_idx < node.column_names.size(); leaf_idx++) {
-			auto &name = node.column_names[leaf_idx];
-			if (!column_names.insert(name).second) {
-				throw BinderException("read_parquet_flat: the file \"%s\" has several columns with the path \"%s\"",
-				                      result->file, name);
-			}
-			names.emplace_back(name);
-			return_types.push_back(node.leaf_types[leaf_idx]);
-			result->columns.emplace_back(node_idx, leaf_idx);
+			add_column(node_idx, leaf_idx, node.column_names[leaf_idx], node.leaf_types[leaf_idx]);
+		}
+		// the surrogate key of a nested node: its row number, in the order of the elements in the file
+		if (node.level > 0) {
+			add_column(node_idx, node.leaf_names.size(), node.path + "._sk", LogicalType::BIGINT);
 		}
 	}
 	if (names.empty()) {
@@ -208,20 +219,25 @@ static unique_ptr<LogicalOperator> RewriteFlatScan(ClientContext &context, Optim
 			continue;
 		}
 		auto &column = data.columns[column_id];
+		auto &name = data.column_names[column_id];
+		auto &type = data.column_types[column_id];
 		if (!is_used(column_id)) {
-			auto &type = nodes[column.first].leaf_types[column.second];
 			select_list.push_back(make_uniq<BoundConstantExpression>(Value(type)));
 			continue;
 		}
 		auto &node = nodes[column.first];
 		auto &scan = scans[column.first];
-		auto entry = scan.leaf_positions.find(column.second);
-		if (entry == scan.leaf_positions.end()) {
-			entry = scan.leaf_positions.emplace(column.second, scan.get->AddColumnId(column.second)).first;
+		ProjectionIndex position;
+		if (column.second == node.leaf_names.size()) {
+			position = AddKey(node, scan, node.level);
+		} else {
+			auto entry = scan.leaf_positions.find(column.second);
+			if (entry == scan.leaf_positions.end()) {
+				entry = scan.leaf_positions.emplace(column.second, scan.get->AddColumnId(column.second)).first;
+			}
+			position = entry->second;
 		}
-		auto position = entry->second;
-		select_list.push_back(make_uniq<BoundColumnRefExpression>(Identifier(node.column_names[column.second]),
-		                                                          node.leaf_types[column.second],
+		select_list.push_back(make_uniq<BoundColumnRefExpression>(Identifier(name), type,
 		                                                          ColumnBinding(scan.get->table_index, position)));
 	}
 	if (select_list.empty()) {

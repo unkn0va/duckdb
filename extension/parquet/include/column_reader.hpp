@@ -113,6 +113,8 @@ public:
 	virtual void InitializeRead(idx_t row_group_index, idx_t row_group_num_rows, const vector<ColumnChunk> &columns,
 	                            TProtocol &protocol_p);
 	virtual idx_t Read(ColumnReaderInput &input, Vector &result);
+	//! Read only the repetition and definition levels of the next values - their values are skipped, not decoded
+	idx_t ReadLevels(ColumnReaderInput &input);
 	virtual void Select(ColumnReaderInput &input, Vector &result, const SelectionVector &sel,
 	                    idx_t approved_tuple_count);
 	virtual void Filter(ColumnReaderInput &input, Vector &result, const TableFilter &filter,
@@ -265,6 +267,8 @@ private:
 	idx_t ReadPageHeaders(idx_t max_read, optional_ptr<const TableFilter> filter = nullptr,
 	                      optional_ptr<TableFilterState> filter_state = nullptr, idx_t rows_to_skip = 0);
 	idx_t ReadInternal(ColumnReaderInput &input, Vector &result);
+	//! Skip the values of the current page whose levels were just read
+	void SkipPageValues(uint8_t *defines, idx_t num_values);
 	//! Prepare a read of up to "max_read" rows and read the defines/repeats.
 	//! Returns whether all values are valid (i.e., not NULL)
 	bool PrepareRead(idx_t read_count, data_ptr_t define_out, data_ptr_t repeat_out, idx_t result_offset);

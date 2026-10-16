@@ -73,13 +73,14 @@ public:
 	ParquetNodeKeyGenerator(idx_t level, idx_t define_level, bool include_empty);
 
 public:
-	//! Start a row group - row_offsets[k] is the number of level k rows in the preceding row groups
-	void BeginRowGroup(const vector<idx_t> &row_offsets);
+	//! Start a part of the file - rows_before[k] is the number of level k rows that start before its first slot. The
+	//! part can start in the middle of a row, which is then continued by its first slots
+	void BeginTask(const vector<idx_t> &rows_before);
 	//! Select the slots that are rows of the node, and compute their keys into "keys"
 	idx_t Process(const uint8_t *repeats, const uint8_t *defines, idx_t count, SelectionVector &sel);
-	//! After a row group: the first level whose row count differs from the expected one, if any
+	//! After a part: the first level whose row count differs from the expected one, if any
 	optional_idx FindMismatch(const vector<optional_idx> &expected_counts) const;
-	//! The number of rows of a level counted in the current row group so far
+	//! The number of rows of a level that started in the current part so far
 	idx_t RowCount(idx_t key_level) const;
 
 public:
@@ -92,8 +93,8 @@ private:
 	bool include_empty;
 	//! The key of the current row of every level
 	vector<int64_t> counters;
-	//! The key of the first row of every level in the current row group
-	vector<idx_t> row_group_offsets;
+	//! The number of rows of every level before the current part
+	vector<idx_t> task_rows_before;
 };
 
 //! The number of rows of every level of a node in the row groups of a file
@@ -107,6 +108,32 @@ struct ParquetNodeRowGroupRows {
 public:
 	static ParquetNodeRowGroupRows Compute(ClientContext &context, const ParquetReader &reader,
 	                                       const ParquetNodeInfo &node);
+};
+
+//! A part of a row group that one thread scans: a range of the slots of the columns of the node, which all have the
+//! same slots
+struct ParquetNodeTask {
+	idx_t row_group = 0;
+	idx_t slot_start = 0;
+	idx_t slot_end = 0;
+	//! For every level: the number of rows of the level in the file that start before the first slot - only valid
+	//! for the levels whose keys are needed
+	vector<idx_t> rows_before;
+	//! For every level: the number of rows of the level that start in the task, if known
+	vector<optional_idx> rows_in_task;
+};
+
+//! The parts in which the row groups of a file are scanned. A row group is split only when several threads scan it;
+//! the keys at the start of a part are then computed by counting the repetition levels before it ("per-page key
+//! jumps"), in parallel and only for the levels whose keys are needed
+struct ParquetNodeTaskPlan {
+	vector<ParquetNodeTask> tasks;
+
+public:
+	//! slot_leaf: a column with the slots that are scanned. needed_levels: the levels whose keys are needed
+	static ParquetNodeTaskPlan Create(ClientContext &context, const ParquetReader &reader, const ParquetNodeInfo &node,
+	                                  const ParquetColumnSchema &slot_leaf, const vector<bool> &needed_levels,
+	                                  idx_t threads, idx_t min_task_slots);
 };
 
 //! read_parquet_node(file, node := 'a.b') - reads a node of a nested file as a flat relation with key columns

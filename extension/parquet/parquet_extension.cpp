@@ -1140,6 +1140,10 @@ static void LoadInternal(ExtensionLoader &loader) {
 	auto &config = DBConfig::GetConfig(db_instance);
 	config.replacement_scans.emplace_back(ParquetScanReplacement);
 	ReadParquetFlatFunction::RegisterOptimizer(config);
+	config.AddExtensionOption("parquet_node_task_slots",
+	                          "The number of slots of a nested column below which read_parquet_node does not split a "
+	                          "row group into parts for several threads",
+	                          LogicalType::UBIGINT, Value::UBIGINT(122880));
 	config.AddExtensionOption("binary_as_string", "In Parquet files, interpret binary data as a string.",
 	                          LogicalType::BOOLEAN, Value(false));
 	config.AddExtensionOption("disable_parquet_prefetching", "Disable the prefetching mechanism in Parquet",

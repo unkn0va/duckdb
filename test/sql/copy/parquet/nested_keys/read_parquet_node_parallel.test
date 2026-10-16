@@ -1,0 +1,147 @@
+# name: test/sql/copy/parquet/nested_keys/read_parquet_node_parallel.test
+# description: Scan a row group of a nested file in parts with several threads - the keys stay those of a single scan
+# group: [nested_keys]
+
+require parquet
+
+statement ok
+CREATE TABLE big AS
+SELECT
+	i AS id,
+	CASE WHEN i % 7 = 0 THEN NULL ELSE list_transform(range(i % 4), lambda j: {'v': i * 10 + j, 'inner': range(j)}) END AS l,
+	CASE WHEN i % 5 = 0 THEN NULL ELSE list_transform(range(i % 3), lambda j: range(j)) END AS m
+FROM range(20000) t(i);
+
+# a single row group, and several row groups
+statement ok
+COPY big TO '{TEST_DIR}/parallel_one.parquet' (ROW_GROUP_SIZE 1000000);
+
+statement ok
+COPY big TO '{TEST_DIR}/parallel_many.parquet' (ROW_GROUP_SIZE 3000);
+
+query I
+SELECT count(DISTINCT row_group_id) FROM parquet_metadata('{TEST_DIR}/parallel_one.parquet')
+----
+1
+
+foreach file parallel_one parallel_many
+
+# the scans of a single thread do not split row groups
+statement ok
+SET threads = 1
+
+statement ok
+CREATE OR REPLACE TABLE expected_root AS FROM read_parquet_node('{TEST_DIR}/${file}.parquet')
+
+statement ok
+CREATE OR REPLACE TABLE expected_l AS FROM read_parquet_node('{TEST_DIR}/${file}.parquet', node := 'l', include_empty := true)
+
+statement ok
+CREATE OR REPLACE TABLE expected_inner AS FROM read_parquet_node('{TEST_DIR}/${file}.parquet', node := 'l.inner')
+
+statement ok
+CREATE OR REPLACE TABLE expected_m AS FROM read_parquet_node('{TEST_DIR}/${file}.parquet', node := 'm', include_empty := true)
+
+statement ok
+CREATE OR REPLACE TABLE expected_element AS FROM read_parquet_node('{TEST_DIR}/${file}.parquet', node := 'm.element')
+
+# several threads scan parts of 777 slots, which start and end in the middle of pages and of lists
+statement ok
+SET threads = 8
+
+statement ok
+SET parquet_node_task_slots = 777
+
+query I
+SELECT count(*) FROM ((FROM read_parquet_node('{TEST_DIR}/${file}.parquet') EXCEPT ALL FROM expected_root)
+	UNION ALL (FROM expected_root EXCEPT ALL FROM read_parquet_node('{TEST_DIR}/${file}.parquet')))
+----
+0
+
+query I
+SELECT count(*) FROM ((FROM read_parquet_node('{TEST_DIR}/${file}.parquet', node := 'l', include_empty := true) EXCEPT ALL FROM expected_l)
+	UNION ALL (FROM expected_l EXCEPT ALL FROM read_parquet_node('{TEST_DIR}/${file}.parquet', node := 'l', include_empty := true)))
+----
+0
+
+query I
+SELECT count(*) FROM ((FROM read_parquet_node('{TEST_DIR}/${file}.parquet', node := 'l.inner') EXCEPT ALL FROM expected_inner)
+	UNION ALL (FROM expected_inner EXCEPT ALL FROM read_parquet_node('{TEST_DIR}/${file}.parquet', node := 'l.inner')))
+----
+0
+
+# the outer lists of m have no column of their own: their keys are counted from the levels below
+query I
+SELECT count(*) FROM ((FROM read_parquet_node('{TEST_DIR}/${file}.parquet', node := 'm', include_empty := true) EXCEPT ALL FROM expected_m)
+	UNION ALL (FROM expected_m EXCEPT ALL FROM read_parquet_node('{TEST_DIR}/${file}.parquet', node := 'm', include_empty := true)))
+----
+0
+
+query I
+SELECT count(*) FROM ((FROM read_parquet_node('{TEST_DIR}/${file}.parquet', node := 'm.element') EXCEPT ALL FROM expected_element)
+	UNION ALL (FROM expected_element EXCEPT ALL FROM read_parquet_node('{TEST_DIR}/${file}.parquet', node := 'm.element')))
+----
+0
+
+# a single key, or only the values, of a part
+query I
+SELECT count(*) FROM ((SELECT _ak1, element FROM read_parquet_node('{TEST_DIR}/${file}.parquet', node := 'm.element') EXCEPT ALL SELECT _ak1, element FROM expected_element)
+	UNION ALL (SELECT _ak1, element FROM expected_element EXCEPT ALL SELECT _ak1, element FROM read_parquet_node('{TEST_DIR}/${file}.parquet', node := 'm.element')))
+----
+0
+
+query I
+SELECT (count(*), sum("inner")) = (SELECT (count(*), sum(x)) FROM (SELECT unnest(e.inner) AS x FROM (SELECT unnest(l) AS e FROM big)))
+FROM read_parquet_node('{TEST_DIR}/${file}.parquet', node := 'l.inner')
+----
+true
+
+# the joins over the parts give the result of unnesting the lists
+query I
+SELECT sum(id * "l.v" * "l.inner") = (SELECT sum(s.id * s.e.v * t.x) FROM (SELECT id, unnest(l) AS e FROM big) s, unnest(s.e.inner) t(x))
+FROM read_parquet_flat('{TEST_DIR}/${file}.parquet')
+----
+true
+
+query I
+SELECT sum(id * ("m.element" + 1)) = (SELECT sum(s.id * (t.x + 1)) FROM (SELECT id, unnest(m) AS e FROM big) s, unnest(s.e) t(x))
+FROM read_parquet_flat('{TEST_DIR}/${file}.parquet')
+----
+true
+
+# the parts are numbered in the order of the file: the rows stay in that order
+statement ok
+CREATE OR REPLACE TABLE ordered AS FROM read_parquet_node('{TEST_DIR}/${file}.parquet', node := 'l.inner')
+
+query I
+SELECT count(*) FROM (SELECT _sk, lag(_sk) OVER (ORDER BY rowid) AS previous FROM ordered) WHERE _sk <= previous
+----
+0
+
+statement ok
+RESET parquet_node_task_slots
+
+statement ok
+RESET threads
+
+endloop
+
+# a top-level column whose values are all NULL in a part of the row group
+statement ok
+COPY (SELECT i, CASE WHEN i >= 4096 THEN NULL ELSE i END AS y, [i, i + 1] AS l FROM range(10000) t(i)) TO '{TEST_DIR}/parallel_all_null.parquet' (ROW_GROUP_SIZE 4096);
+
+statement ok
+SET threads = 8
+
+statement ok
+SET parquet_node_task_slots = 777
+
+query IIII
+SELECT count(y), count(i), min(_sk), max(_sk) FROM read_parquet_node('{TEST_DIR}/parallel_all_null.parquet')
+----
+4096	10000	0	9999
+
+query II
+SELECT count(*), sum(r.y) FROM read_parquet_node('{TEST_DIR}/parallel_all_null.parquet') r JOIN read_parquet_node('{TEST_DIR}/parallel_all_null.parquet', node := 'l') l ON r._sk = l._ak0
+----
+20000	16773120

@@ -45,12 +45,17 @@ SELECT column_name, column_type FROM (DESCRIBE flat)
 UserId	INTEGER
 Name	VARCHAR
 Followers	INTEGER
+Followers._sk	BIGINT
 Posts.Text	VARCHAR
+Posts._sk	BIGINT
 Posts.Reactions.UserId	INTEGER
 Posts.Reactions.Emoji	VARCHAR
+Posts.Reactions._sk	BIGINT
 Posts.Comments.UserId	INTEGER
 Posts.Comments.Text	VARCHAR
+Posts.Comments._sk	BIGINT
 Posts.Comments.Likes	INTEGER
+Posts.Comments.Likes._sk	BIGINT
 
 # the example query of figure 7: the filter is pushed into the scan of the comments
 query I
@@ -184,6 +189,54 @@ SELECT count(*) FROM flat WHERE "Followers" = "Posts.Comments.Likes"
 ----
 1
 
+# the surrogate key of a node is its row number, in the order of the elements in the file
+query III
+SELECT "Posts.Comments._sk", "Posts._sk", "Posts.Comments.Text" FROM flat ORDER BY 1
+----
+0	0	same here
+2	2	happy for you
+3	2	have fun!
+
+query II
+SELECT c._sk, c."Text" FROM read_parquet_node('{TEST_DIR}/social.parquet', node := 'Posts.Comments') c ORDER BY 1
+----
+0	same here
+2	happy for you
+3	have fun!
+
+# referring to the key of a node scans that node only
+query I
+SELECT count("Posts._sk") FROM flat
+----
+3
+
+query II
+EXPLAIN SELECT count("Posts._sk") FROM flat
+----
+physical_plan	<!REGEX>:(?s).*Join.*
+
+# the first comment of every post - by the order of the keys
+query II
+SELECT "Posts.Text", "Posts.Comments.Text" FROM flat
+QUALIFY "Posts.Comments._sk" = min("Posts.Comments._sk") OVER (PARTITION BY "Posts._sk")
+ORDER BY ALL
+----
+movie night!	happy for you
+nice day	same here
+
+query II
+SELECT p.Text, p.Comments[1].Text FROM unnested_posts WHERE len(p.Comments) > 0 ORDER BY ALL
+----
+movie night!	happy for you
+nice day	same here
+
+# comments that come before another comment of the same post by a given user, as in the queries of the paper
+query I
+SELECT a."Posts.Comments.Text" FROM flat a, flat b
+WHERE a."Posts._sk" = b."Posts._sk" AND b."Posts.Comments.UserId" = 302 AND a."Posts.Comments._sk" < b."Posts.Comments._sk"
+----
+happy for you
+
 # count(*) scans the top level
 query I
 SELECT count(*) FROM flat
@@ -192,7 +245,7 @@ SELECT count(*) FROM flat
 
 # all columns: every node is joined - only bob has a post with reactions and liked comments, and his followers multiply
 query IIIIIIIII
-SELECT * FROM flat ORDER BY ALL
+SELECT COLUMNS(lambda c: c NOT LIKE '%._sk') FROM flat ORDER BY ALL
 ----
 406	bob	302	movie night!	302	star	302	have fun!	501
 406	bob	302	movie night!	302	star	908	happy for you	406

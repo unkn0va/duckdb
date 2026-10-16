@@ -8,10 +8,14 @@
 #include "duckdb/common/vector/flat_vector.hpp"
 #include "duckdb/common/vector/vector_writer.hpp"
 #include "duckdb/function/table_function.hpp"
+#include "duckdb/parallel/task_scheduler.hpp"
 #include "duckdb/parser/tableref/table_function_ref.hpp"
 #include "duckdb/storage/statistics/numeric_stats.hpp"
 
 namespace duckdb {
+
+//! The default number of slots below which a row group is not split into parts for several threads
+static constexpr idx_t DEFAULT_TASK_SLOTS = 60 * STANDARD_VECTOR_SIZE;
 
 struct ReadParquetNodeData : public TableFunctionData {
 	shared_ptr<ParquetReader> reader;
@@ -32,11 +36,11 @@ struct ReadParquetNodeColumn {
 };
 
 struct ReadParquetNodeGlobalState : public GlobalTableFunctionState {
-	ParquetNodeRowGroupRows row_group_rows;
+	ParquetNodeTaskPlan plan;
 	vector<ReadParquetNodeColumn> columns;
 	//! The columns that are read - the first one drives the keys
 	vector<reference<const ParquetColumnSchema>> read_leaves;
-	atomic<idx_t> next_row_group {0};
+	atomic<idx_t> next_task {0};
 	idx_t max_threads = 1;
 
 	idx_t MaxThreads() const override {
@@ -53,7 +57,7 @@ struct ReadParquetNodeLocalState : public LocalTableFunctionState {
 	bool has_row_group = false;
 	//! The slots of the current row group that are left to read
 	idx_t slots_left = 0;
-	idx_t row_group_idx = 0;
+	idx_t task_idx = 0;
 	vector<unique_ptr<ColumnReader>> readers;
 	DataChunk read_chunk;
 	ResizeableBuffer define_buf;
@@ -146,8 +150,21 @@ static unique_ptr<GlobalTableFunctionState> ReadParquetNodeInitGlobal(ClientCont
 		// only keys are projected - read the levels of any column of the node
 		result->read_leaves.push_back(*node.key_leaf);
 	}
-	result->row_group_rows = ParquetNodeRowGroupRows::Compute(context, *data.reader, node);
-	result->max_threads = MaxValue<idx_t>(data.reader->NumRowGroups(), 1);
+	vector<bool> needed_levels(node.level + 1, false);
+	for (auto &column : result->columns) {
+		if (column.kind == ReadParquetNodeColumn::Kind::KEY) {
+			needed_levels[column.index] = true;
+		}
+	}
+	auto threads = NumericCast<idx_t>(TaskScheduler::GetScheduler(context).NumberOfThreads());
+	Value task_slots;
+	idx_t min_task_slots = DEFAULT_TASK_SLOTS;
+	if (context.TryGetCurrentSetting("parquet_node_task_slots", task_slots) && !task_slots.IsNull()) {
+		min_task_slots = task_slots.GetValue<idx_t>();
+	}
+	result->plan = ParquetNodeTaskPlan::Create(context, *data.reader, node, result->read_leaves[0], needed_levels,
+	                                           threads, min_task_slots);
+	result->max_threads = MaxValue<idx_t>(result->plan.tasks.size(), 1);
 	return std::move(result);
 }
 
@@ -170,14 +187,16 @@ static unique_ptr<LocalTableFunctionState> ReadParquetNodeInitLocal(ExecutionCon
 	return std::move(result);
 }
 
-//! Claim the next row group, and start reading its columns
-static bool ReadParquetNodeNextRowGroup(ClientContext &context, const ReadParquetNodeData &data,
-                                        ReadParquetNodeGlobalState &gstate, ReadParquetNodeLocalState &lstate) {
+//! Claim the next part of a row group, and start reading its columns
+static bool ReadParquetNodeNextTask(ClientContext &context, const ReadParquetNodeData &data,
+                                    ReadParquetNodeGlobalState &gstate, ReadParquetNodeLocalState &lstate) {
 	auto &reader = *data.reader;
-	auto row_group_idx = gstate.next_row_group++;
-	if (row_group_idx >= reader.NumRowGroups()) {
+	auto task_idx = gstate.next_task++;
+	if (task_idx >= gstate.plan.tasks.size()) {
 		return false;
 	}
+	auto &task = gstate.plan.tasks[task_idx];
+	auto row_group_idx = task.row_group;
 	if (!lstate.protocol) {
 		lstate.protocol = reader.OpenColumnProtocol(context);
 	}
@@ -191,33 +210,44 @@ static bool ReadParquetNodeNextRowGroup(ClientContext &context, const ReadParque
 	}
 	// the columns of a node have the same slots. The readers do not track how many are left themselves: a top-level
 	// column whose values are all NULL is not read at all
-	lstate.slots_left = lstate.readers[0]->GroupRowsAvailable();
+	auto row_group_slots = lstate.readers[0]->GroupRowsAvailable();
 	for (auto &column_reader : lstate.readers) {
-		if (column_reader->GroupRowsAvailable() != lstate.slots_left) {
+		if (column_reader->GroupRowsAvailable() != row_group_slots || task.slot_end > row_group_slots) {
 			throw InvalidInputException("read_parquet_node: corrupt file \"%s\": the columns of a node have a "
 			                            "different number of values in row group %llu",
 			                            reader.GetFileName(), row_group_idx);
 		}
+		// the pages before the part are skipped by their headers only
+		column_reader->Skip(task.slot_start);
 	}
-	lstate.generator.BeginRowGroup(gstate.row_group_rows.offsets[row_group_idx]);
-	lstate.row_group_idx = row_group_idx;
+	lstate.slots_left = task.slot_end - task.slot_start;
+	lstate.generator.BeginTask(task.rows_before);
+	lstate.task_idx = task_idx;
 	lstate.has_row_group = true;
 	return true;
 }
 
-//! The keys are offset by the row counts of the metadata - verify that the levels of the row group agree with them
-static void VerifyRowGroupRows(const ReadParquetNodeData &data, ReadParquetNodeGlobalState &gstate,
-                               ReadParquetNodeLocalState &lstate) {
-	auto &expected = gstate.row_group_rows.counts[lstate.row_group_idx];
-	auto mismatch = lstate.generator.FindMismatch(expected);
+//! The keys are offset by the row counts of the metadata (or of the levels counted before the scan) - verify that
+//! the levels of the part agree with them
+static void VerifyTaskRows(const ReadParquetNodeData &data, ReadParquetNodeGlobalState &gstate,
+                           ReadParquetNodeLocalState &lstate) {
+	auto &task = gstate.plan.tasks[lstate.task_idx];
+	auto mismatch = lstate.generator.FindMismatch(task.rows_in_task);
 	if (!mismatch.IsValid()) {
 		return;
 	}
 	auto level = mismatch.GetIndex();
-	throw InvalidInputException("read_parquet_node: corrupt file \"%s\": row group %llu has %llu rows on nesting level "
-	                            "%llu according to its repetition levels, but %llu according to its metadata",
-	                            data.reader->GetFileName(), lstate.row_group_idx, lstate.generator.RowCount(level),
-	                            level, expected[level].GetIndex());
+	auto rows = lstate.generator.RowCount(level);
+	auto expected = task.rows_in_task[level].GetIndex();
+	if (task.slot_start == 0) {
+		throw InvalidInputException("read_parquet_node: corrupt file \"%s\": row group %llu has %llu rows on nesting "
+		                            "level %llu according to its repetition levels, but %llu according to its metadata",
+		                            data.reader->GetFileName(), task.row_group, rows, level, expected);
+	}
+	throw InvalidInputException("read_parquet_node: corrupt file \"%s\": slots %llu to %llu of row group %llu have "
+	                            "%llu rows on nesting level %llu, but %llu when they were counted before",
+	                            data.reader->GetFileName(), task.slot_start, task.slot_end, task.row_group, rows, level,
+	                            expected);
 }
 
 static void ReadParquetNodeScan(ClientContext &context, TableFunctionInput &input, DataChunk &output) {
@@ -230,12 +260,12 @@ static void ReadParquetNodeScan(ClientContext &context, TableFunctionInput &inpu
 	auto scratch_defines = reinterpret_cast<uint8_t *>(lstate.scratch_define_buf.ptr);
 	auto scratch_repeats = reinterpret_cast<uint8_t *>(lstate.scratch_repeat_buf.ptr);
 	while (true) {
-		if (!lstate.has_row_group && !ReadParquetNodeNextRowGroup(context, data, gstate, lstate)) {
+		if (!lstate.has_row_group && !ReadParquetNodeNextTask(context, data, gstate, lstate)) {
 			return;
 		}
 		auto count = MinValue<idx_t>(STANDARD_VECTOR_SIZE, lstate.slots_left);
 		if (count == 0) {
-			VerifyRowGroupRows(data, gstate, lstate);
+			VerifyTaskRows(data, gstate, lstate);
 			lstate.has_row_group = false;
 			continue;
 		}
@@ -290,6 +320,23 @@ static void ReadParquetNodeScan(ClientContext &context, TableFunctionInput &inpu
 		output.SetChildCardinality(result_count);
 		return;
 	}
+}
+
+//! The parts are numbered in the order of the file, so that the order of the rows can be preserved
+static OperatorPartitionData ReadParquetNodePartitionData(ClientContext &context,
+                                                          TableFunctionGetPartitionInput &input) {
+	auto &lstate = input.local_state->Cast<ReadParquetNodeLocalState>();
+	return OperatorPartitionData(lstate.task_idx);
+}
+
+static double ReadParquetNodeProgress(ClientContext &context, const FunctionData *bind_data,
+                                      const GlobalTableFunctionState *global_state) {
+	auto &gstate = global_state->Cast<ReadParquetNodeGlobalState>();
+	if (gstate.plan.tasks.empty()) {
+		return 100.0;
+	}
+	auto claimed = MinValue<idx_t>(gstate.next_task.load(), gstate.plan.tasks.size());
+	return 100.0 * static_cast<double>(claimed) / static_cast<double>(gstate.plan.tasks.size());
 }
 
 static unique_ptr<NodeStatistics> ReadParquetNodeCardinality(ClientContext &context, const FunctionData *bind_data) {
@@ -362,6 +409,8 @@ TableFunction ReadParquetNodeFunction::GetFunction() {
 	    .AddKeywordOnly("include_empty", LogicalType::BOOLEAN, Value::BOOLEAN(false));
 	function.cardinality = ReadParquetNodeCardinality;
 	function.statistics = ReadParquetNodeStatistics;
+	function.get_partition_data = ReadParquetNodePartitionData;
+	function.table_scan_progress = ReadParquetNodeProgress;
 	function.to_string = ReadParquetNodeToString;
 	function.projection_pushdown = true;
 	return function;

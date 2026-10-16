@@ -975,33 +975,54 @@ void ColumnReader::ApplyPendingSkips(data_ptr_t define_out, data_ptr_t repeat_ou
 		const auto all_valid = PrepareRead(skip_now, skip_define_out, skip_repeat_out, 0);
 
 		const auto define_ptr = all_valid ? nullptr : static_cast<uint8_t *>(skip_define_out);
-		switch (encoding) {
-		case ColumnEncoding::DICTIONARY:
-			dictionary_decoder.Skip(define_ptr, skip_now);
-			break;
-		case ColumnEncoding::DELTA_BINARY_PACKED:
-			delta_binary_packed_decoder.Skip(define_ptr, skip_now);
-			break;
-		case ColumnEncoding::RLE:
-			rle_decoder.Skip(define_ptr, skip_now);
-			break;
-		case ColumnEncoding::DELTA_LENGTH_BYTE_ARRAY:
-			delta_length_byte_array_decoder.Skip(define_ptr, skip_now);
-			break;
-		case ColumnEncoding::DELTA_BYTE_ARRAY:
-			delta_byte_array_decoder.Skip(define_ptr, skip_now);
-			break;
-		case ColumnEncoding::BYTE_STREAM_SPLIT:
-			byte_stream_split_decoder.Skip(define_ptr, skip_now);
-			break;
-		default:
-			PlainSkip(*block, define_ptr, skip_now);
-			break;
-		}
+		SkipPageValues(define_ptr, skip_now);
 		page_rows_available -= skip_now;
 		to_skip -= skip_now;
 	}
 	FinishRead(num_values);
+}
+
+void ColumnReader::SkipPageValues(uint8_t *define_ptr, idx_t num_values) {
+	switch (encoding) {
+	case ColumnEncoding::DICTIONARY:
+		dictionary_decoder.Skip(define_ptr, num_values);
+		break;
+	case ColumnEncoding::DELTA_BINARY_PACKED:
+		delta_binary_packed_decoder.Skip(define_ptr, num_values);
+		break;
+	case ColumnEncoding::RLE:
+		rle_decoder.Skip(define_ptr, num_values);
+		break;
+	case ColumnEncoding::DELTA_LENGTH_BYTE_ARRAY:
+		delta_length_byte_array_decoder.Skip(define_ptr, num_values);
+		break;
+	case ColumnEncoding::DELTA_BYTE_ARRAY:
+		delta_byte_array_decoder.Skip(define_ptr, num_values);
+		break;
+	case ColumnEncoding::BYTE_STREAM_SPLIT:
+		byte_stream_split_decoder.Skip(define_ptr, num_values);
+		break;
+	default:
+		PlainSkip(*block, define_ptr, num_values);
+		break;
+	}
+}
+
+idx_t ColumnReader::ReadLevels(ColumnReaderInput &input) {
+	BeginRead(input.define_out, input.repeat_out);
+	idx_t result_offset = 0;
+	auto to_read = input.num_values;
+	D_ASSERT(to_read <= STANDARD_VECTOR_SIZE);
+	while (to_read > 0) {
+		auto read_now = ReadPageHeaders(to_read);
+		const auto all_valid = PrepareRead(read_now, input.define_out, input.repeat_out, result_offset);
+		SkipPageValues(all_valid ? nullptr : input.define_out + result_offset, read_now);
+		page_rows_available -= read_now;
+		result_offset += read_now;
+		to_read -= read_now;
+	}
+	FinishRead(input.num_values);
+	return input.num_values;
 }
 
 //===--------------------------------------------------------------------===//

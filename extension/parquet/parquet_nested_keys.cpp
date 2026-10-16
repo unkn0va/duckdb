@@ -4,6 +4,7 @@
 #include "parquet_reader.hpp"
 #include "duckdb/common/string_util.hpp"
 #include "duckdb/common/types/data_chunk.hpp"
+#include "duckdb/parallel/task_executor.hpp"
 
 namespace duckdb {
 
@@ -188,13 +189,14 @@ ParquetNodeKeyGenerator::ParquetNodeKeyGenerator(idx_t level, idx_t define_level
 	counters.resize(level + 1);
 }
 
-void ParquetNodeKeyGenerator::BeginRowGroup(const vector<idx_t> &row_offsets) {
-	D_ASSERT(row_offsets.size() == level + 1);
-	// the first slot of a row group starts a new row on every level
+void ParquetNodeKeyGenerator::BeginTask(const vector<idx_t> &rows_before) {
+	D_ASSERT(rows_before.size() == level + 1);
+	// the current row of every level is the last one that started before the task: a slot that starts a new row
+	// increments its key, a slot that continues a row (e.g. the first slot of the task) keeps it
 	for (idx_t k = 0; k <= level; k++) {
-		counters[k] = NumericCast<int64_t>(row_offsets[k]) - 1;
+		counters[k] = NumericCast<int64_t>(rows_before[k]) - 1;
 	}
-	row_group_offsets = row_offsets;
+	task_rows_before = rows_before;
 }
 
 optional_idx ParquetNodeKeyGenerator::FindMismatch(const vector<optional_idx> &expected_counts) const {
@@ -208,7 +210,7 @@ optional_idx ParquetNodeKeyGenerator::FindMismatch(const vector<optional_idx> &e
 }
 
 idx_t ParquetNodeKeyGenerator::RowCount(idx_t key_level) const {
-	return NumericCast<idx_t>(counters[key_level] + 1) - row_group_offsets[key_level];
+	return NumericCast<idx_t>(counters[key_level] + 1) - task_rows_before[key_level];
 }
 
 idx_t ParquetNodeKeyGenerator::Process(const uint8_t *repeats, const uint8_t *defines, idx_t count,
@@ -308,6 +310,177 @@ ParquetNodeRowGroupRows ParquetNodeRowGroupRows::Compute(ClientContext &context,
 			}
 		}
 		result.counts.push_back(std::move(counts));
+	}
+	return result;
+}
+
+//! Counts the slots of a part of a row group that start a row of the given levels - reading only their levels
+class CountTaskLevelRows : public BaseExecutorTask {
+public:
+	CountTaskLevelRows(TaskExecutor &executor, ClientContext &context, const ParquetReader &reader,
+	                   const ParquetColumnSchema &leaf, const ParquetNodeTask &task, const vector<idx_t> &levels,
+	                   vector<idx_t> &result)
+	    : BaseExecutorTask(executor), context(context), reader(reader), leaf(leaf), task(task), levels(levels),
+	      result(result) {
+	}
+
+	void ExecuteTask() override {
+		auto protocol = reader.OpenColumnProtocol(context);
+		auto &group = reader.GetFileMetadata()->row_groups[task.row_group];
+		auto column_reader = ColumnReader::CreateReader(reader, leaf);
+		column_reader->InitializeRead(task.row_group, NumericCast<idx_t>(group.num_rows), group.columns, *protocol);
+		// the pages before the task are skipped by their headers only
+		column_reader->Skip(task.slot_start);
+		ResizeableBuffer define_buf(reader.allocator, STANDARD_VECTOR_SIZE);
+		ResizeableBuffer repeat_buf(reader.allocator, STANDARD_VECTOR_SIZE);
+		auto defines = reinterpret_cast<uint8_t *>(define_buf.ptr);
+		auto repeats = reinterpret_cast<uint8_t *>(repeat_buf.ptr);
+		auto slots_left = task.slot_end - task.slot_start;
+		while (slots_left > 0) {
+			auto count = MinValue<idx_t>(STANDARD_VECTOR_SIZE, slots_left);
+			memset(defines, 0, count);
+			memset(repeats, 0, count);
+			ColumnReaderInput input(count, defines, repeats);
+			column_reader->ReadLevels(input);
+			for (idx_t i = 0; i < count; i++) {
+				for (auto level : levels) {
+					result[level] += repeats[i] <= level;
+				}
+			}
+			slots_left -= count;
+		}
+	}
+
+	string TaskType() const override {
+		return "CountTaskLevelRows";
+	}
+
+private:
+	ClientContext &context;
+	const ParquetReader &reader;
+	const ParquetColumnSchema &leaf;
+	const ParquetNodeTask &task;
+	const vector<idx_t> &levels;
+	vector<idx_t> &result;
+};
+
+ParquetNodeTaskPlan ParquetNodeTaskPlan::Create(ClientContext &context, const ParquetReader &reader,
+                                                const ParquetNodeInfo &node, const ParquetColumnSchema &slot_leaf,
+                                                const vector<bool> &needed_levels, idx_t threads,
+                                                idx_t min_task_slots) {
+	auto rows = ParquetNodeRowGroupRows::Compute(context, reader, node);
+	auto &row_groups = reader.GetFileMetadata()->row_groups;
+	vector<idx_t> row_group_slots;
+	idx_t total_slots = 0;
+	for (auto &group : row_groups) {
+		row_group_slots.push_back(NumericCast<idx_t>(group.columns[slot_leaf.column_index].meta_data.num_values));
+		total_slots += row_group_slots.back();
+	}
+	// row groups are only split when there are fewer of them than threads - and not when there is too little to split
+	auto task_slots = threads <= 1 || row_groups.size() >= threads
+	                      ? NumericLimits<idx_t>::Maximum()
+	                      : MaxValue<idx_t>(MaxValue<idx_t>(min_task_slots, 1), total_slots / (threads * 4));
+	// every slot of a column directly in the node starts one of its rows (or a placeholder)
+	const bool slots_are_rows = !node.leaves.empty();
+	vector<idx_t> counted_levels;
+	for (idx_t k = 0; k <= node.level; k++) {
+		if (needed_levels[k] && !(slots_are_rows && k == node.level)) {
+			counted_levels.push_back(k);
+		}
+	}
+
+	ParquetNodeTaskPlan result;
+	bool any_split = false;
+	for (idx_t rg = 0; rg < row_groups.size(); rg++) {
+		auto slots = row_group_slots[rg];
+		if (slots <= task_slots) {
+			ParquetNodeTask task;
+			task.row_group = rg;
+			task.slot_end = slots;
+			task.rows_before = rows.offsets[rg];
+			task.rows_in_task = rows.counts[rg];
+			result.tasks.push_back(std::move(task));
+			continue;
+		}
+		any_split = true;
+		auto task_count = (slots + task_slots - 1) / task_slots;
+		for (idx_t i = 0; i < task_count; i++) {
+			ParquetNodeTask task;
+			task.row_group = rg;
+			task.slot_start = slots * i / task_count;
+			task.slot_end = slots * (i + 1) / task_count;
+			task.rows_before.resize(node.level + 1, 0);
+			task.rows_in_task.resize(node.level + 1);
+			result.tasks.push_back(std::move(task));
+		}
+	}
+	if (!any_split) {
+		return result;
+	}
+
+	// count the rows of the levels in the parts of the split row groups, in parallel. The columns directly in the node
+	// have the same levels - they are read from the one that is the cheapest to read
+	reference<const ParquetColumnSchema> count_leaf(slot_leaf);
+	if (slots_are_rows) {
+		idx_t smallest_size = NumericLimits<idx_t>::Maximum();
+		for (auto &leaf : node.leaves) {
+			idx_t size = 0;
+			for (auto &group : row_groups) {
+				size += NumericCast<idx_t>(group.columns[leaf.schema->column_index].meta_data.total_compressed_size);
+			}
+			if (size < smallest_size) {
+				smallest_size = size;
+				count_leaf = *leaf.schema;
+			}
+		}
+	}
+	vector<vector<idx_t>> level_rows(result.tasks.size());
+	if (!counted_levels.empty()) {
+		TaskExecutor executor(context);
+		for (idx_t task_idx = 0; task_idx < result.tasks.size(); task_idx++) {
+			auto &task = result.tasks[task_idx];
+			if (task.slot_start == 0 && task.slot_end == row_group_slots[task.row_group]) {
+				continue;
+			}
+			level_rows[task_idx].resize(node.level + 1, 0);
+			executor.ScheduleTask(make_uniq<CountTaskLevelRows>(executor, context, reader, count_leaf.get(), task,
+			                                                     counted_levels, level_rows[task_idx]));
+		}
+		executor.WorkOnTasks();
+	}
+	// the rows before a part are those of the row groups before it and of the parts before it in its row group
+	for (idx_t task_idx = 0; task_idx < result.tasks.size(); task_idx++) {
+		auto &task = result.tasks[task_idx];
+		auto rg = task.row_group;
+		if (task.slot_start != 0 || task.slot_end != row_group_slots[rg]) {
+			if (slots_are_rows) {
+				task.rows_before[node.level] = rows.offsets[rg][node.level] + task.slot_start;
+				task.rows_in_task[node.level] = task.slot_end - task.slot_start;
+			}
+			for (auto k : counted_levels) {
+				auto before = task.slot_start == 0 ? rows.offsets[rg][k] : result.tasks[task_idx - 1].rows_before[k] +
+				                                                               level_rows[task_idx - 1][k];
+				task.rows_before[k] = before;
+				task.rows_in_task[k] = level_rows[task_idx][k];
+			}
+		}
+	}
+	// the parts of a split row group together have the rows of the row group
+	for (idx_t task_idx = 0; task_idx < result.tasks.size(); task_idx++) {
+		auto &task = result.tasks[task_idx];
+		auto rg = task.row_group;
+		if (task.slot_start == 0 || task.slot_end != row_group_slots[rg]) {
+			continue;
+		}
+		for (auto k : counted_levels) {
+			auto total = task.rows_before[k] + level_rows[task_idx][k] - rows.offsets[rg][k];
+			if (rows.counts[rg][k].IsValid() && total != rows.counts[rg][k].GetIndex()) {
+				throw InvalidInputException("read_parquet_node: corrupt file \"%s\": row group %llu has %llu rows on "
+				                            "nesting level %llu according to its repetition levels, but %llu according "
+				                            "to its metadata",
+				                            reader.GetFileName(), rg, total, k, rows.counts[rg][k].GetIndex());
+			}
+		}
 	}
 	return result;
 }
