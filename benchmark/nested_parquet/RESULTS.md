@@ -4,6 +4,57 @@ Queries of the paper "Nested Parquet Is Flat, Why Not Use It?" (Rey et al., SIGM
 https://github.com/alicerey/nested-parquet, on the paper's datasets (Google Drive archive linked from that repository,
 8,551,262,143 bytes; the Twitter dataset is not included).
 
+## Differences from the paper (summary)
+
+What this implementation and its measurements do differently from the paper; details in the sections below.
+
+**System and interface**
+- The paper implements its approach in Umbra; here it is a DuckDB extension in the Parquet reader: the table functions
+  `read_parquet_node(file, node := 'a.b')` (one node as a flat relation with `_sk`/`_ak*` key columns) and
+  `read_parquet_flat(file)`, which an optimizer rule (`pre_optimize_function`) replaces by the scans of the nodes of
+  the used columns and the joins on their keys. The existing `read_parquet` scan is not changed.
+- Path syntax: Umbra's `Users.Posts.Comments`-style paths are written as quoted column names (`"Posts.Comments.Text"`) -
+  no change to DuckDB's binder. The joins between nodes are INNER joins: a parent without children has no row (XMark Q2
+  is compared with an oracle without the auctions without bidders).
+- Element order: Umbra's surrogate key per node is exposed as `"<path>._sk"`; a position within the list (`_pos`) is
+  not implemented.
+- Keys follow the paper (dense, placeholders of empty/NULL lists counted, row-group offsets from the metadata).
+  Placeholders are not returned by default; `include_empty := true` returns them as NULL rows.
+
+**Parallel scan (paper: Listing 3)**
+- A row group is split only when the file has fewer row groups than threads; with 1 thread, or row groups that are not
+  split, the scan is the unchanged single scan.
+- The parts start at the page boundaries of the largest column that is read (the paper's per-page jumps) - or at
+  offsets within its pages when it has fewer pages than threads (Listing 3's offset). The keys at the start of a part
+  come from a pre-pass that counts the repetition levels per page, in parallel, once per query, shared by the parts and
+  by all scans of the same column chunk. Minimum part size: 122,880 slots (`parquet_node_task_slots`).
+- Limitation: columns with few pages (XMark bidders: 1-8 pages) are split within pages, which every part then
+  decompresses.
+
+**Filters (phase 1 only)**
+- Filters are evaluated in the scan after key generation, the other columns are decoded only for the rows that pass,
+  and whole tasks (row groups / parts) are skipped by key ranges and column chunk statistics. Page-level skipping and
+  page statistics (phases 2 and 3) are not implemented.
+- Skipping with the filters that joins create while the query runs (sideways information passing, which the paper only
+  names as future work in Section 6.5) is an addition beyond the paper's scope, off by default
+  (`parquet_node_join_filter_pruning`).
+- As in the paper (Section 6.5, Listing 3), skipping parts of a child requires counting the repetition levels of its
+  pages first: a structural cost of reading the nested file in situ that stored keys (`split`) avoid.
+
+**Benchmark setup**
+- Hardware and software: a laptop (i7-1360P, 4P+8E cores, 16 hardware threads, WSL2) instead of the paper's server;
+  DuckDB v2.1.0-dev release builds; timings drift by tens of percent, so configurations are compared interleaved.
+- Compared systems: the paper compares Umbra with other systems; here everything runs in DuckDB - `builtin` (DuckDB's
+  nested types with UNNEST), `node`/`flat` (this implementation), `split` (the paper's pre-split files).
+- Datasets: the paper's archive without the Twitter dataset. All files use data pages v1; only the parquet-mr files
+  (TPC-H SF10) have a page index.
+- Queries: the authors' repository, with these changes - XMark Q2/Q4 compared with oracles where the semantics differ
+  (NULL rows, every pair of bids in Q4), q04p added (Q4 returns no rows), arrow lambdas rewritten (`lambda x: ...`),
+  XMark element order through `"<path>._sk"` in two forms (Umbra's correlated subqueries, and a min/max join).
+- Selectivity experiment (Fig. 15): every variant computes `avg(greatest(a, b))` (the paper's builtin query computes
+  `avg(b)`); `split` reads files cut from the paper's `l1.parquet`, as the paper's pre-split files hold other random
+  values; experiment (B) with sorted data and a range predicate is an addition beyond the paper's scope.
+
 Variants per query (`queries/<dataset>/<query>.<variant>.sql`):
 - `builtin`: the repository's DuckDB query over the nested file (UNNEST of nested types)
 - `node`: `read_parquet_node` on the nested file with the joins on `_sk`/`_ak*` written by hand
@@ -29,7 +80,9 @@ Dataset directories: `nested-tpch` (tpch_sf1), `nested-tpch-sf10`, `xmark`, `dbl
 
 ## Method
 
-reldebug builds, i7-1360P (16 hardware threads), 15 GiB, WSL2, 2026-10-16.
+i7-1360P (16 hardware threads), 15 GiB, WSL2. **"Final results" (2026-10-17) uses release builds and 10 runs; the
+sections after it are the earlier measurements of the individual steps (reldebug builds, 3-5 runs, 2026-10-16)**, kept
+for their analyses - compare numbers only within one section.
 
 - The timings of this laptop drift by tens of percent within an hour: the same builtin TPC-H SF1 query took 5.7s in
   one run and 3.5s ten minutes later. Binaries and thread counts are therefore compared **interleaved**: for every
@@ -38,8 +91,183 @@ reldebug builds, i7-1360P (16 hardware threads), 15 GiB, WSL2, 2026-10-16.
 - Within a run the noise is still visible: the builtin and split variants, whose code did not change, have
   new/base ratios of 0.91-1.04 with 1 thread and 0.77-1.27 with 16 threads.
 - `run_bench.py` samples the CPU use of other processes before every query (column `busy_cpu`) and warns above 50% of
-  a core. An earlier run was discarded after a stray single-threaded process was found to occupy a core during it.
-- `base` = the build before the parallel scan (with `"<path>._sk"`), `new` = with the parallel scan.
+  a core; it does not start when other processes keep more than half a core busy, and kills the process group of a
+  query on a timeout or when it is interrupted. Two earlier runs were discarded after a leftover process (a hung query,
+  a file search) was found to occupy a core during them.
+- In the earlier sections: `base` = the build before the parallel scan (with `"<path>._sk"`), `new` = with the
+  parallel scan. In "Final results": `base` = commit 72f26314b3c (without `"<path>._sk"`), `final` = the final version.
+
+## Final results (release builds, base vs final)
+
+`make release` builds of `base` = commit 72f26314b3c (before the parallel scan) and `final` = commit 0d7359b9c2f
+(parallel scan + filter pushdown, default settings). Interleaved with threads = 1 and 16, **fastest of 10 runs**, CPU =
+smallest user + sys of all threads of the 10 runs; 2026-10-17, no other process used the CPU (`busy_cpu` <= 10% of a
+core). CSVs: `release_<dataset>.csv`, `release_selectivity_*.csv`.
+
+```
+RUNS=10 THREADS=1,16 python3 run_bench.py base=<base duckdb>,final=<final duckdb> queries/<dataset> <datasets dir>/<dir> release_<dataset>.csv
+```
+
+All variants return their expected results with both binaries and both thread counts, except that `base` cannot run
+the XMark `flat_umbra`/`flat_minmax` queries (n/a): `"<path>._sk"` was added in the same commit as the parallel scan.
+
+Seconds; `t1 final/base` < 1 is faster; `t16 base/final` and `final t1/t16` are speedups:
+
+| dataset | query | variant | base t1 | final t1 | t1 final/base | base t16 | final t16 | t16 base/final | final t1/t16 | CPU t16 base / final |
+|---|---|---|---|---|---|---|---|---|---|---|
+| TPC-H SF1 (1 RG) | q01 | builtin | 3.379 | 3.404 | 1.01 | 3.475 | 3.493 | 0.99x | 0.97x | 3.47 / 3.49 |
+|  | q01 | node | 0.334 | 0.314 | 0.94 | 0.334 | 0.078 | 4.28x | 4.03x | 0.34 / 1.01 |
+|  | q01 | flat | 0.325 | 0.314 | 0.97 | 0.332 | 0.081 | 4.10x | 3.88x | 0.33 / 1.02 |
+|  | q01 | split | 0.250 | 0.234 | 0.94 | 0.243 | 0.237 | 1.03x | 0.99x | 0.48 / 0.48 |
+|  | q03 | builtin | 3.039 | 3.097 | 1.02 | 3.279 | 3.143 | 1.04x | 0.99x | 3.28 / 3.15 |
+|  | q03 | node | 0.220 | 0.223 | 1.01 | 0.229 | 0.087 | 2.63x | 2.56x | 0.23 / 0.94 |
+|  | q03 | flat | 0.227 | 0.220 | 0.97 | 0.226 | 0.085 | 2.66x | 2.59x | 0.23 / 0.91 |
+|  | q03 | split | 0.136 | 0.131 | 0.96 | 0.144 | 0.135 | 1.07x | 0.97x | 0.26 / 0.27 |
+|  | q04 | builtin | 3.094 | 3.170 | 1.02 | 3.252 | 3.358 | 0.97x | 0.94x | 3.26 / 3.36 |
+|  | q04 | node | 0.169 | 0.168 | 0.99 | 0.172 | 0.062 | 2.77x | 2.71x | 0.18 / 0.69 |
+|  | q04 | flat | 0.168 | 0.168 | 1.00 | 0.171 | 0.063 | 2.71x | 2.67x | 0.17 / 0.71 |
+|  | q04 | split | 0.092 | 0.090 | 0.98 | 0.105 | 0.097 | 1.08x | 0.93x | 0.21 / 0.19 |
+|  | q06 | builtin | 3.192 | 3.171 | 0.99 | 3.157 | 3.464 | 0.91x | 0.92x | 3.15 / 4.02 |
+|  | q06 | node | 0.191 | 0.162 | 0.85 | 0.173 | 0.038 | 4.55x | 4.26x | 0.17 / 0.49 |
+|  | q06 | flat | 0.168 | 0.175 | 1.04 | 0.165 | 0.049 | 3.37x | 3.57x | 0.17 / 0.61 |
+|  | q06 | split | 0.091 | 0.123 | 1.35 | 0.107 | 0.101 | 1.06x | 1.22x | 0.15 / 0.20 |
+|  | q10 | builtin | 3.243 | 3.151 | 0.97 | 3.209 | 3.424 | 0.94x | 0.92x | 3.21 / 3.73 |
+|  | q10 | node | 0.219 | 0.229 | 1.05 | 0.228 | 0.121 | 1.88x | 1.89x | 0.24 / 0.89 |
+|  | q10 | flat | 0.221 | 0.235 | 1.06 | 0.225 | 0.139 | 1.62x | 1.69x | 0.24 / 0.96 |
+|  | q10 | split | 0.164 | 0.160 | 0.98 | 0.163 | 0.170 | 0.96x | 0.94x | 0.30 / 0.33 |
+|  | q12 | builtin | 3.357 | 3.302 | 0.98 | 3.514 | 3.529 | 1.00x | 0.94x | 3.53 / 3.98 |
+|  | q12 | node | 0.181 | 0.179 | 0.99 | 0.183 | 0.062 | 2.95x | 2.89x | 0.19 / 0.75 |
+|  | q12 | flat | 0.182 | 0.175 | 0.96 | 0.181 | 0.068 | 2.66x | 2.57x | 0.18 / 0.68 |
+|  | q12 | split | 0.107 | 0.109 | 1.02 | 0.110 | 0.112 | 0.98x | 0.97x | 0.13 / 0.22 |
+| TPC-H SF10 (22 RG) | q01 | builtin | 18.796 | 18.765 | 1.00 | 3.841 | 3.983 | 0.96x | 4.71x | 48.18 / 50.43 |
+|  | q01 | node | 3.499 | 3.334 | 0.95 | 0.614 | 0.585 | 1.05x | 5.70x | 7.41 / 7.16 |
+|  | q01 | flat | 3.387 | 3.300 | 0.97 | 0.613 | 0.596 | 1.03x | 5.54x | 7.21 / 7.02 |
+|  | q01 | split | 2.523 | 2.489 | 0.99 | 0.488 | 0.480 | 1.02x | 5.19x | 5.64 / 5.67 |
+|  | q03 | builtin | 15.794 | 15.650 | 0.99 | 3.548 | 3.496 | 1.01x | 4.48x | 46.07 / 45.41 |
+|  | q03 | node | 2.017 | 1.994 | 0.99 | 0.369 | 0.361 | 1.02x | 5.52x | 4.37 / 4.05 |
+|  | q03 | flat | 1.976 | 1.957 | 0.99 | 0.372 | 0.365 | 1.02x | 5.36x | 4.29 / 4.15 |
+|  | q03 | split | 1.245 | 1.238 | 0.99 | 0.302 | 0.298 | 1.01x | 4.15x | 2.62 / 2.86 |
+|  | q04 | builtin | 15.988 | 16.039 | 1.00 | 3.424 | 3.425 | 1.00x | 4.68x | 43.05 / 43.10 |
+|  | q04 | node | 1.606 | 1.643 | 1.02 | 0.318 | 0.317 | 1.00x | 5.18x | 3.64 / 3.54 |
+|  | q04 | flat | 1.598 | 1.619 | 1.01 | 0.311 | 0.314 | 0.99x | 5.16x | 3.40 / 3.52 |
+|  | q04 | split | 0.842 | 0.852 | 1.01 | 0.207 | 0.212 | 0.98x | 4.02x | 1.88 / 1.83 |
+|  | q06 | builtin | 16.676 | 16.580 | 0.99 | 3.574 | 3.579 | 1.00x | 4.63x | 46.45 / 45.53 |
+|  | q06 | node | 1.549 | 1.528 | 0.99 | 0.266 | 0.262 | 1.02x | 5.83x | 3.13 / 3.09 |
+|  | q06 | flat | 1.520 | 1.491 | 0.98 | 0.261 | 0.258 | 1.01x | 5.78x | 3.06 / 3.06 |
+|  | q06 | split | 0.921 | 0.918 | 1.00 | 0.178 | 0.174 | 1.02x | 5.28x | 2.06 / 2.06 |
+|  | q12 | builtin | 17.404 | 17.344 | 1.00 | 3.764 | 3.830 | 0.98x | 4.53x | 47.72 / 48.66 |
+|  | q12 | node | 1.637 | 1.643 | 1.00 | 0.315 | 0.317 | 0.99x | 5.18x | 3.72 / 3.52 |
+|  | q12 | flat | 1.597 | 1.609 | 1.01 | 0.301 | 0.310 | 0.97x | 5.19x | 3.50 / 3.52 |
+|  | q12 | split | 1.051 | 1.054 | 1.00 | 0.231 | 0.229 | 1.01x | 4.60x | 2.49 / 2.51 |
+| XMark (1 RG) | q02 | builtin | 0.329 | 0.332 | 1.01 | 0.326 | 0.335 | 0.97x | 0.99x | 0.33 / 0.33 |
+|  | q02 | node | 0.029 | 0.031 | 1.07 | 0.025 | 0.019 | 1.32x | 1.63x | 0.05 / 0.09 |
+|  | q02 | flat_umbra | n/a | 0.053 | - | n/a | 0.051 | - | 1.04x | n/a / 0.14 |
+|  | q02 | flat_minmax | n/a | 0.033 | - | n/a | 0.031 | - | 1.06x | n/a / 0.09 |
+|  | q02 | split | 0.050 | 0.050 | 1.00 | 0.047 | 0.048 | 0.98x | 1.04x | 0.11 / 0.11 |
+|  | q03 | builtin | 0.335 | 0.335 | 1.00 | 0.338 | 0.338 | 1.00x | 0.99x | 0.34 / 0.34 |
+|  | q03 | node | 0.035 | 0.036 | 1.03 | 0.037 | 0.026 | 1.42x | 1.38x | 0.05 / 0.10 |
+|  | q03 | flat_umbra | n/a | 0.295 | - | n/a | 0.133 | - | 2.22x | n/a / 0.55 |
+|  | q03 | flat_minmax | n/a | 0.064 | - | n/a | 0.053 | - | 1.21x | n/a / 0.13 |
+|  | q03 | split | 0.264 | 0.241 | 0.91 | 0.236 | 0.235 | 1.00x | 1.03x | 0.57 / 0.47 |
+|  | q04 | builtin | 0.338 | 0.335 | 0.99 | 0.339 | 0.341 | 0.99x | 0.98x | 0.34 / 0.34 |
+|  | q04 | node | 0.030 | 0.028 | 0.93 | 0.031 | 0.021 | 1.48x | 1.33x | 0.04 / 0.07 |
+|  | q04 | flat_umbra | n/a | 0.061 | - | n/a | 0.049 | - | 1.24x | n/a / 0.11 |
+|  | q04 | flat_minmax | n/a | 0.038 | - | n/a | 0.029 | - | 1.31x | n/a / 0.08 |
+|  | q04 | split | 0.031 | 0.030 | 0.97 | 0.026 | 0.026 | 1.00x | 1.15x | 0.05 / 0.04 |
+|  | q04p | builtin | 0.345 | 0.347 | 1.01 | 0.352 | 0.346 | 1.02x | 1.00x | 0.35 / 0.35 |
+|  | q04p | node | 0.035 | 0.035 | 1.00 | 0.036 | 0.024 | 1.50x | 1.46x | 0.04 / 0.09 |
+|  | q04p | flat_umbra | n/a | 0.065 | - | n/a | 0.051 | - | 1.27x | n/a / 0.11 |
+|  | q04p | flat_minmax | n/a | 0.055 | - | n/a | 0.040 | - | 1.38x | n/a / 0.09 |
+|  | q04p | split | 0.046 | 0.046 | 1.00 | 0.045 | 0.043 | 1.05x | 1.07x | 0.07 / 0.07 |
+| DBLP (6 RG) | q06 | builtin | 2.064 | 2.063 | 1.00 | 0.696 | 0.701 | 0.99x | 2.94x | 3.48 / 3.56 |
+|  | q06 | node | 2.552 | 2.506 | 0.98 | 0.811 | 0.645 | 1.26x | 3.89x | 4.46 / 8.49 |
+|  | q06 | flat | 2.513 | 2.527 | 1.01 | 0.778 | 0.615 | 1.27x | 4.11x | 4.36 / 8.28 |
+|  | q06 | split | 2.723 | 2.746 | 1.01 | 0.878 | 0.846 | 1.04x | 3.25x | 5.45 / 5.47 |
+|  | q07 | builtin | 2.882 | 2.859 | 0.99 | 0.842 | 0.871 | 0.97x | 3.28x | 5.05 / 5.77 |
+|  | q07 | node | 3.438 | 3.428 | 1.00 | 0.998 | 0.852 | 1.17x | 4.02x | 6.09 / 10.89 |
+|  | q07 | flat | 3.456 | 3.449 | 1.00 | 1.026 | 0.839 | 1.22x | 4.11x | 6.47 / 10.72 |
+|  | q07 | split | 3.487 | 3.563 | 1.02 | 1.053 | 1.094 | 0.96x | 3.26x | 7.39 / 7.39 |
+|  | q08 | builtin | 0.834 | 0.843 | 1.01 | 0.288 | 0.291 | 0.99x | 2.90x | 1.02 / 1.03 |
+|  | q08 | node | 1.128 | 1.135 | 1.01 | 0.326 | 0.298 | 1.09x | 3.81x | 1.37 / 4.09 |
+|  | q08 | flat | 1.122 | 1.117 | 1.00 | 0.316 | 0.295 | 1.07x | 3.79x | 1.34 / 4.04 |
+|  | q08 | split | 0.570 | 0.568 | 1.00 | 0.193 | 0.190 | 1.02x | 2.99x | 0.77 / 0.76 |
+|  | q09 | builtin | 1.502 | 1.484 | 0.99 | 0.481 | 0.451 | 1.07x | 3.29x | 1.96 / 1.84 |
+|  | q09 | node | 1.562 | 1.537 | 0.98 | 0.442 | 0.413 | 1.07x | 3.72x | 1.86 / 5.80 |
+|  | q09 | flat | 1.551 | 1.547 | 1.00 | 0.443 | 0.360 | 1.23x | 4.30x | 1.89 / 4.93 |
+|  | q09 | split | 1.316 | 1.246 | 0.95 | 0.422 | 0.391 | 1.08x | 3.19x | 1.91 / 1.68 |
+
+- **1 thread**: node/flat final/base 0.85-1.07 - the unchanged single scan; builtin/split, whose code did not change,
+  show the noise of the run (0.91-1.35).
+- **16 threads, files with fewer row groups than threads**: TPC-H SF1 (1 row group) node/flat 1.6-4.6x faster than
+  base (base cannot use more than one thread per row group), XMark (1 row group) 1.3-1.5x, DBLP (6 row groups)
+  1.07-1.27x - with 1.8-4.2x the CPU of base. TPC-H SF10 (22 row groups) is not split: 0.97-1.05x.
+- **final, 1 -> 16 threads**: TPC-H SF1 1.7-4.3x, SF10 5.2-5.8x, DBLP 3.7-4.3x, XMark node 1.3-1.6x (20-35 ms
+  queries; few pages per column).
+- **Against the other variants at 16 threads**: node is 1.4-3.0x faster than split on TPC-H SF1 (whose pre-split
+  files have one row group each), 1.2-1.5x slower on SF10, faster on all XMark queries (1.2-9x) and on DBLP Q6/Q7,
+  slower on DBLP Q8/Q9 (1.6x / 1.06x). builtin is 28-91x slower than node on TPC-H SF1, 7-14x on SF10, 13-18x on
+  XMark, and about equal on DBLP (0.98-1.09x).
+
+### Selectivity experiment (release builds)
+
+Configurations as in "How the configurations were aligned" below, with `base` (before the parallel scan) instead of
+`page`; `query`/`join` = the final binary with the setup SQL of that section. 10 runs. Columns marked † belong to the
+`join` configuration (beyond the paper's scope); "skipped" as below.
+
+(A) paper data, `a % N = 0`, threads=1: wall seconds (CPU seconds)
+
+| N | builtin | node base | node query | node join† | skipped q+j/tasks† | flat query | flat join† | split query | split join† |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | 0.119 (0.12) | 0.159 (0.16) | 0.158 (0.16) | 0.164 (0.16) | 0+0/1 | 0.161 (0.16) | 0.165 (0.16) | 0.132 (0.13) | 0.136 (0.14) |
+| 10^1 | 0.059 (0.06) | 0.092 (0.09) | 0.095 (0.10) | 0.099 (0.10) | 0+0/2 | 0.094 (0.09) | 0.100 (0.10) | 0.067 (0.07) | 0.065 (0.06) |
+| 10^2 | 0.052 (0.05) | 0.084 (0.08) | 0.084 (0.08) | 0.086 (0.09) | 0+0/2 | 0.085 (0.09) | 0.088 (0.09) | 0.056 (0.06) | 0.055 (0.05) |
+| 10^3 | 0.049 (0.05) | 0.085 (0.09) | 0.087 (0.09) | 0.082 (0.08) | 0+0/2 | 0.085 (0.08) | 0.084 (0.08) | 0.057 (0.06) | 0.049 (0.05) |
+| 10^4 | 0.040 (0.04) | 0.080 (0.08) | 0.083 (0.08) | 0.079 (0.08) | 0+0/2 | 0.085 (0.09) | 0.082 (0.08) | 0.055 (0.05) | 0.041 (0.04) |
+| 10^5 | 0.038 (0.04) | 0.082 (0.08) | 0.082 (0.08) | 0.079 (0.08) | 0+0/2 | 0.084 (0.08) | 0.079 (0.08) | 0.055 (0.06) | 0.034 (0.03) |
+| 10^6 | 0.037 (0.04) | 0.081 (0.08) | 0.083 (0.08) | 0.076 (0.08) | 0+0/2 | 0.083 (0.08) | 0.076 (0.08) | 0.055 (0.05) | 0.011 (0.01) |
+
+(A) paper data, `a % N = 0`, threads=16: wall seconds (CPU seconds)
+
+| N | builtin | node base | node query | node join† | skipped q+j/tasks† | flat query | flat join† | split query | split join† |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | 0.124 (0.16) | 0.157 (0.16) | 0.052 (0.55) | 0.061 (0.52) | 0+0/16 | 0.054 (0.54) | 0.058 (0.42) | 0.045 (0.22) | 0.049 (0.22) |
+| 10^1 | 0.061 (0.09) | 0.097 (0.10) | 0.039 (0.44) | 0.041 (0.39) | 0+0/24 | 0.038 (0.34) | 0.040 (0.36) | 0.028 (0.14) | 0.028 (0.15) |
+| 10^2 | 0.054 (0.07) | 0.081 (0.08) | 0.037 (0.31) | 0.037 (0.30) | 0+0/24 | 0.038 (0.29) | 0.037 (0.38) | 0.026 (0.13) | 0.025 (0.12) |
+| 10^3 | 0.052 (0.07) | 0.084 (0.08) | 0.036 (0.38) | 0.036 (0.38) | 0+0/24 | 0.036 (0.41) | 0.036 (0.36) | 0.025 (0.12) | 0.022 (0.11) |
+| 10^4 | 0.041 (0.06) | 0.082 (0.08) | 0.034 (0.42) | 0.035 (0.41) | 0+0/24 | 0.035 (0.42) | 0.033 (0.33) | 0.022 (0.12) | 0.021 (0.09) |
+| 10^5 | 0.039 (0.06) | 0.083 (0.09) | 0.034 (0.26) | 0.030 (0.20) | 0+6/24 | 0.035 (0.41) | 0.031 (0.28) | 0.025 (0.13) | 0.019 (0.07) |
+| 10^6 | 0.022 (0.03) | 0.082 (0.08) | 0.034 (0.41) | 0.023 (0.18) | 0+15/24 | 0.034 (0.33) | 0.023 (0.16) | 0.024 (0.12) | 0.013 (0.02) |
+
+(B) sorted `a`, `a < 10^6/N` — beyond the paper's scope, threads=1: wall seconds (CPU seconds)
+
+| N | builtin | node base | node query | node join† | skipped q+j/tasks† | flat query | flat join† | split query | split join† |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | 0.094 (0.09) | 0.134 (0.13) | 0.132 (0.13) | 0.142 (0.14) | 0+0/1 | 0.135 (0.14) | 0.139 (0.14) | 0.108 (0.11) | 0.115 (0.11) |
+| 10^1 | 0.044 (0.04) | 0.090 (0.09) | 0.088 (0.09) | 0.084 (0.08) | 0+0/2 | 0.087 (0.09) | 0.085 (0.08) | 0.060 (0.06) | 0.021 (0.02) |
+| 10^2 | 0.036 (0.03) | 0.084 (0.08) | 0.086 (0.09) | 0.078 (0.08) | 0+0/2 | 0.086 (0.09) | 0.077 (0.08) | 0.054 (0.05) | 0.015 (0.01) |
+| 10^3 | 0.032 (0.03) | 0.083 (0.08) | 0.085 (0.09) | 0.076 (0.08) | 0+0/2 | 0.086 (0.09) | 0.077 (0.08) | 0.052 (0.05) | 0.014 (0.01) |
+| 10^4 | 0.033 (0.03) | 0.083 (0.08) | 0.085 (0.08) | 0.076 (0.08) | 0+0/2 | 0.084 (0.08) | 0.076 (0.08) | 0.054 (0.05) | 0.014 (0.01) |
+| 10^5 | 0.035 (0.04) | 0.085 (0.09) | 0.086 (0.09) | 0.076 (0.08) | 0+0/2 | 0.085 (0.09) | 0.077 (0.08) | 0.054 (0.05) | 0.013 (0.01) |
+| 10^6 | 0.034 (0.03) | 0.086 (0.09) | 0.084 (0.08) | 0.077 (0.08) | 0+0/2 | 0.086 (0.09) | 0.078 (0.08) | 0.054 (0.05) | 0.014 (0.01) |
+
+(B) sorted `a`, `a < 10^6/N` — beyond the paper's scope, threads=16: wall seconds (CPU seconds)
+
+| N | builtin | node base | node query | node join† | skipped q+j/tasks† | flat query | flat join† | split query | split join† |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | 0.099 (0.12) | 0.137 (0.14) | 0.053 (0.43) | 0.057 (0.54) | 0+0/16 | 0.053 (0.55) | 0.057 (0.55) | 0.045 (0.20) | 0.049 (0.19) |
+| 10^1 | 0.027 (0.04) | 0.090 (0.09) | 0.037 (0.44) | 0.029 (0.23) | 0+14/24 | 0.038 (0.44) | 0.029 (0.13) | 0.026 (0.12) | 0.022 (0.03) |
+| 10^2 | 0.020 (0.03) | 0.085 (0.09) | 0.035 (0.33) | 0.025 (0.15) | 0+15/24 | 0.036 (0.31) | 0.025 (0.20) | 0.024 (0.12) | 0.017 (0.02) |
+| 10^3 | 0.019 (0.03) | 0.083 (0.08) | 0.034 (0.36) | 0.025 (0.21) | 0+15/24 | 0.035 (0.35) | 0.025 (0.11) | 0.024 (0.12) | 0.015 (0.03) |
+| 10^4 | 0.018 (0.03) | 0.084 (0.08) | 0.034 (0.29) | 0.024 (0.22) | 0+15/24 | 0.035 (0.31) | 0.025 (0.20) | 0.024 (0.11) | 0.014 (0.02) |
+| 10^5 | 0.035 (0.03) | 0.085 (0.09) | 0.034 (0.29) | 0.024 (0.20) | 0+15/24 | 0.036 (0.30) | 0.025 (0.14) | 0.024 (0.11) | 0.017 (0.02) |
+| 10^6 | 0.019 (0.03) | 0.087 (0.09) | 0.035 (0.30) | 0.024 (0.16) | 0+15/24 | 0.035 (0.38) | 0.025 (0.13) | 0.023 (0.12) | 0.016 (0.02) |
+
+- `base` takes the same time with 1 and 16 threads (one task per node: no parallel scan); `query` is the parallel
+  scan of the final binary and, as before, does not get faster with selectivity - the condition on the parent does not
+  reduce the child scan (Section 6.5).
+- `join` (16 threads) skips 15 of 16 child parts at N = 10^6 in (A) and 14-15 from N = 10 on in (B): 0.034-0.037s ->
+  0.023-0.029s; `split` in `join` reaches 0.013-0.022s (and 0.011-0.021s with 1 thread, where the node scan cannot
+  skip) - the pre-pass over the child's levels is the remaining cost (see "Interpretation").
 
 ## Row groups of the nested files
 
