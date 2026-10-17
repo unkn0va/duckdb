@@ -20,7 +20,8 @@ import sys
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-from split_selectivity_data import write_split_files
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from split_selectivity_data import write_split_files  # noqa: E402
 
 ROWS = 1_000_000
 LIST_LENGTH = 10

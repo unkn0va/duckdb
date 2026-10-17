@@ -16,6 +16,11 @@ A binary can be given setup statements, run before every query of its configurat
 label=path;SET a = 1;SET b = 2 - they must not contain commas. The setup of every configuration is recorded in the
 setup_<label> columns.
 
+VARIANTS limits the variants a configuration runs, per label: VARIANTS="base=builtin final=flat,flat_minmax" runs
+only the builtin queries with the binary "base" and only the flat ones with "final" (labels not listed run all
+variants). A variant is then checked against the builtin result of another binary when its own binary does not run
+the builtin query.
+
 With SKIPS=1, every node and flat query is run once more with debug logging, and the tasks that the read_parquet_node
 scans skipped are recorded as <variant>_<suffix>_skipped: "<by the query's filters>+<by join filters>/<tasks>", summed
 over the scans of the query.
@@ -29,7 +34,9 @@ Every DuckDB process runs in a process group of its own, which is killed when it
 benchmark itself is interrupted or terminated - so that no query keeps running after the benchmark and loads the
 machine during later measurements.
 
-Usage: [RUNS=n] [THREADS=n[,n...]] [SKIPS=1] [ALLOW_BUSY=1] run_bench.py <duckdb binary | label=path,...> <query dir> <data dir> <result csv>
+The CSV is written to <result csv>.partial after every query and renamed to <result csv> when all queries are done.
+
+Usage: [RUNS=n] [THREADS=n[,n...]] [VARIANTS="label=v,v ..."] [SKIPS=1] [ALLOW_BUSY=1] run_bench.py <duckdb binary | label=path,...> <query dir> <data dir> <result csv>
 """
 import csv
 import os
@@ -60,6 +67,15 @@ for label, path, setup in BINARIES:
         CONFIGS.append({"label": label, "path": path, "threads": threads, "setup": setup,
                         "suffix": "".join("_" + part for part in parts)})
 DUCKDB = BINARIES[0][1]
+LABEL_VARIANTS = {}
+for item in os.environ.get("VARIANTS", "").split():
+    label, _, variants = item.partition("=")
+    LABEL_VARIANTS[label] = set(variants.split(","))
+
+
+def runs_variant(label, variant):
+    return label not in LABEL_VARIANTS or variant in LABEL_VARIANTS[label]
+
 
 #: The process groups of the DuckDB processes that are running, killed when the benchmark stops
 RUNNING_GROUPS = set()
@@ -240,6 +256,8 @@ for name in names:
         sql = open(path).read()
         failed = set()
         for config in CONFIGS:
+            if not runs_variant(config["label"], variant):
+                continue
             seconds, error = run_timed(sql, config["path"], config["threads"], config["setup"])
             entry[f"{variant}{config['suffix']}_s"] = "" if seconds is None else f"{seconds[0]:.4f}"
             entry[f"{variant}{config['suffix']}_cpu"] = "" if seconds is None else f"{seconds[1]:.4f}"
@@ -250,6 +268,8 @@ for name in names:
                 entry[f"{variant}{config['suffix']}_skipped"] = skipped_tasks(sql, config["path"], config["threads"],
                                                                               config["setup"])
         for label, binary, setup in BINARIES:
+            if not runs_variant(label, variant):
+                continue
             key = f"{variant}{'_' + label if len(BINARIES) > 1 else ''}_result"
             entry[key] = "n/a" if label in failed else result_hash(sql, binary, setup)
     oracle_results = {}
@@ -264,9 +284,15 @@ for name in names:
                 if oracle_path not in oracle_results:
                     oracle_results[oracle_path] = result_hash(open(oracle_path).read())
                 expected, reference = oracle_results[oracle_path], "oracle"
+            elif f"builtin{binary_suffix}_result" in entry:
+                expected, reference = entry[f"builtin{binary_suffix}_result"], "builtin"
             else:
-                expected, reference = entry.get(f"builtin{binary_suffix}_result"), "builtin"
-            entry[f"{variant}{binary_suffix}_ok"] = str(expected == result)
+                # the binary does not run the builtin query: the builtin result of another binary
+                others = [l for l, _, _ in BINARIES if f"builtin_{l}_result" in entry]
+                expected = entry[f"builtin_{others[0]}_result"] if others else None
+                reference = f"builtin of {others[0]}" if others else "none"
+            ok = expected is not None and expected == result and not result.startswith(("error", "n/a"))
+            entry[f"{variant}{binary_suffix}_ok"] = str(ok)
             entry[f"{variant}_reference"] = reference
     for config in CONFIGS:
         ratio(entry, "builtin", "node", config["suffix"])
@@ -275,9 +301,10 @@ for name in names:
             ratio(entry, variant, "node", config["suffix"])
     rows.append(entry)
     print(entry, flush=True)
+    fields = list(dict.fromkeys(key for row in rows for key in row))
+    with open(OUT_CSV + ".partial", "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fields)
+        writer.writeheader()
+        writer.writerows(rows)
 
-fields = list(dict.fromkeys(key for row in rows for key in row))
-with open(OUT_CSV, "w", newline="") as f:
-    writer = csv.DictWriter(f, fieldnames=fields)
-    writer.writeheader()
-    writer.writerows(rows)
+os.replace(OUT_CSV + ".partial", OUT_CSV)
