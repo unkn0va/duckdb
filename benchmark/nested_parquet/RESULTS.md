@@ -22,8 +22,10 @@ What this implementation and its measurements do differently from the paper; det
   Placeholders are not returned by default; `include_empty := true` returns them as NULL rows.
 
 **Parallel scan (paper: Listing 3)**
-- A row group is split only when the row groups occupy at most half of the threads (rule (a), "Split rules after the
-  server results"); with 1 thread, or row groups that are not split, the scan is the unchanged single scan.
+- A row group is split only when there are fewer row groups than threads - and, when the keys need a count of its
+  levels, only when the row groups occupy at most half of the threads (rule (a), setting
+  `parquet_node_split_half_threads`; "Split rules after the server results"). With 1 thread, or row groups that are
+  not split, the scan is the unchanged single scan.
 - The parts start at the page boundaries of the largest column that is read (the paper's per-page jumps) - or at
   offsets within its pages when it has fewer pages than threads (Listing 3's offset). The keys at the start of a part
   come from a pre-pass that counts the repetition levels per page (reading neither the dictionary nor the values), in
@@ -31,6 +33,8 @@ What this implementation and its measurements do differently from the paper; det
   slots (`parquet_node_task_slots`).
 - Limitation: columns with few pages (XMark bidders: 1-8 pages) are split within pages, which every part then
   decompresses.
+- Limitation: short queries over a single row group (XMark, 60-110 ms with 1 thread) are slower with 10-40 threads than
+  with 1 thread on the 2-socket server, although they are faster with more threads on the laptop ("Server results").
 
 **Filters (phase 1 only)**
 - Filters are evaluated in the scan after key generation, the other columns are decoded only for the rows that pass,
@@ -318,17 +322,62 @@ builtin / flat, geometric mean over the queries (> 1: flat is faster):
   Section 6.5, as on the laptop). With 10-40 threads flat is faster again (A: 1.6-4.2x, B: 0.87-3.3x), since the
   builtin query has a single row group and thus one thread.
 
+### Second server run with the split rules (2026-10-18)
+
+The same kit after the changes of the next section (rule (a) for all scans, level-only pre-pass): `final` = main_rey
+bcf1076e62, everything else as above. **All 33 results equal the builtin results or their oracles**, `busy_cpu` = 0.
+Files: `server_20261018/`. The builtin times are within 3% of the first run (selectivity: noisier, 30-80 ms queries),
+so the flat times of both runs can be compared directly.
+
+builtin / flat, geometric mean (first run -> second run):
+
+| dataset | threads=1 | threads=10 | threads=20 | threads=40 |
+|---|---|---|---|---|
+| TPC-H SF1 | 16.35x -> 16.50x | 52.24x -> 52.29x | 45.56x -> 47.93x | 45.80x -> 48.35x |
+| TPC-H SF10 | 9.30x -> 9.31x | 8.84x -> 8.90x | 8.83x -> 8.84x | **5.59x -> 7.76x** |
+| XMark | 7.18x -> 7.19x | **5.16x -> 6.09x** | 5.11x -> 6.35x | 4.81x -> 5.61x |
+| DBLP | 0.82x -> 0.83x | **1.11x -> 0.89x** | 1.82x -> 2.15x | 2.13x -> 2.51x |
+| Selectivity (A) | 0.77x -> 0.80x | 2.87x -> 2.73x | 2.70x -> 3.11x | 3.18x -> 3.28x |
+| Selectivity (B) | 0.48x -> 0.46x | 1.23x -> 1.42x | 1.41x -> 1.48x | 1.54x -> 1.62x |
+
+flat seconds, first run -> second run:
+- **TPC-H SF10, 40 threads (problem (a)) - fixed**: q03 0.815 -> 0.398, q04 0.629 -> 0.316, q12 0.586 -> 0.301 (CPU
+  15.5s -> 6.0s for q03); 40 threads are now as fast as 20 or faster. But q01 0.400 -> 0.481 and q06 0.174 -> 0.220:
+  they need no level count, and rule (a) had stopped splitting them too - since restricted to scans that count levels
+  (next section).
+- **XMark, 10-40 threads (problem (b)) - 12-20% faster, CPU -19-36%** (q02 t10 0.094 -> 0.075, CPU 0.318 -> 0.204;
+  q03 0.165 -> 0.133), **but still slower than 1 thread** (q02 0.059, q03 0.113, q04 0.071). Kept as a limitation:
+  on the laptop the same queries are 22-31% faster with 10 threads than with 1, so the remaining cost is that of
+  running 60-110 ms queries on many threads of this 2-socket machine (starting the tasks, the pre-pass before the
+  scan, memory of the other socket), not a cost that the split rules can avoid - a query this short has little work
+  to spread.
+- **DBLP, 10 threads - slower**: q06 0.885 -> 1.180, q07 1.256 -> 1.586, q08 0.429 -> 0.508, q09 0.526 -> 0.676 -
+  rule (a) no longer splits its 6 row groups at 10 threads, and here splitting was worth 18-33% (on the laptop it was
+  not). With 20 and 40 threads DBLP is 8-25% faster (level-only pre-pass).
+- **TPC-H SF1**: unchanged with 10 threads, faster with 20/40 (q03 t40 0.200 -> 0.163, q10 0.271 -> 0.239).
+- **Selectivity**: unchanged with 1 thread; with 10-40 threads mostly 0-15% faster.
+
+DBLP at 10 threads (6 row groups: 0.6 of the threads) gained from splitting, TPC-H SF10 at 40 threads (22: 0.55)
+lost - the ratio of row groups to threads cannot tell them apart. What differs is the hardware they ran on: 40 threads
+use hyper-threads and both sockets, 10 threads fit the cores of one socket. `SERVER.md`, step 9, measures this with a
+single binary (rule (a) on/off at 10/20/30/40 threads, and DBLP at 10 threads pinned to one socket, two sockets or
+hyper-threads); its result decides the final criterion.
+
 ## Split rules after the server results (2026-10-18)
 
 Principle: **a row group is not split where the cost of splitting - the level-count pre-pass and the repeated
 decompression of the pages that parts start in - exceeds the parallelism it buys.** Two changes, each with a reason
 that does not depend on the benchmark's numbers, and two candidates that the measurements rejected.
 
-**Rule (a): split only when the row groups occupy at most half of the threads** (`row groups x 2 <= threads`; before:
-`row groups < threads`). Splitting raises the parallelism of the scan at most threads / row groups times; below 2x
-that gain does not pay for a pre-pass per row group and the extra decompressions, while the row groups alone already
-keep most threads busy. TPC-H SF10 (22 row groups) is now split only from 44 threads on, DBLP (6) from 12, TPC-H SF1
-and XMark (1) from 2.
+**Rule (a): when the keys need a level count, split only when the row groups occupy at most half of the threads**
+(`row groups x 2 <= threads`; otherwise, and before: `row groups < threads`). Splitting raises the parallelism of the
+scan at most threads / row groups times; below 2x that gain does not pay for a pre-pass per row group, while the row
+groups alone already keep most threads busy. A scan that needs no level count (no ancestor keys, e.g. TPC-H Q1/Q6)
+splits at page boundaries at almost no cost, so it keeps the old rule - the second server run showed that stopping
+those splits made SF10 q01/q06 20-26% slower at 40 threads. With a count, TPC-H SF10 (22 row groups) is split from 44
+threads on, DBLP (6) from 12, TPC-H SF1 and XMark (1) from 2. The setting `parquet_node_split_half_threads = false`
+turns the rule off (the old rule for all scans), for the experiment of `SERVER.md`, step 9: the second server run
+found the rule right for SF10 at 40 threads but wrong for DBLP at 10 threads (previous section).
 
 **Count only the levels in the pre-pass.** The pre-pass reads the repetition levels of every page of one column, but
 it positioned its reader with the scan's `SeekToPage`, which loads the dictionary of the column chunk - decompressing
@@ -409,9 +458,10 @@ Selectivity (A), flat with the `query` settings, 15 runs (B behaves the same, `r
 - **TPC-H SF10 with 40 threads** (problem (a)): no longer split - q03 710 -> 518 ms, q12 569 -> 468 ms; 40 threads are
   now faster than 16 except q04 (547 vs 482 ms). With 16 threads the plan is the same in both builds (up to 8% apart:
   build noise, below).
-- **DBLP**: with 10 threads (no longer split) the same time or faster with 39-61% less CPU; with 16 threads (still split, levels
-  only) 10-32% faster.
-- **Selectivity**: with 16 threads 13-19% faster than `head` (the child's dictionary is no longer decoded by the pre-pass).
+- **DBLP**: with 10 threads (no longer split) the same time or faster with 39-61% less CPU; with 16 threads (still
+  split, levels only) 10-32% faster.
+- **Selectivity**: with 16 threads 13-19% faster than `head` (the child's dictionary is no longer decoded by the
+  pre-pass).
 - **TPC-H SF1 - build noise**: compared with `old`, `new` looked 5-15 ms slower with 10 threads, also for q01 and q06,
   whose plans and executed code did not change. `head` (the unchanged code, built on the same day) is as slow as `new`
   there, so the difference comes from the build (code layout), not from the rules; against `head`, `new` is equal
@@ -419,11 +469,11 @@ Selectivity (A), flat with the `query` settings, 15 runs (B behaves the same, `r
   differs by up to 20 ms between `head` and `new`: the noise floor of comparing two binaries on these 50-150 ms
   queries.
 
-Plans that change (debug log of the scans, threads 10/16/20/40): TPC-H SF10 at 40 threads and DBLP at 10 threads are
-no longer split (rule (a)); every scan that counts levels in a dictionary-encoded column does less work (all datasets
-with a split row group: TPC-H SF1, XMark, DBLP from 12 threads on, the selectivity files); the parts themselves are
-unchanged. The datasets to measure again on the server are therefore `tpch_sf1 tpch_sf10 xmark dblp
-selectivity_random selectivity_sorted`.
+Plans that change (debug log of the scans, threads 10/16/20/40): the scans of TPC-H SF10 at 40 threads that count levels
+(q03, q04, q12) and DBLP at 10 threads are no longer split (rule (a)); every scan that counts levels in a
+dictionary-encoded column does less work (all datasets with a split row group: TPC-H SF1, XMark, DBLP from 12 threads
+on, the selectivity files); the parts themselves are unchanged. The datasets to measure again on the server are
+therefore `tpch_sf1 tpch_sf10 xmark dblp selectivity_random selectivity_sorted`.
 
 ## Row groups of the nested files
 

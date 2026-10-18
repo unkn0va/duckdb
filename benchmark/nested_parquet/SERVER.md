@@ -233,6 +233,79 @@ rsync -av <서버>:~/nested-bench/duckdb/benchmark/nested_parquet/results_<날�
 - flat은 자식이 없는 부모 행을 내지 않습니다. 예를 들어 입찰자가 없는 경매가 그렇습니다.
 - 이런 쿼리는 `queries/<데이터셋>/<쿼리>.<변형>.oracle`의 기대 결과와 비교합니다. 그래서 "다름"으로 나오지 않습니다.
 
+## 9. 쪼개기 기준 실험 (규칙 (a) 켬/끔)
+
+**무엇을 보나요?**
+- 규칙 (a)는 레벨을 세야 하는 스캔에서, row group이 스레드의 절반 이하를 차지할 때만 row group을 쪼개는 규칙입니다. 설정 `parquet_node_split_half_threads`(기본 켬)로 켜고 끕니다. 끄면 전처럼 "row group 수 < 스레드 수"이면 쪼갭니다.
+- 2026-10-18 서버 측정에서 이 규칙은 TPC-H SF10의 40스레드(row group 22개)는 빠르게 했지만, DBLP의 10스레드(row group 6개)는 느리게 했습니다.
+- 두 경우의 "row group 수 / 스레드 수"는 0.55와 0.6으로 거의 같습니다. 그래서 차이는 이 비율보다 하드웨어에서 왔을 가능성이 큽니다.
+  - SF10 40스레드는 20코어를 넘어 하이퍼스레드를 쓰고 두 소켓에 걸칩니다.
+  - DBLP 10스레드는 한 소켓의 코어 안에 들어갈 수 있습니다.
+- 이 실험은 그 원인을 가립니다. main_rey 바이너리 하나로, 설정만 켬(`on`)과 끔(`off`)으로 바꿔 번갈아 잽니다.
+
+**준비**: main_rey를 최신으로 받아 다시 빌드합니다(원래 DuckDB는 필요 없습니다).
+
+```bash
+cd ~/nested-bench/duckdb && git pull && CMAKE_BUILD_PARALLEL_LEVEL=$(nproc) GEN=ninja make release
+```
+
+**측정 (약 1시간)**: tmux 안에서 실행하세요(7단계).
+- SF10과 DBLP의 flat 쿼리를 threads 10, 20, 30, 40에서 `on`/`off`로 번갈아 잽니다.
+- 이어서 DBLP를 10스레드로, CPU 배치를 세 가지로 고정해 한 번 더 잽니다.
+  - `one`: 한 소켓의 코어 10개
+  - `two`: 두 소켓의 코어 5개씩
+  - `ht`: 한 소켓의 코어 5개 × 하이퍼스레드 2개
+- 끊겼다면 같은 명령을 다시 붙여 넣으면 됩니다. 끝난 데이터셋은 건너뜁니다.
+
+```bash
+cd ~/nested-bench/duckdb/benchmark/nested_parquet
+B=~/nested-bench/duckdb/build/release/duckdb
+DATA=~/nested-bench/data/nested-parquet-datasets
+OUT=~/nested-bench/results_split_rule
+ON="SET parquet_node_split_half_threads = true"
+OFF="SET parquet_node_split_half_threads = false"
+mkdir -p $OUT
+for spec in "tpch_sf10 nested-tpch-sf10" "dblp dblp"; do
+  set -- $spec
+  [ -f $OUT/$1.csv ] && continue
+  RUNS=10 THREADS=10,20,30,40 VARIANTS="on=flat off=flat" \
+    python3 run_bench.py "on=$B;$ON,off=$B;$OFF" queries/$1 $DATA/$2 $OUT/$1.csv > $OUT/$1.log 2>&1 \
+    || { echo "STOPPED: see $OUT/$1.log"; break; }
+done
+python3 cpu_layouts.py 10 | tee $OUT/cpu_layouts.txt
+BINS="" LABELS=""
+while read layout cpus; do
+  printf '#!/bin/sh\nexec taskset -c %s %s "$@"\n' "$cpus" "$B" > $OUT/duckdb_$layout && chmod +x $OUT/duckdb_$layout
+  BINS="$BINS,on_$layout=$OUT/duckdb_$layout;$ON,off_$layout=$OUT/duckdb_$layout;$OFF"
+  LABELS="$LABELS on_$layout=flat off_$layout=flat"
+done < $OUT/cpu_layouts.txt
+[ -f $OUT/dblp_pinned.csv ] || RUNS=10 THREADS=10 VARIANTS="$LABELS" \
+  python3 run_bench.py "${BINS#,}" queries/dblp $DATA/dblp $OUT/dblp_pinned.csv > $OUT/dblp_pinned.log 2>&1 \
+  || echo "STOPPED: see $OUT/dblp_pinned.log"
+python3 split_rule_table.py $OUT $B ~/nested-bench/data | tee $OUT/table.md
+```
+
+- 마지막 줄은 표를 `table.md`로 만듭니다. 쿼리와 설정마다 한 번씩 더 실행해서 쪼갠 row group 수를 읽기 때문에 몇 분 걸립니다.
+- `cpu_layouts.txt`에 세 배치의 CPU 번호가 나옵니다. 서버에 없는 배치(예: 소켓이 하나)는 빠집니다.
+- 결과 폴더를 노트북으로 가져올 때는 8단계의 rsync 명령에서 폴더 이름만 `results_split_rule`로 바꾸세요.
+
+**표 읽는 법** (`table.md`)
+- 열은 `on`과 `off`의 시간(CPU 시간), `off/on`, 그리고 각 설정에서 쪼갠 row group 수입니다. 괄호 안은 그중 레벨을 세는 수입니다.
+- `off/on` < 1이면 쪼개는 쪽(`off`)이 빠르다는 뜻입니다.
+- `<<` 표시가 있는 줄만 계획이 다릅니다.
+  - SF10: 30·40스레드의 q03, q04, q12
+  - DBLP: 10스레드 전부와 `one`/`two`/`ht` 줄
+  - 나머지 줄(SF10 10·20스레드, q01·q06, DBLP 20스레드 이상)은 두 설정의 계획이 같습니다. 이 줄들의 `off/on`이 1에서 벗어난 정도가 측정 잡음입니다. 표 끝의 `Noise` 줄에 나옵니다.
+- 잡음보다 큰 차이만 의미가 있습니다. 경우별 해석은 다음과 같습니다.
+
+| 관찰 | 해석 | 기준 |
+|---|---|---|
+| DBLP `ht` 줄만 `off/on` > 1이고, `one`·`two`는 < 1 | 레벨 세기를 하며 쪼개면 하이퍼스레드를 같이 쓸 때 손해 | 스레드 수가 물리 코어 수 이하일 때만 쪼갬 |
+| DBLP `two` 줄만 `off/on` > 1이고, `one`은 < 1 | 두 소켓에 걸칠 때(NUMA) 손해 | 한 소켓의 코어 수 이하일 때만 쪼갬 |
+| `one`·`two`·`ht` 모두 < 1이고, SF10 30·40스레드는 > 1 | 하드웨어 배치와 상관없이 SF10에서만 손해 | 이유를 따로 찾아야 함 (SF10은 파일 형식이 parquet-mr, row group당 page 수가 다름) |
+| SF10 30스레드는 < 1, 40스레드만 > 1 | 하이퍼스레드를 많이 쓸수록 손해 | 하이퍼스레드 쪽 기준과 같음 |
+| DBLP 10스레드(배치 고정 없음)가 `one`과 같고 `two`와 다름 | 서버가 10스레드를 보통 한 소켓에 둠 | 위 해석을 그대로 적용 |
+
 ## 자주 생기는 문제
 
 **시작이 거부됨: `STOPPED: other processes keep the CPU busy`**
