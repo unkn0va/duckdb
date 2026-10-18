@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Table of the split-rule experiment (SERVER.md, step 9): read_parquet_flat with parquet_node_split_half_threads on
-and off, measured interleaved by run_bench.py with the labels on/off (or on_<layout>/off_<layout> for the runs pinned
-to a CPU layout). For every query and thread count it shows the wall (CPU) seconds of both settings, off/on, and how
-many row groups the scans split with each setting - read from the debug log of one more run per setting, so that the
-comparisons where the plans differ are marked. Where the plans are the same, off/on is the noise of the measurement.
+"""Table of the split-rule experiment (SERVER.md, step 9; needs commit 7f2e2261de3, the setting is gone since the final
+criterion): read_parquet_flat with parquet_node_split_half_threads on and off, measured interleaved by run_bench.py with
+the labels on/off (or on_<layout>/off_<layout> for the runs pinned to a CPU layout). For every query and thread count it
+shows the wall (CPU) seconds of both settings, off/on, and how many row groups the scans split with each setting - read
+from the debug log of one more run per setting, so that the comparisons where the plans differ are marked. Where the
+plans are the same, off/on is the noise of the measurement.
 <dataset>_pinned.csv holds the runs pinned to CPU layouts (cpu_layouts.py), with 10 threads.
 Usage: split_rule_table.py <result folder> <duckdb> <data folder>
 """

@@ -235,6 +235,11 @@ rsync -av <서버>:~/nested-bench/duckdb/benchmark/nested_parquet/results_<날�
 
 ## 9. 쪼개기 기준 실험 (규칙 (a) 켬/끔)
 
+> **2026-10-18에 끝난 실험입니다.**
+> - 결과는 `server_20261018_split_rule/`에, 해석은 RESULTS.md의 "Hardware experiment and the final criterion"에 있습니다.
+> - 이 결과로 정한 최종 기준은 "레벨을 세야 하면 row group 수 < min(스레드 수, 물리 코어 수)일 때만 쪼갠다"입니다.
+> - 최종 버전에는 아래 명령이 쓰는 설정 `parquet_node_split_half_threads`가 없습니다. 같은 실험을 다시 하려면 2단계에서 main_rey 대신 커밋 `7f2e2261de3`을 빌드하세요.
+
 **무엇을 보나요?**
 - 규칙 (a)는 레벨을 세야 하는 스캔에서, row group이 스레드의 절반 이하를 차지할 때만 row group을 쪼개는 규칙입니다. 설정 `parquet_node_split_half_threads`(기본 켬)로 켜고 끕니다. 끄면 전처럼 "row group 수 < 스레드 수"이면 쪼갭니다.
 - 2026-10-18 서버 측정에서 이 규칙은 TPC-H SF10의 40스레드(row group 22개)는 빠르게 했지만, DBLP의 10스레드(row group 6개)는 느리게 했습니다.
