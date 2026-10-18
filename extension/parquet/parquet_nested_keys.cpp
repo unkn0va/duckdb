@@ -416,7 +416,7 @@ public:
 	void ExecuteTask() override {
 		auto protocol = reader.OpenColumnProtocol(context);
 		auto column_reader = OpenColumnChunk(reader, leaf, row_group, *protocol);
-		column_reader->SeekToPage(page);
+		column_reader->SeekToPage(page, false);
 		ResizeableBuffer define_buf(reader.allocator, STANDARD_VECTOR_SIZE);
 		ResizeableBuffer repeat_buf(reader.allocator, STANDARD_VECTOR_SIZE);
 		auto defines = reinterpret_cast<uint8_t *>(define_buf.ptr);
@@ -488,8 +488,10 @@ ParquetNodeTaskPlan ParquetNodeTaskPlan::Create(ClientContext &context, const Pa
 		row_group_slots.push_back(NumericCast<idx_t>(group.columns[slot_leaf.column_index].meta_data.num_values));
 		total_slots += row_group_slots.back();
 	}
-	// row groups are only split when there are fewer of them than threads - and not when there is too little to split
-	auto task_slots = threads <= 1 || row_groups.size() >= threads
+	// row groups are only split when they occupy at most half of the threads: splitting raises the parallelism of the
+	// scan at most threads / row groups times, and below 2x that does not pay for counting the levels of every split
+	// row group and decompressing the pages that parts start in again. Not either when there is too little to split
+	auto task_slots = threads <= 1 || row_groups.size() * 2 > threads
 	                      ? NumericLimits<idx_t>::Maximum()
 	                      : MaxValue<idx_t>(MaxValue<idx_t>(min_task_slots, 1), total_slots / (threads * 4));
 

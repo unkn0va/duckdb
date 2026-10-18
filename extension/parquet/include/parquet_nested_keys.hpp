@@ -146,9 +146,9 @@ public:
 	void KeyRange(idx_t key_level, idx_t key_upper_bound, idx_t &min_key, idx_t &max_key) const;
 };
 
-//! The parts in which the row groups of a file are scanned. A row group is split only when the file has fewer row
-//! groups than threads, into about one part per thread that starts at a page of the largest column that is read - so
-//! that its pages are decompressed once - or at an offset within its pages when it has fewer pages than parts. The
+//! The parts in which the row groups of a file are scanned. A row group is split only when the row groups occupy at
+//! most half of the threads, into about one part per thread that starts at a page of the largest column that is read -
+//! so that its pages are decompressed once - or at an offset within its pages when it has fewer pages than parts. The
 //! keys at the start of a part are the rows before it, counted per page of the cheapest column of the node and up to
 //! the offset in the page it starts in ("per-page key jumps"), in parallel, once per query and only for the levels
 //! whose keys are needed

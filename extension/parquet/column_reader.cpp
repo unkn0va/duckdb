@@ -459,14 +459,14 @@ vector<ColumnPageInfo> ColumnReader::ReadPageDirectory() {
 	return result;
 }
 
-void ColumnReader::SeekToPage(const ColumnPageInfo &page) {
+void ColumnReader::SeekToPage(const ColumnPageInfo &page, bool read_values) {
 	D_ASSERT(chunk && pending_skips == 0);
 	auto &trans = reinterpret_cast<ThriftFileTransport &>(*protocol->getTransport());
 	// the values of the data pages can refer to the dictionary, which is the first page of the chunk
 	trans.SetLocation(chunk_read_offset);
 	PageHeader page_hdr;
 	ReadPageHeader(page_hdr);
-	if (page_hdr.type == PageType::DICTIONARY_PAGE) {
+	if (page_hdr.type == PageType::DICTIONARY_PAGE && read_values) {
 		PreparePage(page_hdr);
 		auto dictionary_size = page_hdr.dictionary_page_header.num_values;
 		if (dictionary_size < 0) {
@@ -1072,8 +1072,7 @@ idx_t ColumnReader::ReadLevels(ColumnReaderInput &input) {
 	D_ASSERT(to_read <= STANDARD_VECTOR_SIZE);
 	while (to_read > 0) {
 		auto read_now = ReadPageHeaders(to_read);
-		const auto all_valid = PrepareRead(read_now, input.define_out, input.repeat_out, result_offset);
-		SkipPageValues(all_valid ? nullptr : input.define_out + result_offset, read_now);
+		PrepareRead(read_now, input.define_out, input.repeat_out, result_offset);
 		page_rows_available -= read_now;
 		result_offset += read_now;
 		to_read -= read_now;

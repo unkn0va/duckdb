@@ -122,12 +122,14 @@ public:
 	virtual void InitializeRead(idx_t row_group_index, idx_t row_group_num_rows, const vector<ColumnChunk> &columns,
 	                            TProtocol &protocol_p);
 	virtual idx_t Read(ColumnReaderInput &input, Vector &result);
-	//! Read only the repetition and definition levels of the next values - their values are skipped, not decoded
+	//! Read only the repetition and definition levels of the next values - their values are not read, so that the
+	//! reader cannot read values afterwards
 	idx_t ReadLevels(ColumnReaderInput &input);
 	//! The data pages of the column chunk of the row group, read from their headers - right after InitializeRead
 	vector<ColumnPageInfo> ReadPageDirectory();
-	//! Continue reading at the start of a data page of the column chunk (loading its dictionary first, if it has one)
-	void SeekToPage(const ColumnPageInfo &page);
+	//! Continue reading at the start of a data page of the column chunk - loading its dictionary first, if it has one and
+	//! values are read
+	void SeekToPage(const ColumnPageInfo &page, bool read_values = true);
 	virtual void Select(ColumnReaderInput &input, Vector &result, const SelectionVector &sel,
 	                    idx_t approved_tuple_count);
 	virtual void Filter(ColumnReaderInput &input, Vector &result, const TableFilter &filter,
