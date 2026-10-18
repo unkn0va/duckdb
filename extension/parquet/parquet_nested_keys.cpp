@@ -478,7 +478,7 @@ ParquetNodeTaskPlan ParquetNodeTaskPlan::Create(ClientContext &context, const Pa
                                                 const ParquetNodeInfo &node,
                                                 const vector<reference<const ParquetColumnSchema>> &read_leaves,
                                                 const vector<bool> &needed_levels, idx_t threads,
-                                                idx_t min_task_slots) {
+                                                idx_t min_task_slots, bool counted_split_half_threads) {
 	auto &slot_leaf = read_leaves[0].get();
 	auto rows = ParquetNodeRowGroupRows::Compute(context, reader, node);
 	auto &row_groups = reader.GetFileMetadata()->row_groups;
@@ -488,10 +488,21 @@ ParquetNodeTaskPlan ParquetNodeTaskPlan::Create(ClientContext &context, const Pa
 		row_group_slots.push_back(NumericCast<idx_t>(group.columns[slot_leaf.column_index].meta_data.num_values));
 		total_slots += row_group_slots.back();
 	}
-	// row groups are only split when they occupy at most half of the threads: splitting raises the parallelism of the
-	// scan at most threads / row groups times, and below 2x that does not pay for counting the levels of every split
-	// row group and decompressing the pages that parts start in again. Not either when there is too little to split
-	auto task_slots = threads <= 1 || row_groups.size() * 2 > threads
+	// the levels whose rows before a part are counted - the slots of a node with columns are its rows
+	const bool slots_are_rows = !node.leaves.empty();
+	vector<idx_t> counted_levels;
+	for (idx_t k = 0; k <= node.level; k++) {
+		if (needed_levels[k] && !(slots_are_rows && k == node.level)) {
+			counted_levels.push_back(k);
+		}
+	}
+	// row groups are only split when there are fewer of them than threads. When the levels of every split row group
+	// must be counted first, only when they occupy at most half of the threads: splitting raises the parallelism of
+	// the scan at most threads / row groups times, and below 2x that does not pay for the count. Not either when there
+	// is too little to split
+	auto split = counted_levels.empty() || !counted_split_half_threads ? row_groups.size() < threads
+	                                                                    : row_groups.size() * 2 <= threads;
+	auto task_slots = threads <= 1 || !split
 	                      ? NumericLimits<idx_t>::Maximum()
 	                      : MaxValue<idx_t>(MaxValue<idx_t>(min_task_slots, 1), total_slots / (threads * 4));
 
@@ -522,13 +533,6 @@ ParquetNodeTaskPlan ParquetNodeTaskPlan::Create(ClientContext &context, const Pa
 	// pages are then decompressed only once - or within its pages, when it has fewer pages than parts. The rows before
 	// a part are counted per page of a cheap column of the node - with a page for every part, so that the pages are
 	// counted in parallel and a part starts in a small page
-	const bool slots_are_rows = !node.leaves.empty();
-	vector<idx_t> counted_levels;
-	for (idx_t k = 0; k <= node.level; k++) {
-		if (needed_levels[k] && !(slots_are_rows && k == node.level)) {
-			counted_levels.push_back(k);
-		}
-	}
 	vector<reference<const ParquetColumnSchema>> count_candidates;
 	if (slots_are_rows) {
 		for (auto &leaf : node.leaves) {

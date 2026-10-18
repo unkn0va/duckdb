@@ -1144,6 +1144,11 @@ static void LoadInternal(ExtensionLoader &loader) {
 	                          "The number of slots of a nested column below which read_parquet_node does not split a "
 	                          "row group into parts for several threads",
 	                          LogicalType::UBIGINT, Value::UBIGINT(122880));
+	config.AddExtensionOption("parquet_node_split_half_threads",
+	                          "Let read_parquet_node split the row groups of a nested file whose keys need a count of "
+	                          "their levels only when the row groups occupy at most half of the threads - otherwise "
+	                          "whenever there are fewer row groups than threads",
+	                          LogicalType::BOOLEAN, Value::BOOLEAN(true));
 	config.AddExtensionOption("parquet_node_join_filter_pruning",
 	                          "Let read_parquet_node also use the filters that joins create while a query runs, to "
 	                          "skip the parts of a file and the rows that they exclude",

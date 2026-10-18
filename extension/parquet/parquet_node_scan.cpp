@@ -297,8 +297,13 @@ static unique_ptr<GlobalTableFunctionState> ReadParquetNodeInitGlobal(ClientCont
 	if (context.TryGetCurrentSetting("parquet_node_task_slots", task_slots) && !task_slots.IsNull()) {
 		min_task_slots = task_slots.GetValue<idx_t>();
 	}
+	Value half_threads;
+	bool counted_split_half_threads = true;
+	if (context.TryGetCurrentSetting("parquet_node_split_half_threads", half_threads) && !half_threads.IsNull()) {
+		counted_split_half_threads = half_threads.GetValue<bool>();
+	}
 	result->plan = ParquetNodeTaskPlan::Create(context, *data.reader, node, result->read_leaves, needed_levels, threads,
-	                                           min_task_slots);
+	                                           min_task_slots, counted_split_half_threads);
 	auto task_count = result->plan.tasks.size();
 	result->skipped_tasks.resize(task_count, false);
 	if (!result->filters.empty()) {

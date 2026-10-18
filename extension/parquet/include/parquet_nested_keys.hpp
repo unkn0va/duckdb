@@ -146,9 +146,10 @@ public:
 	void KeyRange(idx_t key_level, idx_t key_upper_bound, idx_t &min_key, idx_t &max_key) const;
 };
 
-//! The parts in which the row groups of a file are scanned. A row group is split only when the row groups occupy at
-//! most half of the threads, into about one part per thread that starts at a page of the largest column that is read -
-//! so that its pages are decompressed once - or at an offset within its pages when it has fewer pages than parts. The
+//! The parts in which the row groups of a file are scanned. A row group is split only when there are fewer row groups
+//! than threads - and when the keys need a count of its levels, only when they occupy at most half of the threads -
+//! into about one part per thread that starts at a page of the largest column that is read - so that its pages are
+//! decompressed once - or at an offset within its pages when it has fewer pages than parts. The
 //! keys at the start of a part are the rows before it, counted per page of the cheapest column of the node and up to
 //! the offset in the page it starts in ("per-page key jumps"), in parallel, once per query and only for the levels
 //! whose keys are needed
@@ -157,10 +158,12 @@ struct ParquetNodeTaskPlan {
 
 public:
 	//! read_leaves: the columns that are scanned, the first one has the slots of the scan. needed_levels: the levels
-	//! whose keys are needed
+	//! whose keys are needed. counted_split_half_threads: false splits row groups whose levels are counted whenever
+	//! there are fewer row groups than threads
 	static ParquetNodeTaskPlan Create(ClientContext &context, const ParquetReader &reader, const ParquetNodeInfo &node,
 	                                  const vector<reference<const ParquetColumnSchema>> &read_leaves,
-	                                  const vector<bool> &needed_levels, idx_t threads, idx_t min_task_slots);
+	                                  const vector<bool> &needed_levels, idx_t threads, idx_t min_task_slots,
+	                                  bool counted_split_half_threads);
 };
 
 //! read_parquet_node(file, node := 'a.b') - reads a node of a nested file as a flat relation with key columns
