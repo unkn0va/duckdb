@@ -22,12 +22,13 @@ What this implementation and its measurements do differently from the paper; det
   Placeholders are not returned by default; `include_empty := true` returns them as NULL rows.
 
 **Parallel scan (paper: Listing 3)**
-- A row group is split only when the file has fewer row groups than threads; with 1 thread, or row groups that are not
-  split, the scan is the unchanged single scan.
+- A row group is split only when the row groups occupy at most half of the threads (rule (a), "Split rules after the
+  server results"); with 1 thread, or row groups that are not split, the scan is the unchanged single scan.
 - The parts start at the page boundaries of the largest column that is read (the paper's per-page jumps) - or at
   offsets within its pages when it has fewer pages than threads (Listing 3's offset). The keys at the start of a part
-  come from a pre-pass that counts the repetition levels per page, in parallel, once per query, shared by the parts and
-  by all scans of the same column chunk. Minimum part size: 122,880 slots (`parquet_node_task_slots`).
+  come from a pre-pass that counts the repetition levels per page (reading neither the dictionary nor the values), in
+  parallel, once per query, shared by the parts and by all scans of the same column chunk. Minimum part size: 122,880
+  slots (`parquet_node_task_slots`).
 - Limitation: columns with few pages (XMark bidders: 1-8 pages) are split within pages, which every part then
   decompresses.
 
@@ -42,8 +43,9 @@ What this implementation and its measurements do differently from the paper; det
   pages first: a structural cost of reading the nested file in situ that stored keys (`split`) avoid.
 
 **Benchmark setup**
-- Hardware and software: a laptop (i7-1360P, 4P+8E cores, 16 hardware threads, WSL2) instead of the paper's server;
-  DuckDB v2.1.0-dev release builds; timings drift by tens of percent, so configurations are compared interleaved.
+- Hardware and software: a laptop (i7-1360P, 4P+8E cores, 16 hardware threads, WSL2) and a lab server (Xeon Gold
+  5215, 2 sockets x 10 cores, "Server results") instead of the paper's server; DuckDB v2.1.0-dev release builds;
+  timings drift by tens of percent, so configurations are compared interleaved.
 - Compared systems: the paper compares Umbra with other systems; here everything runs in DuckDB - `builtin` (DuckDB's
   nested types with UNNEST), `node`/`flat` (this implementation), `split` (the paper's pre-split files).
 - Datasets: the paper's archive without the Twitter dataset. All files use data pages v1; only the parquet-mr files
@@ -53,7 +55,9 @@ What this implementation and its measurements do differently from the paper; det
   XMark element order through `"<path>._sk"` in two forms (Umbra's correlated subqueries, and a min/max join).
 - Selectivity experiment (Fig. 15): every variant computes `avg(greatest(a, b))` (the paper's builtin query computes
   `avg(b)`); `split` reads files cut from the paper's `l1.parquet`, as the paper's pre-split files hold other random
-  values; experiment (B) with sorted data and a range predicate is an addition beyond the paper's scope.
+  values; experiment (B) with sorted data and a range predicate is an addition beyond the paper's scope. With 1
+  thread, builtin is faster than flat for every N >= 10 (laptop and server), unlike the paper's Fig. 15 ("Server
+  results").
 
 Variants per query (`queries/<dataset>/<query>.<variant>.sql`):
 - `builtin`: the repository's DuckDB query over the nested file (UNNEST of nested types)
@@ -268,6 +272,158 @@ Configurations as in "How the configurations were aligned" below, with `base` (b
 - `join` (16 threads) skips 15 of 16 child parts at N = 10^6 in (A) and 14-15 from N = 10 on in (B): 0.034-0.037s ->
   0.023-0.029s; `split` in `join` reaches 0.013-0.022s (and 0.011-0.021s with 1 thread, where the node scan cannot
   skip) - the pre-pass over the child's levels is the remaining cost (see "Interpretation").
+
+## Server results (2026-10-17)
+
+The kit of `SERVER.md` (`run_all.sh`) on the lab server: Intel Xeon Gold 5215, **2 sockets x 10 cores** (40 hardware
+threads), 125 GiB; `base` = the original DuckDB (merge base a809d3cd51, builtin queries), `final` = main_rey 787dcd6d1b
+(flat queries; XMark: `flat_minmax`; selectivity: the `query` settings). threads = 1/10/20/40, interleaved, fastest of
+10 runs, no other process used the CPU (`busy_cpu` = 0 everywhere). **All 33 results equal the builtin results or
+their oracles.** Files: `server_20261017/` (CSVs, `summary.md`, `result_check.txt`, `run_info.txt`, logs).
+
+builtin / flat, geometric mean over the queries (> 1: flat is faster):
+
+| dataset | threads=1 | threads=10 | threads=20 | threads=40 |
+|---|---|---|---|---|
+| TPC-H SF1 | 16.35x | 52.24x | 45.56x | 45.80x |
+| TPC-H SF10 | 9.30x | 8.84x | 8.83x | 5.59x |
+| XMark | 7.18x | 5.16x | 5.11x | 4.81x |
+| DBLP | 0.82x | 1.11x | 1.82x | 2.13x |
+| Selectivity (A), a % N = 0 | 0.77x | 2.87x | 2.70x | 3.18x |
+| Selectivity (B), a < 10^6 / N | 0.48x | 1.23x | 1.41x | 1.54x |
+
+- **More threads than cores of a socket.** The server has two CPUs of 10 cores each. Up to 10 threads can run on one
+  socket; beyond that the threads span both sockets and access memory attached to the other socket (NUMA), and beyond
+  20 they share cores (hyper-threading). Scaling above 10 threads is therefore not linear even without the issues below:
+  TPC-H SF1 flat, a single row group whose scan already finishes in 58-234 ms with 10 threads, is fastest with 10
+  threads (q03 0.157s -> 0.183s/0.200s with 20/40); the builtin queries of SF1 use one thread for the single row group
+  and stay at 5.8-6.5s with every thread count.
+- **TPC-H SF10 with 40 threads (problem (a))**: q03, q04 and q12 got 2x slower from 20 to 40 threads (q03 0.394s ->
+  0.815s, CPU 5.1s -> 15.5s). The file has 22 row groups: with 40 threads the old rule (split when there are fewer row
+  groups than threads) split all of them, which costs a level-count pre-pass for every row group and repeated
+  decompression of the pages that parts start in, for a parallelism gain of at most 40/22 = 1.8x. q01 and q06 need no
+  ancestor keys (no pre-pass) and still got faster. Fixed by rule (a) in the next section.
+- **XMark with 10+ threads (problem (b))**: flat_minmax got slower than with 1 thread (q02 0.059s -> 0.094s, CPU
+  0.318s; q04 0.071s -> 0.089s). The file has a single row group, so it is split; on the laptop most of the extra CPU
+  of these queries came from the level-count pre-pass, which decoded the dictionary of an 8.8 MB string column in each
+  of its 8 tasks (next section).
+- **DBLP with 1 thread**: flat is slower than builtin (0.71-0.95x); it overtakes from 10 threads on (1.03-1.33x at 10,
+  1.86-2.32x at 40) - the joins of the flat plan parallelize, the 6 row groups of the builtin scan do not beyond 6
+  threads.
+- **Selectivity with 1 thread: builtin is faster than flat** for N >= 10 (A: 0.43-1.02x, B: 0.37-0.46x; only the
+  unfiltered N = 1 is faster with flat, 1.15x/1.24x). **This differs from the paper's Fig. 15.** A likely reason is
+  that DuckDB's own Parquet scan has improved since the version the paper measured: `read_parquet` evaluates the
+  predicate on `a` during the scan and decodes the list `b` only for the rows that qualify, while the flat plan reads
+  all of the child node and joins it with the parent (the condition on the parent does not reduce the child scan,
+  Section 6.5, as on the laptop). With 10-40 threads flat is faster again (A: 1.6-4.2x, B: 0.87-3.3x), since the
+  builtin query has a single row group and thus one thread.
+
+## Split rules after the server results (2026-10-18)
+
+Principle: **a row group is not split where the cost of splitting - the level-count pre-pass and the repeated
+decompression of the pages that parts start in - exceeds the parallelism it buys.** Two changes, each with a reason
+that does not depend on the benchmark's numbers, and two candidates that the measurements rejected.
+
+**Rule (a): split only when the row groups occupy at most half of the threads** (`row groups x 2 <= threads`; before:
+`row groups < threads`). Splitting raises the parallelism of the scan at most threads / row groups times; below 2x
+that gain does not pay for a pre-pass per row group and the extra decompressions, while the row groups alone already
+keep most threads busy. TPC-H SF10 (22 row groups) is now split only from 44 threads on, DBLP (6) from 12, TPC-H SF1
+and XMark (1) from 2.
+
+**Count only the levels in the pre-pass.** The pre-pass reads the repetition levels of every page of one column, but
+it positioned its reader with the scan's `SeekToPage`, which loads the dictionary of the column chunk - decompressing
+the dictionary page and, for strings, checking every entry for valid UTF-8 - in each of its per-page tasks, and it
+skipped the values of every page. Neither is needed for the levels: the pre-pass now reads no dictionary and no
+values (`SeekToPage(page, false)`, `ReadLevels`). This removes work that never contributed to the result; it is not a
+threshold. Profile of XMark q02, 40 runs, 10 threads (`perf`, CPU samples at 2 kHz): old 7953 samples (snappy 18%,
+`VerifyString` 8%, `StringColumnReader::Plain` 6% - the dictionary of `bidder.personref._person`, 8.8 MB uncompressed,
+decoded by each of its 8 counting tasks), new 5426 (-32%); with 1 thread 2762.
+
+Rejected after measuring (laptop, interleaved):
+- *At most two parts per page* (when a read column has fewer pages than parts). Reason considered: the m-th part in a
+  page saves only 1/(m(m-1)) of its decoding for one more decompression. But the parts also parallelize all work after
+  the scan (key generation, joins), and decompressing a page again is cheap: in TPC-H SF1 the orders scans (1 page,
+  10 parts) used the same CPU with 2 parts and were slower (10 threads: q12 60 -> 75 ms in 20 runs, q10 123 -> 158 ms
+  in 15); XMark did not get faster either (q02 31 -> 32 ms).
+- *Counting the smallest column* instead of the cheapest one with a page for every part. It saves bytes, but the
+  pages of a column with fewer pages than parts are counted by fewer threads, and every part counts the page it starts
+  in up to its offset: TPC-H SF1 q03 84 -> 119 ms, q04 57 -> 81 ms (10 threads, 15 runs). The column with a page for
+  every part is kept.
+
+**Laptop measurements** (i7-1360P, 16 hardware threads; threads beyond 16 are set with `SET threads`): `old` =
+the final build of 2026-10-17 (0d7359b9c2, the split rules the server ran), `new` = this version; interleaved, fastest
+of 15 (XMark, TPC-H SF1) or 10 runs, ms wall (CPU). All results equal the builtin results. CSVs: `rules_*.csv`.
+
+XMark, flat_minmax:
+
+| query | old t1 | new t1 | old t10 | new t10 | old t16 | new t16 |
+|---|---|---|---|---|---|---|
+| q02 | 33 (33) | 32 (32) | 30 (89) | 25 (63) | 31 (89) | 26 (66) |
+| q03 | 65 (65) | 65 (66) | 56 (139) | 46 (108) | 55 (141) | 47 (105) |
+| q04 | 38 (38) | 39 (39) | 30 (84) | 27 (61) | 31 (87) | 29 (67) |
+| q04p | 45 (45) | 45 (45) | 36 (92) | 32 (74) | 40 (111) | 36 (87) |
+
+TPC-H SF10, flat (16 threads: not split by either rule; 40 threads: split only by `old`):
+
+| query | old t16 | new t16 | old t40 | new t40 |
+|---|---|---|---|---|
+| q01 | 865 (10298) | 896 (10953) | 873 (12362) | 820 (11415) |
+| q03 | 566 (6582) | 546 (6342) | 710 (8990) | 518 (6506) |
+| q04 | 447 (5049) | 482 (5445) | 554 (5931) | 547 (6067) |
+| q06 | 367 (4212) | 393 (4603) | 347 (4622) | 352 (4802) |
+| q12 | 472 (5462) | 491 (5718) | 569 (7336) | 468 (6015) |
+
+DBLP, flat (10 threads: split only by `old`):
+
+| query | old t10 | new t10 | old t16 | new t16 |
+|---|---|---|---|---|
+| q06 | 1053 (9231) | 1051 (5182) | 894 (11888) | 760 (10241) |
+| q07 | 1302 (10808) | 1311 (6611) | 1142 (14836) | 1026 (13107) |
+| q08 | 520 (4604) | 417 (1793) | 450 (5951) | 305 (4009) |
+| q09 | 631 (5661) | 584 (2450) | 552 (7402) | 408 (5263) |
+
+TPC-H SF1, flat, 30 runs, with `head` = commit 787dcd6d1b without these changes, built on the same day as `new`:
+
+| query | old t10 | head t10 | new t10 | old t16 | head t16 | new t16 |
+|---|---|---|---|---|---|---|
+| q01 | 90 (709) | 93 (734) | 112 (870) | 85 (1111) | 89 (1150) | 109 (1328) |
+| q03 | 89 (611) | 102 (718) | 99 (667) | 108 (1099) | 110 (1151) | 93 (970) |
+| q04 | 58 (368) | 70 (420) | 70 (426) | 82 (911) | 79 (869) | 71 (756) |
+| q06 | 43 (322) | 57 (414) | 55 (408) | 49 (604) | 49 (615) | 48 (603) |
+| q10 | 128 (572) | 144 (629) | 137 (578) | 150 (998) | 159 (1008) | 139 (847) |
+| q12 | 58 (412) | 73 (530) | 73 (528) | 85 (1003) | 88 (1003) | 79 (886) |
+
+Selectivity (A), flat with the `query` settings, 15 runs (B behaves the same, `rules_selectivity_sorted.csv`):
+
+| N | old t1 | head t1 | new t1 | old t16 | head t16 | new t16 |
+|---|---|---|---|---|---|---|
+| 1 | 151 (151) | 156 (156) | 151 (151) | 53 (514) | 52 (518) | 44 (402) |
+| 10^1 | 96 (96) | 95 (95) | 94 (94) | 41 (409) | 39 (350) | 34 (322) |
+| 10^2 | 85 (85) | 85 (86) | 87 (87) | 37 (319) | 37 (367) | 30 (293) |
+| 10^3 | 84 (84) | 85 (85) | 84 (84) | 37 (325) | 37 (345) | 30 (303) |
+| 10^4 | 84 (84) | 85 (85) | 85 (85) | 36 (362) | 35 (340) | 30 (304) |
+| 10^5 | 83 (83) | 85 (85) | 86 (86) | 36 (328) | 35 (317) | 30 (279) |
+| 10^6 | 84 (84) | 85 (85) | 86 (86) | 34 (360) | 35 (421) | 29 (265) |
+
+- **XMark** (problem (b)): with 10/16 threads 6-18% faster and 20-29% less CPU; 1 thread unchanged (no split).
+- **TPC-H SF10 with 40 threads** (problem (a)): no longer split - q03 710 -> 518 ms, q12 569 -> 468 ms; 40 threads are
+  now faster than 16 except q04 (547 vs 482 ms). With 16 threads the plan is the same in both builds (up to 8% apart:
+  build noise, below).
+- **DBLP**: with 10 threads (no longer split) the same time or faster with 39-61% less CPU; with 16 threads (still split, levels
+  only) 10-32% faster.
+- **Selectivity**: with 16 threads 13-19% faster than `head` (the child's dictionary is no longer decoded by the pre-pass).
+- **TPC-H SF1 - build noise**: compared with `old`, `new` looked 5-15 ms slower with 10 threads, also for q01 and q06,
+  whose plans and executed code did not change. `head` (the unchanged code, built on the same day) is as slow as `new`
+  there, so the difference comes from the build (code layout), not from the rules; against `head`, `new` is equal
+  with 10 threads and faster with 16 (q03 110 -> 93, q10 159 -> 139 ms). q01 (no pre-pass, unchanged code) still
+  differs by up to 20 ms between `head` and `new`: the noise floor of comparing two binaries on these 50-150 ms
+  queries.
+
+Plans that change (debug log of the scans, threads 10/16/20/40): TPC-H SF10 at 40 threads and DBLP at 10 threads are
+no longer split (rule (a)); every scan that counts levels in a dictionary-encoded column does less work (all datasets
+with a split row group: TPC-H SF1, XMark, DBLP from 12 threads on, the selectivity files); the parts themselves are
+unchanged. The datasets to measure again on the server are therefore `tpch_sf1 tpch_sf10 xmark dblp
+selectivity_random selectivity_sorted`.
 
 ## Row groups of the nested files
 

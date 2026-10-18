@@ -55,7 +55,7 @@ for p in git cmake ninja g++ make python3 tmux unzip curl sha256sum; do
   if command -v $p >/dev/null; then echo "$p: 있음"; else echo "$p: 없음 <-- 설치 필요"; fi
 done
 cmake --version | head -1; g++ --version | head -1; python3 --version
-python3 -c "import venv; print('python3-venv: 있음')" || echo "python3-venv: 없음 <-- 설치 필요"
+python3 -c "import venv, ensurepip; print('python3-venv: 있음')" || echo "python3-venv(ensurepip): 없음 <-- '자주 생기는 문제' 참고"
 echo "CPU: $(nproc) 스레드, 메모리: $(free -g | awk '/^Mem:/ {print $2}') GB, 홈 폴더 남은 공간: $(df -h ~ | awk 'NR==2 {print $4}')"
 ```
 
@@ -251,6 +251,23 @@ rsync -av <서버>:~/nested-bench/duckdb/benchmark/nested_parquet/results_<날�
 - 출력에 데이터셋, 쿼리, 변형이 나옵니다. 로그(`logs/<데이터셋>.log`)에서 그 쿼리의 줄을 찾아 보세요.
 - 데이터가 손상됐을 수도 있으니 4단계의 `--full` 확인을 다시 해 보세요.
 - 그래도 다르면 결과 폴더를 통째로 노트북으로 가져와 분석합니다.
+
+**venv 생성 실패: `ensurepip is not available`**
+- 서버의 Python에 pip을 설치하는 모듈(ensurepip)이 없어서 생기는 오류입니다. Debian/Ubuntu에서 `python3-venv` 패키지가 빠진 경우입니다.
+- 관리자에게 `python3-venv`(예: `python3.12-venv`) 설치를 부탁하거나, 관리자 권한 없이 아래처럼 pip 없이 venv를 만든 뒤 pip을 따로 설치합니다.
+- 실패한 venv 폴더가 남아 있으면 먼저 지웁니다. 첫 줄의 `rm -rf`가 그 일을 합니다.
+
+  ```bash
+  rm -rf ~/nested-bench/venv
+  python3 -m venv --without-pip ~/nested-bench/venv
+  curl -sSL https://bootstrap.pypa.io/get-pip.py -o /tmp/get-pip.py
+  ~/nested-bench/venv/bin/python /tmp/get-pip.py
+  ~/nested-bench/venv/bin/pip install pyarrow==26.0.0 gdown
+  ~/nested-bench/venv/bin/python -c "import pyarrow; print('pyarrow', pyarrow.__version__)"
+  ```
+
+- 마지막 줄이 `pyarrow 26.0.0`이면 1단계의 venv 만들기가 끝난 것이니 2단계로 넘어가세요.
+- Python 3.11 미만이라 `python3.11` 등을 쓰는 경우에는 둘째 줄의 `python3`도 그 이름으로 바꾸세요.
 
 **데이터 받기가 중간에 끊김**
 - gdown은 받던 내용을 `nested-parquet-datasets.zip....part`라는 파일에 남깁니다.
