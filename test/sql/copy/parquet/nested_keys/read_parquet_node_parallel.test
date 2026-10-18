@@ -4,6 +4,10 @@
 
 require parquet
 
+# the row groups whose levels are counted are split by as many threads as the tests set, whatever the machine
+statement ok
+SET parquet_node_physical_cores = 64
+
 # small pages: the top-level columns and the lists of primitives without NULL lists get many pages, with different
 # boundaries (a list with NULL lists is written in a single page)
 statement ok
@@ -140,8 +144,8 @@ RESET threads
 
 endloop
 
-# 3 row groups and 4 threads: fewer row groups than threads, but more than half of them. A scan whose keys need a count
-# of the levels splits them only with parquet_node_split_half_threads = false, a scan without a count always
+# 3 row groups and 4 threads, but 2 physical cores: a scan whose keys need a count of the levels does not split them
+# (there are not fewer row groups than cores), a scan without a count does
 statement ok
 SET threads = 1
 
@@ -150,6 +154,9 @@ CREATE OR REPLACE TABLE expected_many_l AS FROM read_parquet_node('{TEST_DIR}/pa
 
 statement ok
 SET threads = 4
+
+statement ok
+SET parquet_node_physical_cores = 2
 
 statement ok
 SET parquet_node_task_slots = 777
@@ -181,8 +188,9 @@ true
 statement ok
 CALL truncate_duckdb_logs()
 
+# with 4 cores, fewer row groups than cores that run the threads
 statement ok
-SET parquet_node_split_half_threads = false
+SET parquet_node_physical_cores = 4
 
 query I
 SELECT count(*) FROM ((FROM read_parquet_node('{TEST_DIR}/paged_many.parquet', node := 'l', include_empty := true) EXCEPT ALL FROM expected_many_l)
@@ -202,7 +210,7 @@ statement ok
 CALL truncate_duckdb_logs()
 
 statement ok
-RESET parquet_node_split_half_threads
+SET parquet_node_physical_cores = 64
 
 statement ok
 RESET parquet_node_task_slots

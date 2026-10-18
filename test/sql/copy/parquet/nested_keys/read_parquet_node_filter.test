@@ -4,6 +4,10 @@
 
 require parquet
 
+# the row groups whose levels are counted are split by as many threads as the tests set, whatever the machine
+statement ok
+SET parquet_node_physical_cores = 64
+
 # written with pyarrow (data/parquet-testing/nested_pages/generate.py): nested_pages_v1 has one row group, nested_pages_v2
 # three - "l" is a list of structs (a: ascending, b: dictionary encoded, c: strings) with NULL and empty lists, "m" a list
 # of lists

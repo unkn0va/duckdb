@@ -2,6 +2,8 @@
 
 #include "column_reader.hpp"
 #include "parquet_reader.hpp"
+#include "duckdb/common/file_system.hpp"
+#include "duckdb/common/set.hpp"
 #include "duckdb/common/string_util.hpp"
 #include "duckdb/common/types/data_chunk.hpp"
 #include "duckdb/common/vector/constant_vector.hpp"
@@ -18,11 +20,55 @@
 #include "duckdb/storage/table/column_segment.hpp"
 
 #include <algorithm>
+#include <thread>
 
 namespace duckdb {
 
 //! The default number of slots below which a row group is not split into parts for several threads
 static constexpr idx_t DEFAULT_TASK_SLOTS = 60 * STANDARD_VECTOR_SIZE;
+
+//! The physical cores of the machine: on Linux the distinct (package, core) pairs of its CPUs, elsewhere (or when
+//! they cannot be read) the hardware threads
+static idx_t DetectPhysicalCores() {
+	idx_t hardware_threads = MaxValue<idx_t>(std::thread::hardware_concurrency(), 1);
+#if defined(__linux__) && !defined(DUCKDB_WASM)
+	try {
+		auto fs = FileSystem::CreateLocal();
+		auto read_id = [&](const string &path) {
+			auto handle = fs->OpenFile(path, FileFlags::FILE_FLAGS_READ | FileFlags::FILE_FLAGS_NULL_IF_NOT_EXISTS);
+			if (!handle) {
+				return string();
+			}
+			char buffer[32];
+			auto bytes_read = fs->Read(*handle, buffer, sizeof(buffer) - 1);
+			return StringUtil::Replace(string(buffer, NumericCast<idx_t>(MaxValue<int64_t>(bytes_read, 0))), "\n", "");
+		};
+		set<string> cores;
+		for (auto &cpu : fs->Glob("/sys/devices/system/cpu/cpu[0-9]*")) {
+			auto package = read_id(cpu.path + "/topology/physical_package_id");
+			auto core = read_id(cpu.path + "/topology/core_id");
+			if (package.empty() || core.empty()) {
+				return hardware_threads;
+			}
+			cores.insert(package + "/" + core);
+		}
+		if (!cores.empty()) {
+			return cores.size();
+		}
+	} catch (std::exception &) {
+	}
+#endif
+	return hardware_threads;
+}
+
+static idx_t PhysicalCores(ClientContext &context) {
+	Value setting;
+	if (context.TryGetCurrentSetting("parquet_node_physical_cores", setting) && !setting.IsNull()) {
+		return MaxValue<idx_t>(setting.GetValue<idx_t>(), 1);
+	}
+	static const idx_t detected = DetectPhysicalCores();
+	return detected;
+}
 
 struct ReadParquetNodeData : public TableFunctionData {
 	shared_ptr<ParquetReader> reader;
@@ -297,13 +343,8 @@ static unique_ptr<GlobalTableFunctionState> ReadParquetNodeInitGlobal(ClientCont
 	if (context.TryGetCurrentSetting("parquet_node_task_slots", task_slots) && !task_slots.IsNull()) {
 		min_task_slots = task_slots.GetValue<idx_t>();
 	}
-	Value half_threads;
-	bool counted_split_half_threads = true;
-	if (context.TryGetCurrentSetting("parquet_node_split_half_threads", half_threads) && !half_threads.IsNull()) {
-		counted_split_half_threads = half_threads.GetValue<bool>();
-	}
 	result->plan = ParquetNodeTaskPlan::Create(context, *data.reader, node, result->read_leaves, needed_levels, threads,
-	                                           min_task_slots, counted_split_half_threads);
+	                                           min_task_slots, PhysicalCores(context));
 	auto task_count = result->plan.tasks.size();
 	result->skipped_tasks.resize(task_count, false);
 	if (!result->filters.empty()) {

@@ -478,7 +478,7 @@ ParquetNodeTaskPlan ParquetNodeTaskPlan::Create(ClientContext &context, const Pa
                                                 const ParquetNodeInfo &node,
                                                 const vector<reference<const ParquetColumnSchema>> &read_leaves,
                                                 const vector<bool> &needed_levels, idx_t threads,
-                                                idx_t min_task_slots, bool counted_split_half_threads) {
+                                                idx_t min_task_slots, idx_t physical_cores) {
 	auto &slot_leaf = read_leaves[0].get();
 	auto rows = ParquetNodeRowGroupRows::Compute(context, reader, node);
 	auto &row_groups = reader.GetFileMetadata()->row_groups;
@@ -497,11 +497,11 @@ ParquetNodeTaskPlan ParquetNodeTaskPlan::Create(ClientContext &context, const Pa
 		}
 	}
 	// row groups are only split when there are fewer of them than threads. When the levels of every split row group
-	// must be counted first, only when they occupy at most half of the threads: splitting raises the parallelism of
-	// the scan at most threads / row groups times, and below 2x that does not pay for the count. Not either when there
-	// is too little to split
-	auto split = counted_levels.empty() || !counted_split_half_threads ? row_groups.size() < threads
-	                                                                    : row_groups.size() * 2 <= threads;
+	// must be counted first, only when there are fewer of them than cores that run the threads: once the row groups
+	// occupy all cores, more threads are hyper-threads, which gain less than the count costs. Not either when there is
+	// too little to split
+	auto split = counted_levels.empty() ? row_groups.size() < threads
+	                                    : row_groups.size() < MinValue<idx_t>(threads, physical_cores);
 	auto task_slots = threads <= 1 || !split
 	                      ? NumericLimits<idx_t>::Maximum()
 	                      : MaxValue<idx_t>(MaxValue<idx_t>(min_task_slots, 1), total_slots / (threads * 4));
