@@ -1,0 +1,7 @@
+dblp: 4 queries, 4 comparisons
+selectivity_random: 7 queries, 7 comparisons
+selectivity_sorted: 7 queries, 7 comparisons
+tpch_sf1: 6 queries, 6 comparisons
+tpch_sf10: 5 queries, 5 comparisons
+xmark: 4 queries, 4 comparisons
+OK: all 33 results equal the builtin results (or their oracles).

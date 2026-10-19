@@ -1,0 +1,24 @@
+date:      2026-10-18T15:09:16+00:00
+host:      apache10
+cpu:       Intel(R) Xeon(R) Gold 5215 CPU @ 2.50GHz (40 hardware threads)
+memory:    125 GiB
+base:      v2.1.0-dev88383 a809d3cd51  /home/layun03/nested-bench/duckdb_base/build/release/duckdb
+final:     v2.1.0-dev88404 206fb25028  /home/layun03/nested-bench/duckdb/build/release/duckdb
+data:      /home/layun03/nested-bench/data
+threads:   1 10 20 40
+runs:      10
+variants:  base=builtin final=flat,flat_minmax
+datasets:  tpch_sf1 tpch_sf10 xmark dblp selectivity_random selectivity_sorted
+
+tpch_sf10 was measured again after the physical-core detection fix (the run above split it at 40 threads):
+date:      2026-10-19T00:40:32+00:00
+host:      apache10
+cpu:       Intel(R) Xeon(R) Gold 5215 CPU @ 2.50GHz (40 hardware threads)
+memory:    125 GiB
+base:      v2.1.0-dev88383 a809d3cd51  /home/layun03/nested-bench/duckdb_base/build/release/duckdb
+final:     v2.1.0-dev88405 924a47be83  /home/layun03/nested-bench/duckdb/build/release/duckdb
+data:      /home/layun03/nested-bench/data
+threads:   1 10 20 40
+runs:      10
+variants:  base=builtin final=flat,flat_minmax
+datasets:  tpch_sf10

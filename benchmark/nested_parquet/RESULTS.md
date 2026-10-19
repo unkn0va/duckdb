@@ -48,8 +48,8 @@ What this implementation and its measurements do differently from the paper; det
 
 **Benchmark setup**
 - Hardware and software: a laptop (i7-1360P, 4P+8E cores, 16 hardware threads, WSL2) and a lab server (Xeon Gold
-  5215, 2 sockets x 10 cores, "Server results") instead of the paper's server; DuckDB v2.1.0-dev release builds;
-  timings drift by tens of percent, so configurations are compared interleaved.
+  5215, 2 sockets x 10 cores; final numbers in "Final server run") instead of the paper's server; DuckDB v2.1.0-dev
+  release builds; timings drift by tens of percent, so configurations are compared interleaved.
 - Compared systems: the paper compares Umbra with other systems; here everything runs in DuckDB - `builtin` (DuckDB's
   nested types with UNNEST), `node`/`flat` (this implementation), `split` (the paper's pre-split files).
 - Datasets: the paper's archive without the Twitter dataset. All files use data pages v1; only the parquet-mr files
@@ -401,6 +401,40 @@ cores are the distinct (package, core) pairs of `/sys/devices/system/cpu` on Lin
 the setting `parquet_node_physical_cores` overrides them (the tests set it, so that their plans do not depend on the
 machine). A CPU affinity mask (`taskset`) is not taken into account - with `ht` above, DuckDB still sees 20 cores and
 splits, which costs nothing measurable there. This ends the tuning of the split rules.
+
+### Final server run (2026-10-19)
+
+`run_all.sh` with the final split rule, same server, threads = 1/10/20/40, fastest of 10 runs, `busy_cpu` = 0. **All
+33 results equal the builtin results or their oracles.** Files: `server_20261019_final/`. The first run of it
+(main_rey 206fb25028) did not detect the physical cores: `FileSystem::Glob` returns no directories, so the
+`/sys/devices/system/cpu/cpu<N>` directories were not found and the hardware threads (40) were used - TPC-H SF10 was
+split at 40 threads again (q03 0.771s). After the fix (924a47be83: the directory is listed instead; the debug log now
+says `... 40 threads run on 20 physical cores: the row groups are not split`, `SERVER.md` step 6) TPC-H SF10 was
+measured again; its first measurement is kept as `tpch_sf10_detection_bug.csv.txt`. The other datasets are not
+affected by the fix (DBLP: 6 row groups < 20 cores either way; the others have 1 row group).
+
+builtin / flat, geometric mean (first server run -> final):
+
+| dataset | threads=1 | threads=10 | threads=20 | threads=40 |
+|---|---|---|---|---|
+| TPC-H SF1 | 16.35x -> 15.36x | 52.24x -> 51.51x | 45.56x -> 47.58x | 45.80x -> 46.12x |
+| TPC-H SF10 | 9.30x -> 8.93x | 8.84x -> 8.44x | 8.83x -> 8.45x | **5.59x -> 8.23x** |
+| XMark | 7.18x -> 6.92x | **5.16x -> 5.95x** | 5.11x -> 5.99x | 4.81x -> 5.56x |
+| DBLP | 0.82x -> 0.82x | **1.11x -> 1.39x** | 1.82x -> 2.22x | 2.13x -> 2.59x |
+| Selectivity (A) | 0.77x -> 0.74x | 2.87x -> 2.87x | 2.70x -> 3.02x | 3.18x -> 3.03x |
+| Selectivity (B) | 0.48x -> 0.42x | 1.23x -> 1.35x | 1.41x -> 1.29x | 1.54x -> 1.51x |
+
+- **TPC-H SF10, 40 threads**: q03 0.815 -> 0.422s, q04 0.629 -> 0.323s, q12 0.586 -> 0.286s (not split: they count
+  levels, 22 row groups >= 20 cores); q01 0.426s and q06 0.186s (split: no count) - near their best (0.400s, 0.174s
+  in the first run). With 40 threads SF10 is now as fast as with 20 or faster (q03 0.408s/0.422s).
+- **DBLP**: split at 10 threads again - the fastest of all runs (q06 0.771s, q07 1.045s, q08 0.328s, q09 0.427s;
+  first run 0.885/1.256/0.429/0.526s), and 8-25% faster than the first run at 20/40 threads (level-only pre-pass).
+- **XMark**: 9-18% faster than the first run with 10-40 threads, still slower than with 1 thread (limitation above).
+- **TPC-H SF1 and selectivity**: as in the first run with 10-40 threads.
+- **1 thread**: flat is up to 11% slower than in the first run (SF1 q06 0.293 -> 0.326s, selectivity 0.165 ->
+  0.182s), builtin is not. The 1-thread path did not change; as on the laptop (`head` vs `old`, "Split rules after
+  the server results"), two builds of the same code differ by this much - the ratios at 1 thread differ by the same
+  amount.
 
 ## Split rules after the server results (2026-10-18)
 
