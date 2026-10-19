@@ -446,6 +446,120 @@ git worktree list
 
 `git worktree list`에 `~/nested-bench/duckdb` 한 줄만 남으면 됩니다. `~/nested-bench/build_diff/results`와 빌드 로그는 남아 있습니다.
 
+## 11. 명령어 수 비교 (A1 vs B)
+
+**무엇을 보나요?**
+- 10단계에서 B(1차 커밋 `787dcd6d1b`)가 1스레드의 모든 flat 쿼리에서 A1(최종 커밋 `924a47be83`)보다 평균 5% 빨랐습니다.
+- 그 사이에 바뀐 코드는 1스레드 스캔에서는 실행되지 않습니다. 그래서 두 가지 가능성이 있습니다.
+  - A1이 실제로 일을 더 하는지
+  - 같은 일을 하는데 코드 배치 때문에 느린지
+- `perf stat`으로 실행한 명령어 수(instructions)와 CPU 사이클(cycles)을 세어 둘을 가립니다.
+- 바뀐 `column_reader.cpp`는 DuckDB의 기존 Parquet 읽기(`read_parquet`)도 씁니다. 그래서 flat뿐 아니라 builtin 쿼리도 A1과 B로 각각 잽니다. 우리 변경이 일반 Parquet 읽기까지 느리게 했는지 보기 위해서입니다.
+- 10단계의 a1, b worktree와 바이너리를 그대로 씁니다. 10-4 정리를 아직 하지 않았어야 합니다.
+
+**걸리는 시간**: 11-0 1분, 11-1 약 10분, 11-2 약 20분. 디스크는 거의 쓰지 않습니다.
+
+**11-0. perf를 쓸 수 있는지 확인**
+
+```bash
+which perf && perf --version
+cat /proc/sys/kernel/perf_event_paranoid
+perf stat -e instructions:u,cycles:u -- true
+```
+
+- 마지막 명령의 출력에 `instructions:u`와 `cycles:u` 두 줄이 숫자와 함께 나오면 쓸 수 있습니다. 11-1로 가세요.
+- 안 될 때:
+
+| 증상 | 원인 | 대안 |
+|---|---|---|
+| `perf: command not found` | perf가 설치되지 않음 | 관리자에게 설치를 부탁합니다(Ubuntu: `linux-tools-$(uname -r)`, Debian: `linux-perf`). |
+| `No permission` / `Access to performance monitoring and observability operations is limited`, 둘째 줄이 3 이상 | 커널이 일반 사용자의 카운터 사용을 막음 | 관리자에게 `sudo sysctl kernel.perf_event_paranoid=2`를 부탁합니다(재부팅하면 원래대로 돌아갑니다). 2 이하면 자기 프로세스의 사용자 영역 카운터(`:u`)를 쓸 수 있습니다. |
+| `<not supported>` | 가상 머신 등에서 하드웨어 카운터가 없음 | 아래 valgrind 대안을 씁니다. |
+
+- **관리자 도움 없이 하는 대안 (valgrind가 있을 때)**: `which valgrind`로 확인합니다.
+  - callgrind는 실행한 명령어 수를 정확히 셉니다. 사이클은 세지 않습니다.
+  - 그래서 명령어 수는 callgrind로 보고, 시간은 10단계 결과와 11-2를 씁니다.
+  - 한 번 실행이 수십 배 느려지므로 짧은 쿼리만 잽니다.
+
+  ```bash
+  cd ~/nested-bench/build_diff/a1/benchmark/nested_parquet
+  for q in xmark/q02.flat_minmax xmark/q02.builtin selectivity_random/n6.builtin; do
+    d=$(dirname $q); case $d in xmark) dir=nested-parquet-datasets/xmark ;; *) dir=$d ;; esac
+    printf 'SET threads = 1;\n.mode trash\n%s\n' "$(cat queries/$q.sql)" > ~/nested-bench/build_diff/cg.sql
+    for w in a1 b; do
+      echo "$q $w: $(cd ~/nested-bench/data/$dir && valgrind --tool=callgrind --callgrind-out-file=/dev/null \
+        ~/nested-bench/build_diff/$w/build/release/duckdb -no-agent -f ~/nested-bench/build_diff/cg.sql 2>&1 | grep -o 'Collected : [0-9]*')"
+    done
+  done
+  ```
+
+  `Collected : <수>`가 실행한 명령어 수입니다. a1과 b의 수를 비교하세요.
+
+**11-1. 명령어 수와 사이클** (약 10분)
+
+쿼리마다 a1과 b를 번갈아 5번씩 실행하고, 가장 작은 값을 씁니다. 한 번 실행은 프로세스 하나가 쿼리를 3번 반복하는 것입니다. flat 쿼리 5개와 builtin 쿼리 4개를 잽니다.
+
+```bash
+cd ~/nested-bench/duckdb && git fetch origin
+git show origin/main_rey:benchmark/nested_parquet/perf_compare.py > ~/nested-bench/build_diff/perf_compare.py
+cd ~/nested-bench/build_diff/a1/benchmark/nested_parquet
+python3 ~/nested-bench/build_diff/perf_compare.py perf \
+  --binary a1=$HOME/nested-bench/build_diff/a1/build/release/duckdb \
+  --binary b=$HOME/nested-bench/build_diff/b/build/release/duckdb \
+  --queries queries --data $HOME/nested-bench/data \
+  --setup "SET disabled_optimizers = 'join_filter_pushdown';SET parquet_node_join_filter_pruning = false;" \
+  tpch_sf1/q06.flat tpch_sf1/q12.flat xmark/q02.flat_minmax selectivity_random/n6.flat selectivity_sorted/n1.flat \
+  tpch_sf1/q06.builtin xmark/q02.builtin dblp/q08.builtin selectivity_random/n6.builtin \
+  | tee ~/nested-bench/build_diff/results/perf.md
+```
+
+- 표에 쿼리마다 a1과 b의 instructions, cycles, 그 비율(b/a1), IPC(사이클당 명령어 수)가 나옵니다.
+- 어떤 줄에 `ERROR`가 나오면 11-0의 확인을 다시 해 보세요.
+
+**11-2. builtin 시간 비교** (약 20분)
+
+10단계는 builtin을 원래 DuckDB(base)로만 쟀습니다. 여기서는 builtin을 A1과 B로 번갈아 잽니다. 10회 중 최솟값을 쓰고, TPC-H SF10은 오래 걸려서 뺍니다.
+
+```bash
+cd ~/nested-bench/build_diff/a1/benchmark/nested_parquet
+A1=~/nested-bench/build_diff/a1/build/release/duckdb
+B=~/nested-bench/build_diff/b/build/release/duckdb
+DATA=~/nested-bench/data
+OUT=~/nested-bench/build_diff/builtin_ab
+mkdir -p $OUT
+for spec in "tpch_sf1 nested-parquet-datasets/nested-tpch" "xmark nested-parquet-datasets/xmark" \
+            "dblp nested-parquet-datasets/dblp" "selectivity_random selectivity_random" \
+            "selectivity_sorted selectivity_sorted"; do
+  set -- $spec
+  [ -f $OUT/$1.csv ] && continue
+  RUNS=10 THREADS=1 VARIANTS="a1=builtin b=builtin" \
+    python3 run_bench.py "a1=$A1,b=$B" queries/$1 $DATA/$2 $OUT/$1.csv > $OUT/$1.log 2>&1 \
+    || { echo "STOPPED: see $OUT/$1.log"; break; }
+  echo "$1 done $(date +%H:%M)"
+done
+python3 ~/nested-bench/build_diff/perf_compare.py table $OUT | tee $OUT/table.md
+```
+
+노트북으로 가져오기 (노트북에서):
+
+```bash
+rsync -av <서버>:~/nested-bench/build_diff/results/perf.md <서버>:~/nested-bench/build_diff/builtin_ab ~/build_diff_results/
+```
+
+**결과 읽는 법**
+
+11-1의 `instructions b/a1`과 `cycles b/a1`을 봅니다. 시간 비율은 10단계의 `b/a1`(flat)과 11-2의 표(builtin)에 있습니다.
+
+| instructions b/a1 | cycles b/a1 | 해석 |
+|---|---|---|
+| 1에 가까움 (±0.5% 안) | 1보다 작음 (시간 비율과 비슷) | **코드 배치**: 두 바이너리가 같은 명령어를 실행하지만, A1이 사이클당 명령어를 덜 처리합니다(IPC a1 < IPC b). 명령어 캐시, 분기 예측, 루프 정렬처럼 코드가 메모리에 놓인 위치에 따른 차이입니다. |
+| 1보다 작음 (시간 비율과 비슷) | 비슷하게 작음 | **실제 추가 작업**: A1이 명령어를 더 실행합니다. 10단계 (2)처럼 사이의 커밋을 하나씩 빌드해서 원인 커밋을 찾아야 합니다. |
+
+builtin은 따로 봅니다.
+- builtin도 B가 빠르면(11-2의 `b/a1` < 1, 11-1의 builtin cycles도 B가 적음), 우리 변경이 DuckDB의 일반 Parquet 읽기에도 영향을 준 것입니다.
+  - 명령어 수가 같으면 코드 배치 때문이고, 다르면 일반 읽기 경로에서 일이 늘어난 것입니다.
+- builtin이 차이가 없으면(`b/a1` ≈ 1), 영향은 `read_parquet_node` 쪽에만 있습니다.
+
 ## 자주 생기는 문제
 
 **시작이 거부됨: `STOPPED: other processes keep the CPU busy`**

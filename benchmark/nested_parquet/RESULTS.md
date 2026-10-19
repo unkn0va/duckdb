@@ -432,9 +432,40 @@ builtin / flat, geometric mean (first server run -> final):
 - **XMark**: 9-18% faster than the first run with 10-40 threads, still slower than with 1 thread (limitation above).
 - **TPC-H SF1 and selectivity**: as in the first run with 10-40 threads.
 - **1 thread**: flat is up to 11% slower than in the first run (SF1 q06 0.293 -> 0.326s, selectivity 0.165 ->
-  0.182s), builtin is not. The 1-thread path did not change; as on the laptop (`head` vs `old`, "Split rules after
-  the server results"), two builds of the same code differ by this much - the ratios at 1 thread differ by the same
-  amount.
+  0.182s), builtin is not - in every dataset, so it was checked whether this is a difference between builds (next
+  section): it is not.
+
+### 1-thread difference between the first and the final run (2026-10-19)
+
+`SERVER.md`, step 10: the flat queries of all datasets with 1 thread in three fresh builds - A1 and A2 from the final
+commit 924a47be83 in two folders, B from the commit of the first run 787dcd6d1b - and builtin with the original DuckDB,
+interleaved, fastest of 10 runs, `busy_cpu` = 0. All results equal the builtin results. Files:
+`server_20261019_build_diff/` (`table.md`: every query).
+
+| dataset | A2/A1 | B/A1 | largest A2/A1 difference | builtin now / first run, final run |
+|---|---|---|---|---|
+| DBLP | 1.000 | 0.986 | 0.9% | 1.000, 1.002 |
+| Selectivity (A) | 1.005 | 0.932 | 2.8% | 1.043, 1.000 |
+| Selectivity (B) | 1.003 | 0.938 | 3.5% | 0.967, 1.032 |
+| TPC-H SF1 | 1.001 | 0.929 | 1.2% | 1.009, 0.998 |
+| TPC-H SF10 | 1.003 | 0.962 | 1.0% | 0.998, 1.000 |
+| XMark | 1.006 | 0.958 | 1.4% | 1.006, 0.997 |
+| all 33 queries | 1.003 | 0.947 | 3.5% | |
+
+- The machine ran as in the earlier runs (builtin within 4% of both).
+- Two builds of the same commit are the same (A2/A1 1.003, at most 3.5% apart, in both directions: A2 faster in 12
+  of 33 queries) - on this server a rebuild does not change the timings.
+- B is faster than A1 in **all 33 queries** (5.3% in the geometric mean, 7.1% in TPC-H SF1), beyond the difference
+  between two builds in every dataset (DBLP only just: 1.4% against 0.9%). **So the 1-thread slowdown comes from the code changes between
+  787dcd6d1b and 924a47be83, not from the build.**
+- Those changes (the split rule, the level-only pre-pass, the physical-core detection) are not executed by a scan
+  with 1 thread: the plan is the unsplit scan in both, and the core detection runs once per process (the 10 runs of a
+  query share a process; the fastest counts). The laptop did not show the difference in a single run (B/A1 1.008 for
+  TPC-H SF10, where the server shows 0.962). A likely explanation is the placement of the hot code: the changes
+  touch `column_reader.cpp`, part of the Parquet reader's decoding path, and a different code layout can cost a few
+  percent on one CPU (Xeon Gold 5215) but not on another. This is not confirmed: it
+  needs the instruction counts of A1 and B on the server (equal counts with more cycles = layout) - this WSL laptop
+  has no hardware counters.
 
 ## Split rules after the server results (2026-10-18)
 
