@@ -127,8 +127,8 @@ public:
 	idx_t ReadLevels(ColumnReaderInput &input);
 	//! The data pages of the column chunk of the row group, read from their headers - right after InitializeRead
 	vector<ColumnPageInfo> ReadPageDirectory();
-	//! Continue reading at the start of a data page of the column chunk - loading its dictionary first, if it has one and
-	//! values are read
+	//! Continue reading at the start of a data page of the column chunk - loading its dictionary first, if it has one
+	//! and values are read
 	void SeekToPage(const ColumnPageInfo &page, bool read_values = true);
 	virtual void Select(ColumnReaderInput &input, Vector &result, const SelectionVector &sel,
 	                    idx_t approved_tuple_count);

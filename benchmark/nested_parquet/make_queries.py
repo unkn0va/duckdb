@@ -1,6 +1,8 @@
 import os, re, sys
+
 REPO = sys.argv[1]
 OUT = sys.argv[2]
+
 
 def copy(dataset_repo, name, qdir, builtin_file, normalized_file):
     os.makedirs(qdir, exist_ok=True)
@@ -10,8 +12,10 @@ def copy(dataset_repo, name, qdir, builtin_file, normalized_file):
     norm = re.sub(r"'([A-Za-z0-9]+_?[0-9]+\.parquet)'", r"'normalized/\1'", norm)
     open(os.path.join(qdir, f"{name}.split.sql"), "w").write(norm)
 
+
 def node(qdir, name, sql):
     open(os.path.join(qdir, f"{name}.node.sql"), "w").write(sql.strip() + "\n")
+
 
 # ---------------- TPC-H SF10: customer -> orders -> lineitems ----------------
 q = os.path.join(OUT, "tpch_sf10")
@@ -48,10 +52,14 @@ node(q, "q01", Q1_BODY.format(L=L))
 node(q, "q06", Q6_BODY.format(L=L))
 node(q, "q04", Q4_BODY.format(O=O, L=L, OL="_ak1"))
 node(q, "q12", Q12_BODY.format(O=O, L=L, OL="_ak1"))
-node(q, "q03", f"""select o_orderkey, sum(l_extendedprice * (1 - l_discount)) as revenue, o_orderdate, o_shippriority
+node(
+    q,
+    "q03",
+    f"""select o_orderkey, sum(l_extendedprice * (1 - l_discount)) as revenue, o_orderdate, o_shippriority
 from {C} c join {O} o on c._sk = o._ak0 join {L} l on o._sk = l._ak1
 where c_mktsegment = 'BUILDING' and o_orderdate < date '1995-03-15' and l_shipdate > date '1995-03-15'
-group by o_orderkey, o_orderdate, o_shippriority order by revenue desc, o_orderdate limit 10""")
+group by o_orderkey, o_orderdate, o_shippriority order by revenue desc, o_orderdate limit 10""",
+)
 
 # ---------------- TPC-H SF1: region -> nations -> customers -> orders -> lineitems ----------------
 q = os.path.join(OUT, "tpch_sf1")
@@ -66,14 +74,22 @@ node(q, "q01", Q1_BODY.format(L=L))
 node(q, "q06", Q6_BODY.format(L=L))
 node(q, "q04", Q4_BODY.format(O=O, L=L, OL="_ak3"))
 node(q, "q12", Q12_BODY.format(O=O, L=L, OL="_ak3"))
-node(q, "q03", f"""select l_orderkey, sum(l_extendedprice * (1 - l_discount)) as revenue, o_orderdate, o_shippriority
+node(
+    q,
+    "q03",
+    f"""select l_orderkey, sum(l_extendedprice * (1 - l_discount)) as revenue, o_orderdate, o_shippriority
 from {C} c join {O} o on c._sk = o._ak2 join {L} l on o._sk = l._ak3
 where c_mktsegment = 'BUILDING' and o_orderdate < date '1995-03-15' and l_shipdate > date '1995-03-15'
-group by l_orderkey, o_orderdate, o_shippriority order by revenue desc, o_orderdate limit 10""")
-node(q, "q10", f"""select c_custkey, c_name, sum(l_extendedprice * (1 - l_discount)) as revenue, c_acctbal, n_name, c_address, c_phone, c_comment
+group by l_orderkey, o_orderdate, o_shippriority order by revenue desc, o_orderdate limit 10""",
+)
+node(
+    q,
+    "q10",
+    f"""select c_custkey, c_name, sum(l_extendedprice * (1 - l_discount)) as revenue, c_acctbal, n_name, c_address, c_phone, c_comment
 from {N} n join {C} c on n._sk = c._ak1 join {O} o on c._sk = o._ak2 join {L} l on o._sk = l._ak3
 where o_orderdate >= date '1993-10-01' and o_orderdate < date '1993-10-01' + interval '3' month and l_returnflag = 'R'
-group by c_custkey, c_name, c_acctbal, c_phone, n_name, c_address, c_comment order by revenue desc limit 20""")
+group by c_custkey, c_name, c_acctbal, c_phone, n_name, c_address, c_comment order by revenue desc limit 20""",
+)
 
 # ---------------- DBLP: publication -> author ----------------
 q = os.path.join(OUT, "dblp")
@@ -83,11 +99,23 @@ A = f"read_parquet_node({F}, node := 'author')"
 for n in ["6", "7", "8", "9"]:
     copy("dblp", f"q{n:0>2}", q, f"{n}.sql", f"{n}normalized.sql")
 node(q, "q06", f"select a.author as a, count(p.title) as b from {P} p join {A} a on p._sk = a._ak0 group by a.author")
-node(q, "q07", f"select a.author, p.year, count(p.title) from {P} p join {A} a on p._sk = a._ak0 group by a.author, p.year")
-node(q, "q08", f"""select a.author, p.year, count(p.title) from {P} p join {A} a on p._sk = a._ak0
-where p.title like '%database%' and p.title like '%text%' and p.title like '%mining%' group by a.author, p.year""")
-node(q, "q09", f"""select a.author, p.year, count(p.title) from {P} p join {A} a on p._sk = a._ak0
-where p.title like '%database%' or p.title like '%text%' or p.title like '%mining%' group by a.author, p.year""")
+node(
+    q,
+    "q07",
+    f"select a.author, p.year, count(p.title) from {P} p join {A} a on p._sk = a._ak0 group by a.author, p.year",
+)
+node(
+    q,
+    "q08",
+    f"""select a.author, p.year, count(p.title) from {P} p join {A} a on p._sk = a._ak0
+where p.title like '%database%' and p.title like '%text%' and p.title like '%mining%' group by a.author, p.year""",
+)
+node(
+    q,
+    "q09",
+    f"""select a.author, p.year, count(p.title) from {P} p join {A} a on p._sk = a._ak0
+where p.title like '%database%' or p.title like '%text%' or p.title like '%mining%' group by a.author, p.year""",
+)
 
 # ---------------- XMark: open auctions -> bidders ----------------
 q = os.path.join(OUT, "xmark")
@@ -96,12 +124,24 @@ OA = f"read_parquet_node({F}, node := 'open_auctions.open_auction')"
 B = f"read_parquet_node({F}, node := 'open_auctions.open_auction.bidder')"
 for n in ["2", "3", "4"]:
     copy("xmark", f"q{n:0>2}", q, f"{n}.sql", f"{n}normalized.sql")
-node(q, "q02", f"""select b.increase from {OA} a
-left join (select _ak1, first(increase order by _sk) as increase from {B} group by _ak1) b on a._sk = b._ak1""")
-node(q, "q03", f"""select a._id as id, b.first, b.last from {OA} a
+node(
+    q,
+    "q02",
+    f"""select b.increase from {OA} a
+left join (select _ak1, first(increase order by _sk) as increase from {B} group by _ak1) b on a._sk = b._ak1""",
+)
+node(
+    q,
+    "q03",
+    f"""select a._id as id, b.first, b.last from {OA} a
 join (select _ak1, first(increase order by _sk) as first, last(increase order by _sk) as last from {B} group by _ak1) b on a._sk = b._ak1
-where b.first * 2 <= b.last""")
-node(q, "q04", f"""select a.reserve from {OA} a
+where b.first * 2 <= b.last""",
+)
+node(
+    q,
+    "q04",
+    f"""select a.reserve from {OA} a
 join (select _ak1 from {B} group by _ak1
       having min(_sk) filter (where "personref._person" = 'person20') < min(_sk) filter (where "personref._person" = 'person51')) b
-  on a._sk = b._ak1""")
+  on a._sk = b._ak1""",
+)

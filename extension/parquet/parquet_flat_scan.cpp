@@ -270,8 +270,7 @@ static unique_ptr<LogicalOperator> RewriteFlatScan(ClientContext &context, Optim
 }
 
 static bool IsFlatScan(LogicalOperator &op) {
-	return op.type == LogicalOperatorType::LOGICAL_GET &&
-	       op.Cast<LogicalGet>().function.bind == ReadParquetFlatBind;
+	return op.type == LogicalOperatorType::LOGICAL_GET && op.Cast<LogicalGet>().function.bind == ReadParquetFlatBind;
 }
 
 static void CollectFlatScans(LogicalOperator &op, vector<reference<LogicalGet>> &result) {

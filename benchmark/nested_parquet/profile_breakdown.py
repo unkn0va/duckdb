@@ -28,25 +28,121 @@ BUCKET_MS = float(os.environ.get("BUCKET_MS", "10"))
 # the first matching category of a function name wins
 CATEGORIES = [
     ("keys", ("ParquetNodeKeyGenerator",)),
-    ("join filters", ("JoinFilterPushdown", "PrefixRange", "BloomFilter", "DynamicTableFilterSet",
-                      "SelectivityOptionalFilter", "PushDynamicFilters", "FinalizeFilters")),
-    ("scan filters / late decoding", ("FilterSelection", "FilterExecutor", "ExpressionFilter", "TableFilterState",
-                                      "ColumnReader::Select", "DirectSelect", "PlainSelect", "FilterRows")),
+    (
+        "join filters",
+        (
+            "JoinFilterPushdown",
+            "PrefixRange",
+            "BloomFilter",
+            "DynamicTableFilterSet",
+            "SelectivityOptionalFilter",
+            "PushDynamicFilters",
+            "FinalizeFilters",
+        ),
+    ),
+    (
+        "scan filters / late decoding",
+        (
+            "FilterSelection",
+            "FilterExecutor",
+            "ExpressionFilter",
+            "TableFilterState",
+            "ColumnReader::Select",
+            "DirectSelect",
+            "PlainSelect",
+            "FilterRows",
+        ),
+    ),
     ("parquet levels/skip", ("::Skip", "PlainSkip", "ReadLevels", "SkipPageValues", "ApplyPendingSkips")),
-    ("parquet decode", ("ColumnReader", "Decoder", "RleBpDecoder", "snappy", "Snappy", "ZSTD", "duckdb_zstd",
-                        "thrift", "Thrift", "ParquetDecodeUtils", "BitpackingPrimitives", "ByteBuffer",
-                        "ResizeableBuffer", "miniz", "lz4", "duckdb_lz4", "brotli", "Callback")),
+    (
+        "parquet decode",
+        (
+            "ColumnReader",
+            "Decoder",
+            "RleBpDecoder",
+            "snappy",
+            "Snappy",
+            "ZSTD",
+            "duckdb_zstd",
+            "thrift",
+            "Thrift",
+            "ParquetDecodeUtils",
+            "BitpackingPrimitives",
+            "ByteBuffer",
+            "ResizeableBuffer",
+            "miniz",
+            "lz4",
+            "duckdb_lz4",
+            "brotli",
+            "Callback",
+        ),
+    ),
     ("hash join", ("JoinHashTable", "PhysicalHashJoin", "ScanStructure", "JoinHT", "PerfectHashJoin")),
-    ("aggregate", ("Aggregate", "Radix", "SumState", "AvgState", "CountStar", "TupleDataCollection",
-                   "TupleDataAllocator", "TupleDataLayout", "RowOperations", "Scatter", "Gather")),
+    (
+        "aggregate",
+        (
+            "Aggregate",
+            "Radix",
+            "SumState",
+            "AvgState",
+            "CountStar",
+            "TupleDataCollection",
+            "TupleDataAllocator",
+            "TupleDataLayout",
+            "RowOperations",
+            "Scatter",
+            "Gather",
+        ),
+    ),
     ("hashing", ("VectorOperations::Hash", "HashOp", "CombineHash", "Murmur", "duckdb::Hash")),
-    ("expressions", ("ExpressionExecutor", "BinaryExecutor", "UnaryExecutor", "Comparison", "Select",
-                     "LikeOperator", "Contains", "Cast", "VectorOperations", "BoundComparison", "Interval",
-                     "Date", "Timestamp", "Decimal")),
-    ("vectors", ("Vector::", "FlatVector", "ConstantVector", "DictionaryVector", "SelectionVector", "DataChunk",
-                 "ValidityMask", "StringVector", "VectorCache", "UnifiedVectorFormat")),
-    ("scheduler", ("TaskScheduler", "Executor", "Pipeline", "concurrentqueue", "ConcurrentQueue", "Semaphore",
-                   "LightweightSemaphore", "Task::", "ProducerToken")),
+    (
+        "expressions",
+        (
+            "ExpressionExecutor",
+            "BinaryExecutor",
+            "UnaryExecutor",
+            "Comparison",
+            "Select",
+            "LikeOperator",
+            "Contains",
+            "Cast",
+            "VectorOperations",
+            "BoundComparison",
+            "Interval",
+            "Date",
+            "Timestamp",
+            "Decimal",
+        ),
+    ),
+    (
+        "vectors",
+        (
+            "Vector::",
+            "FlatVector",
+            "ConstantVector",
+            "DictionaryVector",
+            "SelectionVector",
+            "DataChunk",
+            "ValidityMask",
+            "StringVector",
+            "VectorCache",
+            "UnifiedVectorFormat",
+        ),
+    ),
+    (
+        "scheduler",
+        (
+            "TaskScheduler",
+            "Executor",
+            "Pipeline",
+            "concurrentqueue",
+            "ConcurrentQueue",
+            "Semaphore",
+            "LightweightSemaphore",
+            "Task::",
+            "ProducerToken",
+        ),
+    ),
 ]
 
 
@@ -58,8 +154,9 @@ def classify(function):
 
 
 def load_symbols(binary):
-    out = subprocess.run(["nm", "-C", "--defined-only", "-n", binary], capture_output=True, text=True,
-                         check=True).stdout
+    out = subprocess.run(
+        ["nm", "-C", "--defined-only", "-n", binary], capture_output=True, text=True, check=True
+    ).stdout
     addresses, names = [], []
     for line in out.splitlines():
         parts = line.split(" ", 2)
@@ -74,13 +171,21 @@ def record():
     script = f"SET threads = {THREADS};\n{query};\n.timer on\n{query};\n"
     with tempfile.TemporaryDirectory() as tmp:
         data = os.path.join(tmp, "perf.data")
-        run = subprocess.run(["perf", "record", "-q", "-F", str(FREQ), "-o", data, "--", DUCKDB, "-no-agent"],
-                             input=script, text=True, cwd=DATA_DIR, check=True, capture_output=True)
+        run = subprocess.run(
+            ["perf", "record", "-q", "-F", str(FREQ), "-o", data, "--", DUCKDB, "-no-agent"],
+            input=script,
+            text=True,
+            cwd=DATA_DIR,
+            check=True,
+            capture_output=True,
+        )
         real = float(re.findall(r"Run Time \(s\): real ([0-9.]+)", run.stdout + run.stderr)[-1])
-        mmaps = subprocess.run(["perf", "script", "-i", data, "--show-mmap-events"], capture_output=True,
-                               text=True).stdout
-        out = subprocess.run(["perf", "script", "-i", data, "-F", "tid,time,ip,dso"], capture_output=True,
-                             text=True, check=True).stdout
+        mmaps = subprocess.run(
+            ["perf", "script", "-i", data, "--show-mmap-events"], capture_output=True, text=True
+        ).stdout
+        out = subprocess.run(
+            ["perf", "script", "-i", data, "-F", "tid,time,ip,dso"], capture_output=True, text=True, check=True
+        ).stdout
     binary = os.path.realpath(DUCKDB)
     base = None
     for line in mmaps.splitlines():
@@ -124,8 +229,10 @@ def main():
     measured = [s for s in measured if begin <= s[0] <= end]
     wall = real
     cpu = len(measured) / FREQ
-    print(f"threads={THREADS}  wall {wall * 1000:.0f} ms, CPU {cpu * 1000:.0f} ms, average busy threads "
-          f"{cpu / wall if wall else 0:.1f}")
+    print(
+        f"threads={THREADS}  wall {wall * 1000:.0f} ms, CPU {cpu * 1000:.0f} ms, average busy threads "
+        f"{cpu / wall if wall else 0:.1f}"
+    )
     per_category = collections.Counter(s[2] for s in measured)
     print("  CPU ms per category:  " + ", ".join(f"{c} {n / FREQ * 1000:.0f}" for c, n in per_category.most_common()))
     top = collections.Counter(s[3] for s in measured).most_common(8)
@@ -139,8 +246,9 @@ def main():
     for b in range(int(wall * 1000 / BUCKET_MS) + 1):
         entries = buckets.get(b, [])
         busy = len(entries) / FREQ / (BUCKET_MS / 1000)
-        main = ", ".join(f"{c} {n * 100 // max(len(entries), 1)}%"
-                         for c, n in collections.Counter(entries).most_common(3))
+        main = ", ".join(
+            f"{c} {n * 100 // max(len(entries), 1)}%" for c, n in collections.Counter(entries).most_common(3)
+        )
         print(f"    {b * BUCKET_MS:5.0f} {busy:5.1f} | {main}")
 
 

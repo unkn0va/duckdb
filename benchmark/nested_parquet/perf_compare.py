@@ -19,9 +19,14 @@ import subprocess
 import sys
 import tempfile
 
-DATA_DIRS = {"tpch_sf1": "nested-parquet-datasets/nested-tpch", "tpch_sf10": "nested-parquet-datasets/nested-tpch-sf10",
-             "xmark": "nested-parquet-datasets/xmark", "dblp": "nested-parquet-datasets/dblp",
-             "selectivity_random": "selectivity_random", "selectivity_sorted": "selectivity_sorted"}
+DATA_DIRS = {
+    "tpch_sf1": "nested-parquet-datasets/nested-tpch",
+    "tpch_sf10": "nested-parquet-datasets/nested-tpch-sf10",
+    "xmark": "nested-parquet-datasets/xmark",
+    "dblp": "nested-parquet-datasets/dblp",
+    "selectivity_random": "selectivity_random",
+    "selectivity_sorted": "selectivity_sorted",
+}
 
 
 def geomean(values):
@@ -31,8 +36,13 @@ def geomean(values):
 def perf_counts(binary, data_dir, sql_file, events):
     """The counts of the events of one process, or an error message"""
     with tempfile.NamedTemporaryFile(suffix=".csv") as out:
-        proc = subprocess.run(["perf", "stat", "-x,", "-e", events, "-o", out.name, "--", binary, "-no-agent", "-f",
-                               sql_file], cwd=data_dir, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+        proc = subprocess.run(
+            ["perf", "stat", "-x,", "-e", events, "-o", out.name, "--", binary, "-no-agent", "-f", sql_file],
+            cwd=data_dir,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
         lines = open(out.name).read().splitlines()
     if proc.returncode != 0:
         return proc.stderr.strip().splitlines()[-1] if proc.stderr.strip() else f"exit status {proc.returncode}"
@@ -66,10 +76,15 @@ def perf_main(args):
         sys.exit(__doc__)
     events = [event.split(":")[0] for event in options["events"].split(",")]
     first, second = binaries[0][0], binaries[1][0]
-    print(f"Smallest of {options['repeat']} processes per binary, each running the query {options['runs-per-process']} "
-          f"times with 1 thread. Ratios: {second} / {first}.\n")
-    header = ["query"] + [f"{e} {label}" for e in events for label, _ in binaries] + [f"{e} {second}/{first}"
-                                                                                      for e in events]
+    print(
+        f"Smallest of {options['repeat']} processes per binary, each running the query {options['runs-per-process']} "
+        f"times with 1 thread. Ratios: {second} / {first}.\n"
+    )
+    header = (
+        ["query"]
+        + [f"{e} {label}" for e in events for label, _ in binaries]
+        + [f"{e} {second}/{first}" for e in events]
+    )
     if len(events) == 2:
         header += [f"IPC {first}", f"IPC {second}"]
     print("| " + " | ".join(header) + " |")

@@ -186,9 +186,9 @@ static unique_ptr<FunctionData> ReadParquetNodeBind(ClientContext &context, Tabl
 	// the slots of a column directly in the node are its rows (and placeholders) - otherwise this is an upper bound
 	auto &cardinality_leaf = node.leaves.empty() ? *node.key_leaf : *node.leaves[0].schema;
 	for (auto &group : reader.GetFileMetadata()->row_groups) {
-		result->cardinality += node.level == 0 ? NumericCast<idx_t>(group.num_rows)
-		                                       : NumericCast<idx_t>(
-		                                             group.columns[cardinality_leaf.column_index].meta_data.num_values);
+		result->cardinality +=
+		    node.level == 0 ? NumericCast<idx_t>(group.num_rows)
+		                    : NumericCast<idx_t>(group.columns[cardinality_leaf.column_index].meta_data.num_values);
 	}
 	// a level without a column of its own has fewer rows than the slots of any column below it
 	result->key_upper_bounds.resize(node.level + 1, 0);

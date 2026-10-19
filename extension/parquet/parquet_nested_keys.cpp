@@ -113,8 +113,8 @@ ParquetNodeInfo ParquetNodeInfo::Resolve(const ParquetColumnSchema &root, const 
 }
 
 //! Collect the nodes below an element of the node with the given index
-static void EnumerateChildNodes(const ParquetColumnSchema &root, const ParquetColumnSchema &element,
-                                const string &path, idx_t node_idx, vector<ParquetFlatNode> &result);
+static void EnumerateChildNodes(const ParquetColumnSchema &root, const ParquetColumnSchema &element, const string &path,
+                                idx_t node_idx, vector<ParquetFlatNode> &result);
 
 static void AddFlatNode(const ParquetColumnSchema &root, const ParquetColumnSchema &list, const string &path,
                         optional_idx parent, vector<ParquetFlatNode> &result) {
@@ -149,8 +149,8 @@ static void AddFlatNode(const ParquetColumnSchema &root, const ParquetColumnSche
 	}
 }
 
-static void EnumerateChildNodes(const ParquetColumnSchema &root, const ParquetColumnSchema &element,
-                                const string &path, idx_t node_idx, vector<ParquetFlatNode> &result) {
+static void EnumerateChildNodes(const ParquetColumnSchema &root, const ParquetColumnSchema &element, const string &path,
+                                idx_t node_idx, vector<ParquetFlatNode> &result) {
 	if (element.schema_type != ParquetColumnSchemaType::COLUMN) {
 		return;
 	}
@@ -377,8 +377,7 @@ class ReadPageDirectoryTask : public BaseExecutorTask {
 public:
 	ReadPageDirectoryTask(TaskExecutor &executor, ClientContext &context, const ParquetReader &reader,
 	                      const ParquetColumnSchema &leaf, idx_t row_group, ParquetColumnPages &pages)
-	    : BaseExecutorTask(executor), context(context), reader(reader), leaf(leaf), row_group(row_group),
-	      pages(pages) {
+	    : BaseExecutorTask(executor), context(context), reader(reader), leaf(leaf), row_group(row_group), pages(pages) {
 	}
 
 	void ExecuteTask() override {
@@ -455,8 +454,8 @@ private:
 };
 
 //! Count the rows of every level per page of a column chunk, once per query, the pages in parallel
-static void CountLevelRowsPerPage(ClientContext &context, const ParquetReader &reader,
-                                  const ParquetColumnSchema &leaf, idx_t row_group, ParquetColumnPages &pages) {
+static void CountLevelRowsPerPage(ClientContext &context, const ParquetReader &reader, const ParquetColumnSchema &leaf,
+                                  idx_t row_group, ParquetColumnPages &pages) {
 	lock_guard<mutex> guard(pages.lock);
 	if (pages.levels_counted) {
 		return;
@@ -477,8 +476,8 @@ static void CountLevelRowsPerPage(ClientContext &context, const ParquetReader &r
 ParquetNodeTaskPlan ParquetNodeTaskPlan::Create(ClientContext &context, const ParquetReader &reader,
                                                 const ParquetNodeInfo &node,
                                                 const vector<reference<const ParquetColumnSchema>> &read_leaves,
-                                                const vector<bool> &needed_levels, idx_t threads,
-                                                idx_t min_task_slots, idx_t physical_cores) {
+                                                const vector<bool> &needed_levels, idx_t threads, idx_t min_task_slots,
+                                                idx_t physical_cores) {
 	auto &slot_leaf = read_leaves[0].get();
 	auto rows = ParquetNodeRowGroupRows::Compute(context, reader, node);
 	auto &row_groups = reader.GetFileMetadata()->row_groups;
@@ -503,10 +502,11 @@ ParquetNodeTaskPlan ParquetNodeTaskPlan::Create(ClientContext &context, const Pa
 	auto split = counted_levels.empty() ? row_groups.size() < threads
 	                                    : row_groups.size() < MinValue<idx_t>(threads, physical_cores);
 	if (threads > 1 && !counted_levels.empty()) {
-		DUCKDB_LOG_DEBUG(context, StringUtil::Format("read_parquet_node: \"%s\" has %llu row groups, %llu threads run on "
-		                                             "%llu physical cores: the row groups are %ssplit",
-		                                             reader.GetFileName(), row_groups.size(), threads, physical_cores,
-		                                             split ? "" : "not "));
+		DUCKDB_LOG_DEBUG(context,
+		                 StringUtil::Format("read_parquet_node: \"%s\" has %llu row groups, %llu threads run on "
+		                                    "%llu physical cores: the row groups are %ssplit",
+		                                    reader.GetFileName(), row_groups.size(), threads, physical_cores,
+		                                    split ? "" : "not "));
 	}
 	auto task_slots = threads <= 1 || !split
 	                      ? NumericLimits<idx_t>::Maximum()
@@ -711,11 +711,11 @@ ParquetNodeTaskPlan ParquetNodeTaskPlan::Create(ClientContext &context, const Pa
 			counting = StringUtil::Format(", counting levels in column \"%s\" (%llu pages)", count_leaf->name,
 			                              page_count(*count_leaf));
 		}
-		DUCKDB_LOG_DEBUG(context, StringUtil::Format("read_parquet_node: row group %llu of \"%s\" is scanned in %llu "
-		                                             "parts, %s the pages of column \"%s\" (pages: %s)%s",
-		                                             rg, reader.GetFileName(), part_count,
-		                                             within_pages ? "within" : "at", boundary_leaf->name, page_counts,
-		                                             counting));
+		DUCKDB_LOG_DEBUG(context,
+		                 StringUtil::Format("read_parquet_node: row group %llu of \"%s\" is scanned in %llu "
+		                                    "parts, %s the pages of column \"%s\" (pages: %s)%s",
+		                                    rg, reader.GetFileName(), part_count, within_pages ? "within" : "at",
+		                                    boundary_leaf->name, page_counts, counting));
 	}
 	return result;
 }

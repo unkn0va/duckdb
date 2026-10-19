@@ -22,12 +22,21 @@ PINNED_THREADS = 10
 
 def split_row_groups(duckdb, data_dir, sql, threads, half):
     """The number of row groups that the scans of the query split, and of those that count levels"""
-    log = ("SELECT count(*) FILTER (message LIKE 'read_parquet_node: row group % is scanned in % parts%'), "
-           "count(*) FILTER (message LIKE 'read_parquet_node: row group % parts%counting levels%') FROM duckdb_logs")
-    setup = (f"SET threads = {threads}; SET parquet_node_split_half_threads = {half}; "
-             "CALL enable_logging(level := 'debug', storage := 'memory')")
-    proc = subprocess.run([duckdb, "-no-agent", "-csv", "-noheader", "-c", setup, "-c", sql.strip().rstrip(";") + ";",
-                           "-c", log], cwd=data_dir, capture_output=True, text=True, timeout=1800)
+    log = (
+        "SELECT count(*) FILTER (message LIKE 'read_parquet_node: row group % is scanned in % parts%'), "
+        "count(*) FILTER (message LIKE 'read_parquet_node: row group % parts%counting levels%') FROM duckdb_logs"
+    )
+    setup = (
+        f"SET threads = {threads}; SET parquet_node_split_half_threads = {half}; "
+        "CALL enable_logging(level := 'debug', storage := 'memory')"
+    )
+    proc = subprocess.run(
+        [duckdb, "-no-agent", "-csv", "-noheader", "-c", setup, "-c", sql.strip().rstrip(";") + ";", "-c", log],
+        cwd=data_dir,
+        capture_output=True,
+        text=True,
+        timeout=1800,
+    )
     last = proc.stdout.strip().splitlines()[-1] if proc.returncode == 0 and proc.stdout.strip() else ""
     if not re.fullmatch(r"\d+,\d+", last):
         return "?"
@@ -44,11 +53,19 @@ def main():
         if dataset not in DATA_DIRS:
             continue
         rows = list(csv.DictReader(line for line in open(path) if not line.startswith("#")))
-        configs = sorted({(m.group(1), int(m.group(2) or PINNED_THREADS)) for key in rows[0]
-                          for m in [re.fullmatch(r"flat_on((?:_one|_two|_ht)?)(?:_t(\d+))?_s", key)] if m})
+        configs = sorted(
+            {
+                (m.group(1), int(m.group(2) or PINNED_THREADS))
+                for key in rows[0]
+                for m in [re.fullmatch(r"flat_on((?:_one|_two|_ht)?)(?:_t(\d+))?_s", key)]
+                if m
+            }
+        )
         print(f"## {name}\n")
-        print("Seconds of the fastest run (CPU seconds); split row groups: all (of them with a level count), "
-              "`<<` marks the comparisons where the plans differ.\n")
+        print(
+            "Seconds of the fastest run (CPU seconds); split row groups: all (of them with a level count), "
+            "`<<` marks the comparisons where the plans differ.\n"
+        )
         print("| query | threads | layout | on | off | off/on | split on | split off |")
         print("|---|---|---|---|---|---|---|---|")
         plans = {}
@@ -62,23 +79,28 @@ def main():
                     continue
                 for half in ("true", "false"):
                     if (query, threads, half) not in plans:
-                        plans[query, threads, half] = split_row_groups(duckdb, os.path.join(data, DATA_DIRS[dataset]),
-                                                                       sql, threads, half)
+                        plans[query, threads, half] = split_row_groups(
+                            duckdb, os.path.join(data, DATA_DIRS[dataset]), sql, threads, half
+                        )
                 split_on, split_off = plans[query, threads, "true"], plans[query, threads, "false"]
                 ratio = float(row[off + "_s"]) / float(row[on + "_s"])
                 same_result = row.get(on + "_result") == row.get(off + "_result")
                 differs = split_on != split_off
                 if not differs:
                     noise.append(abs(ratio - 1))
-                print(f"| {query} | {threads} | {layout.lstrip('_') or 'free'} "
-                      f"| {float(row[on + '_s']):.3f} ({float(row[on + '_cpu']):.2f}) "
-                      f"| {float(row[off + '_s']):.3f} ({float(row[off + '_cpu']):.2f}) "
-                      f"| {ratio:.2f}{' <<' if differs else ''}{'' if same_result else ' RESULT DIFFERS'} "
-                      f"| {split_on} | {split_off} |")
+                print(
+                    f"| {query} | {threads} | {layout.lstrip('_') or 'free'} "
+                    f"| {float(row[on + '_s']):.3f} ({float(row[on + '_cpu']):.2f}) "
+                    f"| {float(row[off + '_s']):.3f} ({float(row[off + '_cpu']):.2f}) "
+                    f"| {ratio:.2f}{' <<' if differs else ''}{'' if same_result else ' RESULT DIFFERS'} "
+                    f"| {split_on} | {split_off} |"
+                )
         print()
     if noise:
-        print(f"Noise (same plans): off/on differs from 1 by at most {max(noise):.2f}, "
-              f"by {sorted(noise)[len(noise) // 2]:.2f} in the median.")
+        print(
+            f"Noise (same plans): off/on differs from 1 by at most {max(noise):.2f}, "
+            f"by {sorted(noise)[len(noise) // 2]:.2f} in the median."
+        )
 
 
 if __name__ == "__main__":

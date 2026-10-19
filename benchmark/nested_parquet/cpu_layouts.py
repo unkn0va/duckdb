@@ -23,9 +23,9 @@ layouts = {}
 if len(per_socket[sockets[0]]) >= threads:
     layouts["one"] = [cpus[0] for cpus in per_socket[sockets[0]][:threads]]
 if len(sockets) >= 2 and all(len(per_socket[s]) >= threads // 2 for s in sockets[:2]):
-    layouts["two"] = [cpus[0] for s in sockets[:2] for cpus in per_socket[s][:threads // 2]]
+    layouts["two"] = [cpus[0] for s in sockets[:2] for cpus in per_socket[s][: threads // 2]]
 with_ht = [cpus for cpus in per_socket[sockets[0]] if len(cpus) >= 2]
 if len(with_ht) >= threads // 2:
-    layouts["ht"] = [cpu for cpus in with_ht[:threads // 2] for cpu in cpus[:2]]
+    layouts["ht"] = [cpu for cpus in with_ht[: threads // 2] for cpu in cpus[:2]]
 for name, cpus in layouts.items():
     print(name, ",".join(str(cpu) for cpu in cpus))

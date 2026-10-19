@@ -64,8 +64,15 @@ CONFIGS = []
 for label, path, setup in BINARIES:
     for threads in THREADS:
         parts = ([label] if len(BINARIES) > 1 else []) + ([f"t{threads}"] if len(THREADS) > 1 else [])
-        CONFIGS.append({"label": label, "path": path, "threads": threads, "setup": setup,
-                        "suffix": "".join("_" + part for part in parts)})
+        CONFIGS.append(
+            {
+                "label": label,
+                "path": path,
+                "threads": threads,
+                "setup": setup,
+                "suffix": "".join("_" + part for part in parts),
+            }
+        )
 DUCKDB = BINARIES[0][1]
 LABEL_VARIANTS = {}
 for item in os.environ.get("VARIANTS", "").split():
@@ -84,9 +91,15 @@ RUNNING_GROUPS = set()
 def run_process(args, input=None, timeout=None):
     """Like subprocess.run(capture_output=True, text=True, cwd=DATA_DIR), in a process group of its own that is killed
     on a timeout - with everything the process started."""
-    proc = subprocess.Popen(args, stdin=subprocess.PIPE if input is not None else subprocess.DEVNULL,
-                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, cwd=DATA_DIR,
-                            start_new_session=True)
+    proc = subprocess.Popen(
+        args,
+        stdin=subprocess.PIPE if input is not None else subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        cwd=DATA_DIR,
+        start_new_session=True,
+    )
     RUNNING_GROUPS.add(proc.pid)
     try:
         stdout, stderr = proc.communicate(input, timeout=timeout)
@@ -134,9 +147,11 @@ def run_timed(sql, binary, threads, config_setup=""):
 def result_hash(sql, binary=None, setup=""):
     # order-insensitive fingerprint of the result, with numbers rounded to absorb float summation order
     inner = sql.strip().rstrip(";")
-    query = ("SELECT count(*), hash(list(r ORDER BY r)) FROM (SELECT list_transform(list_value(COLUMNS(*)::VARCHAR), "
-             "lambda x: CASE WHEN TRY_CAST(x AS DOUBLE) IS NULL THEN x ELSE round(x::DOUBLE, 2)::VARCHAR END)::VARCHAR AS r "
-             f"FROM ({inner}))")
+    query = (
+        "SELECT count(*), hash(list(r ORDER BY r)) FROM (SELECT list_transform(list_value(COLUMNS(*)::VARCHAR), "
+        "lambda x: CASE WHEN TRY_CAST(x AS DOUBLE) IS NULL THEN x ELSE round(x::DOUBLE, 2)::VARCHAR END)::VARCHAR AS r "
+        f"FROM ({inner}))"
+    )
     try:
         proc = run_process([binary or DUCKDB, "-no-agent", "-csv", "-noheader", "-c", setup + query], timeout=TIMEOUT)
     except subprocess.TimeoutExpired:
@@ -150,9 +165,13 @@ SKIP_MESSAGE = re.compile(r"skip (\d+) of (\d+) tasks of node[^,]*(?:, the filte
 def skipped_tasks(sql, binary, threads, config_setup):
     """The tasks the read_parquet_node scans of a query skipped: by the query's filters, by join filters, of all."""
     setup = (f"SET threads = {threads};\n" if threads else "") + config_setup
-    script = (setup + "CALL enable_logging(level := 'debug', storage := 'memory');\n.mode trash\n" +
-              sql.strip().rstrip(";") + ";\n.mode list\n.headers off\n"
-              "SELECT message FROM duckdb_logs WHERE message LIKE 'read_parquet_node: the filters%';\n")
+    script = (
+        setup
+        + "CALL enable_logging(level := 'debug', storage := 'memory');\n.mode trash\n"
+        + sql.strip().rstrip(";")
+        + ";\n.mode list\n.headers off\n"
+        "SELECT message FROM duckdb_logs WHERE message LIKE 'read_parquet_node: the filters%';\n"
+    )
     try:
         proc = run_process([binary, "-no-agent"], input=script, timeout=TIMEOUT)
     except subprocess.TimeoutExpired:
@@ -213,8 +232,11 @@ def check_system_load(context):
     busy_cpu = sum(p[0] for p in processes)
     if busy_cpu > BUSY_CPU_THRESHOLD:
         load = ", ".join(f"{l:.2f}" for l in os.getloadavg())
-        print(f"WARNING ({context}): other processes use {busy_cpu:.0f}% CPU (load average {load}) - "
-              f"timings are unreliable:", file=sys.stderr)
+        print(
+            f"WARNING ({context}): other processes use {busy_cpu:.0f}% CPU (load average {load}) - "
+            f"timings are unreliable:",
+            file=sys.stderr,
+        )
         for percent, pid, command in processes[:5]:
             print(f"  {percent:6.1f}%  pid {pid}  {command}", file=sys.stderr)
     return busy_cpu
@@ -226,8 +248,11 @@ def require_idle_system():
     busy = [sum(p[0] for p in processes) for processes in samples]
     if min(busy) <= BUSY_CPU_THRESHOLD:
         return
-    print(f"ERROR: other processes use {min(busy):.0f}-{max(busy):.0f}% CPU (threshold {BUSY_CPU_THRESHOLD:.0f}%) - "
-          f"not starting the benchmark. Stop them, or set ALLOW_BUSY=1:", file=sys.stderr)
+    print(
+        f"ERROR: other processes use {min(busy):.0f}-{max(busy):.0f}% CPU (threshold {BUSY_CPU_THRESHOLD:.0f}%) - "
+        f"not starting the benchmark. Stop them, or set ALLOW_BUSY=1:",
+        file=sys.stderr,
+    )
     for percent, pid, command in samples[-1][:5]:
         print(f"  {percent:6.1f}%  pid {pid}  {command}", file=sys.stderr)
     sys.exit(2)
@@ -265,8 +290,9 @@ for name in names:
                 entry[f"{variant}{config['suffix']}_error"] = error if isinstance(error, str) else " ".join(error)
                 failed.add(config["label"])
             elif SKIPS and variant.startswith(("node", "flat")):
-                entry[f"{variant}{config['suffix']}_skipped"] = skipped_tasks(sql, config["path"], config["threads"],
-                                                                              config["setup"])
+                entry[f"{variant}{config['suffix']}_skipped"] = skipped_tasks(
+                    sql, config["path"], config["threads"], config["setup"]
+                )
         for label, binary, setup in BINARIES:
             if not runs_variant(label, variant):
                 continue

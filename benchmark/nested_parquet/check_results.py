@@ -40,7 +40,9 @@ def main():
                     if value != "True":
                         variant = key.removesuffix("_ok")
                         reference = row.get(variant.rsplit("_", 1)[0] + "_reference") or row.get(variant + "_reference")
-                        problems.append(f"{dataset} {row['query']}: {variant} differs from {reference or 'the reference'}")
+                        problems.append(
+                            f"{dataset} {row['query']}: {variant} differs from {reference or 'the reference'}"
+                        )
                 elif key.endswith("_error") and value:
                     problems.append(f"{dataset} {row['query']}: {key.removesuffix('_error')} failed: {value[:100]}")
         if dataset_checks == 0:

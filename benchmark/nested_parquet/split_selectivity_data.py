@@ -33,11 +33,16 @@ def write_split_files(table, output_dir):
     lists = table.column("b").combine_chunks()
     elements = lists.flatten()
     parent_sk = pc.add(pc.list_parent_indices(lists), 1).cast(pa.int32())
-    pq.write_table(pa.table({"a": table.column("a"), "_sk": pa.array(range(1, rows + 1), pa.int32())}),
-                   os.path.join(output_dir, "normalized", "l1_0.parquet"), row_group_size=ROW_GROUP_ROWS)
-    pq.write_table(pa.table({"b": elements, "_psk0": parent_sk,
-                             "_sk": pa.array(range(1, len(elements) + 1), pa.int32())}),
-                   os.path.join(output_dir, "normalized", "l1_1.parquet"), row_group_size=ROW_GROUP_ROWS)
+    pq.write_table(
+        pa.table({"a": table.column("a"), "_sk": pa.array(range(1, rows + 1), pa.int32())}),
+        os.path.join(output_dir, "normalized", "l1_0.parquet"),
+        row_group_size=ROW_GROUP_ROWS,
+    )
+    pq.write_table(
+        pa.table({"b": elements, "_psk0": parent_sk, "_sk": pa.array(range(1, len(elements) + 1), pa.int32())}),
+        os.path.join(output_dir, "normalized", "l1_1.parquet"),
+        row_group_size=ROW_GROUP_ROWS,
+    )
 
 
 if __name__ == "__main__":
