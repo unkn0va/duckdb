@@ -49,7 +49,9 @@ What this implementation and its measurements do differently from the paper; det
 **Benchmark setup**
 - Hardware and software: a laptop (i7-1360P, 4P+8E cores, 16 hardware threads, WSL2) and a lab server (Xeon Gold
   5215, 2 sockets x 10 cores; final numbers in "Final server run") instead of the paper's server; DuckDB v2.1.0-dev
-  release builds; timings drift by tens of percent, so configurations are compared interleaved.
+  release builds; timings drift by tens of percent, so configurations are compared interleaved. Binaries of
+  different commits can differ by up to 10% at 1 thread on the server from code layout alone - same instructions,
+  fewer per cycle ("1-thread difference between the first and the final run").
 - Compared systems: the paper compares Umbra with other systems; here everything runs in DuckDB - `builtin` (DuckDB's
   nested types with UNNEST), `node`/`flat` (this implementation), `split` (the paper's pre-split files).
 - Datasets: the paper's archive without the Twitter dataset. All files use data pages v1; only the parquet-mr files
@@ -460,12 +462,39 @@ interleaved, fastest of 10 runs, `busy_cpu` = 0. All results equal the builtin r
   787dcd6d1b and 924a47be83, not from the build.**
 - Those changes (the split rule, the level-only pre-pass, the physical-core detection) are not executed by a scan
   with 1 thread: the plan is the unsplit scan in both, and the core detection runs once per process (the 10 runs of a
-  query share a process; the fastest counts). The laptop did not show the difference in a single run (B/A1 1.008 for
-  TPC-H SF10, where the server shows 0.962). A likely explanation is the placement of the hot code: the changes
-  touch `column_reader.cpp`, part of the Parquet reader's decoding path, and a different code layout can cost a few
-  percent on one CPU (Xeon Gold 5215) but not on another. This is not confirmed: it
-  needs the instruction counts of A1 and B on the server (equal counts with more cycles = layout) - this WSL laptop
-  has no hardware counters.
+  query share a process; the fastest counts).
+
+**Cause: code layout.** `SERVER.md`, step 11: `perf stat -e instructions:u,cycles:u` on the server, A1 and B
+alternating, smallest of 5 processes (each running the query 3 times with 1 thread). File:
+`server_20261019_build_diff/perf.md`.
+
+| query | instructions B/A1 | cycles B/A1 | IPC A1 | IPC B |
+|---|---|---|---|---|
+| TPC-H SF1 q06, flat | 0.9988 | 0.898 | 2.76 | 3.07 |
+| TPC-H SF1 q12, flat | 0.9998 | 0.924 | 2.63 | 2.84 |
+| XMark q02, flat_minmax | 0.9991 | 0.951 | 2.06 | 2.16 |
+| Selectivity (A) N = 10^6, flat | 0.9997 | 0.921 | 2.56 | 2.77 |
+| Selectivity (B) N = 10, flat | 0.9997 | 0.931 | 2.71 | 2.90 |
+| TPC-H SF1 q06, builtin | 1.0000 | 0.962 | 1.78 | 1.85 |
+| XMark q02, builtin | 0.9999 | 0.987 | 1.79 | 1.81 |
+| DBLP q08, builtin | 0.9992 | 0.995 | 1.85 | 1.86 |
+| Selectivity (A) N = 10^6, builtin | 1.0001 | 0.958 | 1.41 | 1.47 |
+
+- **A1 executes the same instructions as B** (within 0.12% in every query) **but needs 5-10% more cycles for them**
+  in the flat queries: fewer instructions per cycle. A1 does no extra work; the same machine code runs slower where
+  it is placed in A1. The changes between the commits (`column_reader.cpp`, `parquet_nested_keys.cpp`,
+  `parquet_node_scan.cpp`, `parquet_extension.cpp`) change the size of functions linked into the same binary, which
+  moves the hot decoding and key-generation loops to other addresses - and their alignment, instruction-cache and
+  branch-predictor behaviour on this CPU (Xeon Gold 5215) with them. Which front-end resource is affected was not
+  measured. On the laptop (another CPU) the same two codes showed no difference.
+- **DuckDB's own Parquet scan is affected the same way**: the builtin queries run by A1 and B (not by the original
+  DuckDB, `base`, which the benchmark uses for builtin) execute the same instructions, B in 0.5-4% fewer cycles. The
+  changes slowed no read path by adding work.
+- **Consequence for the measurements**: on this server, binaries of different commits can differ by up to 10% at
+  1 thread from code layout alone, with the same work. Comparisons between configurations within one binary, and of
+  builtin (one `base` binary throughout), are not affected; the 1-thread ratios of the first and the final run differ
+  by this layout effect (5% in the geometric mean), not by a change of the implementation. This concludes the
+  1-thread question.
 
 ## Split rules after the server results (2026-10-18)
 
