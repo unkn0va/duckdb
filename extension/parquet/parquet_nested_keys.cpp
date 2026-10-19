@@ -502,6 +502,12 @@ ParquetNodeTaskPlan ParquetNodeTaskPlan::Create(ClientContext &context, const Pa
 	// too little to split
 	auto split = counted_levels.empty() ? row_groups.size() < threads
 	                                    : row_groups.size() < MinValue<idx_t>(threads, physical_cores);
+	if (threads > 1 && !counted_levels.empty()) {
+		DUCKDB_LOG_DEBUG(context, StringUtil::Format("read_parquet_node: \"%s\" has %llu row groups, %llu threads run on "
+		                                             "%llu physical cores: the row groups are %ssplit",
+		                                             reader.GetFileName(), row_groups.size(), threads, physical_cores,
+		                                             split ? "" : "not "));
+	}
 	auto task_slots = threads <= 1 || !split
 	                      ? NumericLimits<idx_t>::Maximum()
 	                      : MaxValue<idx_t>(MaxValue<idx_t>(min_task_slots, 1), total_slots / (threads * 4));

@@ -43,10 +43,18 @@ static idx_t DetectPhysicalCores() {
 			auto bytes_read = fs->Read(*handle, buffer, sizeof(buffer) - 1);
 			return StringUtil::Replace(string(buffer, NumericCast<idx_t>(MaxValue<int64_t>(bytes_read, 0))), "\n", "");
 		};
+		// the directories cpu0, cpu1, ... (Glob does not return directories)
+		vector<string> cpus;
+		fs->ListFiles("/sys/devices/system/cpu", [&](const string &name, bool is_directory) {
+			if (is_directory && name.size() > 3 && StringUtil::StartsWith(name, "cpu") &&
+			    std::all_of(name.begin() + 3, name.end(), StringUtil::CharacterIsDigit)) {
+				cpus.push_back("/sys/devices/system/cpu/" + name);
+			}
+		});
 		set<string> cores;
-		for (auto &cpu : fs->Glob("/sys/devices/system/cpu/cpu[0-9]*")) {
-			auto package = read_id(cpu.path + "/topology/physical_package_id");
-			auto core = read_id(cpu.path + "/topology/core_id");
+		for (auto &cpu : cpus) {
+			auto package = read_id(cpu + "/topology/physical_package_id");
+			auto core = read_id(cpu + "/topology/core_id");
 			if (package.empty() || core.empty()) {
 				return hardware_threads;
 			}

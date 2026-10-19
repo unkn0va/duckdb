@@ -182,6 +182,19 @@ cd ~/nested-bench/duckdb/benchmark/nested_parquet
 - `OK: all ... results equal the builtin results (or their oracles).`
 - `Summary: /tmp/bench-smoke/summary.md`
 
+**물리 코어 확인**
+main_rey는 레벨을 세야 하는 스캔을 "row group 수 < min(스레드 수, 물리 코어 수)"일 때만 쪼갭니다. 그래서 DuckDB가 물리 코어를 제대로 세는지 확인합니다. 첫 줄은 운영체제가 보는 물리 코어 수입니다. 둘째 줄은 DuckDB가 TPC-H SF10 파일을 40스레드로 읽을 때 쓴 물리 코어 수와 쪼갰는지를 로그에서 보여 줍니다.
+
+```bash
+lscpu -p=CORE,SOCKET | grep -v '^#' | sort -u | wc -l
+(cd ~/nested-bench/data/nested-parquet-datasets/nested-tpch-sf10 && ~/nested-bench/duckdb/build/release/duckdb -no-agent -csv -noheader -c "SET threads = 40; CALL enable_logging(level := 'debug', storage := 'memory')" -c "SELECT count(_ak0) FROM read_parquet_node('nestedcustomer.parquet', node := 'c_orders')" -c "SELECT message FROM duckdb_logs WHERE message LIKE '%physical cores%'")
+```
+
+- 연구실 서버(소켓 2개 × 10코어)라면 첫 줄은 `20`입니다.
+- 둘째 명령의 마지막 줄은 `... has 22 row groups, 40 threads run on 20 physical cores: the row groups are not split`이어야 합니다.
+- 중간에 나오는 `WARNING: The logging settings have been changed ...`는 로그를 메모리에 모으도록 바꿨다는 안내라서 무시해도 됩니다.
+- 두 수가 다르면 측정하지 말고 출력을 그대로 가져오세요.
+
 ## 7. 본 측정: tmux 안에서 실행
 
 측정은 한 시간 넘게 걸립니다. SSH 연결이 끊겨도 계속 돌도록 tmux 안에서 실행하세요.
