@@ -324,6 +324,128 @@ python3 split_rule_table.py $OUT $B ~/nested-bench/data | tee $OUT/table.md
 | SF10 30스레드는 < 1, 40스레드만 > 1 | 하이퍼스레드를 많이 쓸수록 손해 | 하이퍼스레드 쪽 기준과 같음 |
 | DBLP 10스레드(배치 고정 없음)가 `one`과 같고 `two`와 다름 | 서버가 10스레드를 보통 한 소켓에 둠 | 위 해석을 그대로 적용 |
 
+## 10. 1스레드 빌드 차이 실험
+
+**무엇을 보나요?**
+- 최종 서버 측정(2026-10-19)에서 1스레드 builtin/flat 배수가 모든 데이터셋에서 1차 측정(2026-10-17)보다 조금씩 낮아졌습니다(예: TPC-H SF1 16.35x → 15.36x).
+- builtin 시간은 그대로였으니, flat이 조금 느려졌다는 뜻입니다.
+- 1스레드 경로의 코드는 바뀌지 않았으니 빌드 차이로 보았습니다. 그런데 모든 칸이 같은 방향이어서, 이 실험으로 정말 빌드 차이인지 확인합니다.
+
+| 이름 | 바이너리 |
+|---|---|
+| A1 | 최종 커밋 `924a47be83`을 새 폴더에서 빌드 |
+| A2 | 같은 커밋 `924a47be83`을 또 다른 새 폴더에서 빌드 |
+| B | 1차 측정 커밋 `787dcd6d1b`을 새 폴더에서 빌드 |
+| base | 원래 DuckDB(이미 있는 `~/nested-bench/duckdb_base`), builtin 쿼리로 측정 환경 확인 |
+
+- 전체 데이터셋을 1스레드로만 잽니다.
+- 쿼리마다 네 바이너리를 번갈아 실행하고, 10번 중 가장 빠른 시간을 씁니다.
+- 이미 있는 `~/nested-bench/duckdb`와 `~/nested-bench/duckdb_base` 폴더의 파일은 바꾸지 않습니다.
+  - 새 폴더는 `git worktree`로 `~/nested-bench/build_diff/` 아래에 만듭니다.
+  - `~/nested-bench/duckdb/.git`에는 worktree 목록과 `git fetch`로 받은 원격 브랜치 정보만 추가됩니다. 마지막 정리 단계에서 worktree 목록을 지웁니다.
+
+**시간과 디스크**
+
+| 단계 | 시간 | 디스크 |
+|---|---|---|
+| 빌드 세 개 (차례로) | 하나에 9–10분 (노트북 기준, 서버는 더 빠를 수 있음), 합계 약 30분 | 하나에 약 1.5 GB (소스와 빌드), 합계 약 4.5 GB |
+| 측정 | 약 1시간 (TPC-H SF10이 40분) | 몇 MB |
+
+시작 전에 `df -h ~`로 빈 공간이 6 GB 이상인지 확인하세요.
+
+**10-1. worktree 만들기와 빌드** (tmux 안에서 실행하세요. 7단계 참고)
+
+```bash
+cd ~/nested-bench/duckdb
+git fetch origin
+mkdir -p ~/nested-bench/build_diff
+git worktree add --detach ~/nested-bench/build_diff/a1 924a47be83
+git worktree add --detach ~/nested-bench/build_diff/a2 924a47be83
+git worktree add --detach ~/nested-bench/build_diff/b 787dcd6d1b
+git show origin/main_rey:benchmark/nested_parquet/build_diff_table.py > ~/nested-bench/build_diff/build_diff_table.py
+for w in a1 a2 b; do
+  (cd ~/nested-bench/build_diff/$w && CMAKE_BUILD_PARALLEL_LEVEL=$(nproc) GEN=ninja make release > ../build_$w.log 2>&1) \
+    && echo "$w: $(~/nested-bench/build_diff/$w/build/release/duckdb -no-agent -csv -noheader -c "SELECT source_id FROM pragma_version()")" \
+    || { echo "$w: build failed, see ~/nested-bench/build_diff/build_$w.log"; break; }
+done
+```
+
+- 끝나면 `a1: 924a47be83`, `a2: 924a47be83`, `b: 787dcd6d1b` 세 줄이 나옵니다.
+- 빌드가 실패해서 다시 실행할 때는 `git worktree add` 세 줄을 빼고, `for` 줄부터 붙여 넣으세요. 이미 빌드된 부분은 다시 하지 않습니다.
+
+**10-2. 측정** (약 1시간, tmux 안에서)
+
+```bash
+cd ~/nested-bench/build_diff/a1/benchmark/nested_parquet
+BASE=~/nested-bench/duckdb_base/build/release/duckdb
+A1=~/nested-bench/build_diff/a1/build/release/duckdb
+A2=~/nested-bench/build_diff/a2/build/release/duckdb
+B=~/nested-bench/build_diff/b/build/release/duckdb
+DATA=~/nested-bench/data
+OUT=~/nested-bench/build_diff/results
+QUERY_SETUP="SET disabled_optimizers = 'join_filter_pushdown';SET parquet_node_join_filter_pruning = false"
+mkdir -p $OUT
+for spec in "tpch_sf1 nested-parquet-datasets/nested-tpch" "xmark nested-parquet-datasets/xmark" \
+            "dblp nested-parquet-datasets/dblp" "tpch_sf10 nested-parquet-datasets/nested-tpch-sf10" \
+            "selectivity_random selectivity_random" "selectivity_sorted selectivity_sorted"; do
+  set -- $spec
+  [ -f $OUT/$1.csv ] && continue
+  SETUP=""; case $1 in selectivity_*) SETUP=";$QUERY_SETUP" ;; esac
+  RUNS=10 THREADS=1 VARIANTS="base=builtin a1=flat,flat_minmax a2=flat,flat_minmax b=flat,flat_minmax" \
+    python3 run_bench.py "base=$BASE,a1=$A1$SETUP,a2=$A2$SETUP,b=$B$SETUP" queries/$1 $DATA/$2 $OUT/$1.csv \
+    > $OUT/$1.log 2>&1 || { echo "STOPPED: see $OUT/$1.log"; break; }
+  echo "$1 done $(date +%H:%M)"
+done
+```
+
+- 선택도 실험은 본 측정과 같이 A1·A2·B에 "query 설정"을 줍니다.
+- `STOPPED`가 나오면 다른 프로세스가 CPU를 쓰는 중입니다("자주 생기는 문제" 참고). 끝날 때까지 기다린 뒤 같은 블록을 다시 붙여 넣으세요. 끝난 데이터셋은 건너뜁니다.
+
+**10-3. 표 만들기**
+
+```bash
+ls -d ~/nested-bench/results_* ~/nested-bench/duckdb/benchmark/nested_parquet/results_* 2>/dev/null
+python3 ~/nested-bench/build_diff/build_diff_table.py ~/nested-bench/build_diff/results \
+  --earlier first=<1차 측정 결과 폴더> --earlier final=~/nested-bench/results_final \
+  | tee ~/nested-bench/build_diff/results/table.md
+```
+
+- 첫 줄은 이전 측정 결과 폴더를 보여 줍니다.
+  - 1차 측정(2026-10-17, `run_info.txt`의 final이 `787dcd6d1b`)의 폴더를 `<1차 측정 결과 폴더>` 자리에 넣으세요.
+  - 폴더가 없으면 해당 `--earlier` 옵션을 빼도 됩니다.
+- 노트북으로 가져오기: `rsync -av <서버>:~/nested-bench/build_diff/results ~/build_diff_results`
+
+**표 읽는 법** (`table.md`)
+
+데이터셋마다 쿼리별 표가 있고, 끝에 요약 표가 있습니다.
+- 쿼리별 표: 네 바이너리의 시간(초), `a2/a1`, `b/a1`, 결과 일치 여부가 나옵니다.
+- 요약 표: 데이터셋마다 `a2/a1`과 `b/a1`의 기하평균, 가장 큰 `a2/a1` 차이, builtin이 이전 측정과 같은지가 나옵니다.
+
+1. **측정 환경 확인**: 요약 표의 `builtin now / earlier`가 1에 가까우면(±5% 안), 서버가 이전 측정 때와 같은 속도로 돕니다.
+   - 크게 다르면 서버 상태(다른 사용자, CPU 주파수)가 달라진 것입니다.
+   - 그때는 이전 측정과 비교하지 말고, 이번 측정 안에서 A1·A2·B만 비교하세요.
+2. **빌드 차이의 크기**: `a2/a1`이 1에서 벗어난 정도입니다. 같은 코드를 다시 빌드했을 때 생기는 차이입니다.
+   - "largest a2/a1 difference" 열에서 데이터셋마다 가장 큰 차이를 볼 수 있습니다.
+3. **판정**: `b/a1`을 2번의 크기와 비교합니다.
+
+| 관찰 | 해석 |
+|---|---|
+| `b/a1`이 1에서 벗어난 정도가 `a2/a1`의 차이 범위 안 | 1차와 최종의 1스레드 차이는 빌드 차이가 맞음 |
+| `b/a1`이 대부분의 데이터셋에서 그 범위보다 확실히 크고, 쿼리 대부분에서 같은 방향(예: 마지막 줄 `b is faster than a1 in`이 거의 전부) | 787dcd6d1b → 924a47be83 사이의 코드 변경 때문. 원인을 찾아야 함 |
+| `a2/a1`도 쿼리 대부분에서 한쪽으로 치우침 | 빌드 차이 자체가 체계적으로 크다는 뜻. 1차와 최종의 차이를 설명할 수 있는지 크기로 판단 |
+
+- 1차 측정에서 flat이 더 빨랐으니, 코드 변경 때문이라면 `b/a1` < 1(B가 빠름)로 나옵니다.
+
+**10-4. 정리** (결과를 가져온 뒤, 약 4.5 GB 확보)
+
+```bash
+cd ~/nested-bench/duckdb
+for w in a1 a2 b; do git worktree remove --force ~/nested-bench/build_diff/$w; done
+git worktree list
+```
+
+`git worktree list`에 `~/nested-bench/duckdb` 한 줄만 남으면 됩니다. `~/nested-bench/build_diff/results`와 빌드 로그는 남아 있습니다.
+
 ## 자주 생기는 문제
 
 **시작이 거부됨: `STOPPED: other processes keep the CPU busy`**
