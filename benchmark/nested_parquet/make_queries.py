@@ -124,11 +124,17 @@ OA = f"read_parquet_node({F}, node := 'open_auctions.open_auction')"
 B = f"read_parquet_node({F}, node := 'open_auctions.open_auction.bidder')"
 for n in ["2", "3", "4"]:
     copy("xmark", f"q{n:0>2}", q, f"{n}.sql", f"{n}normalized.sql")
+# Q2: the authors' builtin query has a NULL row for every auction without bidders, which the flat, split and node
+# forms join away - only the auctions with bidders, so that all forms compute the same result
+open(os.path.join(q, "q02.builtin.sql"), "w").write(
+    'select a.bidder[1].increase from (select unnest(open_auctions.open_auction) as a from "sf10.parquet") '
+    "where len(a.bidder) > 0\n"
+)
 node(
     q,
     "q02",
     f"""select b.increase from {OA} a
-left join (select _ak1, first(increase order by _sk) as increase from {B} group by _ak1) b on a._sk = b._ak1""",
+join (select _ak1, first(increase order by _sk) as increase from {B} group by _ak1) b on a._sk = b._ak1""",
 )
 node(
     q,

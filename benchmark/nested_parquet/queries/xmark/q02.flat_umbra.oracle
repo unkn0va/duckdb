@@ -1,2 +1,0 @@
--- the builtin query without the NULL rows of the auctions without bidders (the flat scan joins them away)
-select increase from (select unnest(open_auctions.open_auction).bidder[1].increase as increase from "sf10.parquet") where increase is not null

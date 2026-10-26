@@ -1,1 +1,1 @@
-select unnest(open_auctions.open_auction).bidder[1].increase from "sf10.parquet"
+select a.bidder[1].increase from (select unnest(open_auctions.open_auction) as a from "sf10.parquet") where len(a.bidder) > 0
