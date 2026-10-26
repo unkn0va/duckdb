@@ -14,7 +14,8 @@ after the other for every variant, so that they see the same state of the machin
 tens of percent within an hour). Their columns get the suffix _<label>_t<threads> (parts that do not vary are left out).
 A binary can be given setup statements, run before every query of its configuration (and of its result check):
 label=path;SET a = 1;SET b = 2 - they must not contain commas. The setup of every configuration is recorded in the
-setup_<label> columns.
+setup_<label> columns. When several binaries run the builtin queries, the result of every further one is compared with
+the first one's (builtin_<label>_ok). The CLI option -no-agent is passed only to the binaries that know it.
 
 VARIANTS limits the variants a configuration runs, per label: VARIANTS="base=builtin final=flat,flat_minmax" runs
 only the builtin queries with the binary "base" and only the flat ones with "final" (labels not listed run all
@@ -74,6 +75,15 @@ for label, path, setup in BINARIES:
             }
         )
 DUCKDB = BINARIES[0][1]
+
+
+def shell_flags(binary):
+    """-no-agent for the shells that know the option - binaries built before it was added reject it."""
+    probe = subprocess.run([binary, "-no-agent", "-c", "SELECT 1"], capture_output=True, text=True, timeout=60)
+    return ["-no-agent"] if probe.returncode == 0 else []
+
+
+FLAGS = {path: shell_flags(path) for _, path, _ in BINARIES}
 LABEL_VARIANTS = {}
 for item in os.environ.get("VARIANTS", "").split():
     label, _, variants = item.partition("=")
@@ -133,7 +143,7 @@ def run_timed(sql, binary, threads, config_setup=""):
     setup = (f"SET threads = {threads};\n" if threads else "") + config_setup
     script = setup + ".timer on\n.mode trash\n" + "\n".join([sql.strip().rstrip(";") + ";"] * RUNS) + "\n"
     try:
-        proc = run_process([binary, "-no-agent"], input=script, timeout=TIMEOUT * RUNS)
+        proc = run_process([binary, *FLAGS[binary]], input=script, timeout=TIMEOUT * RUNS)
     except subprocess.TimeoutExpired:
         return None, "timeout"
     timings = re.findall(r"Run Time \(s\): real ([0-9.]+) user ([0-9.]+) sys ([0-9.]+)", proc.stdout + proc.stderr)
@@ -152,8 +162,9 @@ def result_hash(sql, binary=None, setup=""):
         "lambda x: CASE WHEN TRY_CAST(x AS DOUBLE) IS NULL THEN x ELSE round(x::DOUBLE, 2)::VARCHAR END)::VARCHAR AS r "
         f"FROM ({inner}))"
     )
+    binary = binary or DUCKDB
     try:
-        proc = run_process([binary or DUCKDB, "-no-agent", "-csv", "-noheader", "-c", setup + query], timeout=TIMEOUT)
+        proc = run_process([binary, *FLAGS[binary], "-csv", "-noheader", "-c", setup + query], timeout=TIMEOUT)
     except subprocess.TimeoutExpired:
         return "error: timeout"
     return proc.stdout.strip() if proc.returncode == 0 else "error: " + proc.stderr.strip()[-200:]
@@ -173,7 +184,7 @@ def skipped_tasks(sql, binary, threads, config_setup):
         "SELECT message FROM duckdb_logs WHERE message LIKE 'read_parquet_node: the filters%';\n"
     )
     try:
-        proc = run_process([binary, "-no-agent"], input=script, timeout=TIMEOUT)
+        proc = run_process([binary, *FLAGS[binary]], input=script, timeout=TIMEOUT)
     except subprocess.TimeoutExpired:
         return "timeout"
     by_query = by_join = tasks = 0
@@ -298,6 +309,12 @@ for name in names:
                 continue
             key = f"{variant}{'_' + label if len(BINARIES) > 1 else ''}_result"
             entry[key] = "n/a" if label in failed else result_hash(sql, binary, setup)
+    # the builtin query of every further binary (e.g. with an optimizer setting) must give the first one's result
+    builtin_labels = [l for l, _, _ in BINARIES if len(BINARIES) > 1 and f"builtin_{l}_result" in entry]
+    for label in builtin_labels[1:]:
+        result, expected = entry[f"builtin_{label}_result"], entry[f"builtin_{builtin_labels[0]}_result"]
+        entry[f"builtin_{label}_ok"] = str(expected == result and not result.startswith(("error", "n/a")))
+        entry["builtin_reference"] = f"builtin of {builtin_labels[0]}"
     oracle_results = {}
     for variant in VARIANTS[1:]:
         oracle_path = os.path.join(QUERY_DIR, f"{name}.{variant}.oracle")

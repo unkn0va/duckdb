@@ -560,6 +560,73 @@ builtin은 따로 봅니다.
   - 명령어 수가 같으면 코드 배치 때문이고, 다르면 일반 읽기 경로에서 일이 늘어난 것입니다.
 - builtin이 차이가 없으면(`b/a1` ≈ 1), 영향은 `read_parquet_node` 쪽에만 있습니다.
 
+## 12. 세 바이너리 비교: 원래 DuckDB / prenest-3way / main_rey
+
+7단계와 같은 쿼리, 데이터, 방법으로 prenest-3way를 함께 잽니다.
+
+| 구성 | 바이너리 | 쿼리 |
+|---|---|---|
+| base | 원래 DuckDB (`duckdb_base`) | builtin |
+| prenest | prenest-3way (`duckdb_prenest`), `parquet_prenest_auto = true` | 같은 builtin |
+| prenestoff (선택) | 같은 prenest-3way, `parquet_prenest_auto = false` | 같은 builtin |
+| final | main_rey (`duckdb_rey`) | flat (XMark: flat_minmax) |
+
+- prenest-3way는 UNNEST 쿼리 안의 리스트 원소 조건을 리스트를 조립하는 단계로 내려 보냅니다. 그래서 쿼리를 따로 만들지 않고 builtin 쿼리를 그대로 씁니다.
+- prenest-3way는 원래 DuckDB보다 오래된 커밋(`83ae79e5b7`, 2026-02)에서 갈라졌습니다. 그래서 base와의 차이에는 pre-nest 최적화 말고 DuckDB 자체의 변화도 섞입니다. `--prenest-off`를 붙이면 같은 바이너리를 최적화 없이 함께 재므로, `prenestoff / prenest`가 최적화만의 효과입니다.
+- prenest의 결과도 base의 builtin 결과와 같은지 자동으로 확인합니다.
+
+**(1) prenest-3way 받기와 빌드** (처음 한 번)
+
+```bash
+cd ~/nested-bench/duckdb_rey && git fetch origin
+git worktree add -b prenest-3way ~/nested-bench/duckdb_prenest origin/prenest-3way
+cd ~/nested-bench/duckdb_prenest && CMAKE_BUILD_PARALLEL_LEVEL=$(nproc) GEN=ninja make release
+```
+
+prenest-3way의 셸은 `-no-agent` 옵션을 모릅니다. 이 단계의 명령은 그 옵션 없이 실행합니다. 벤치마크 스크립트는 옵션을 아는 바이너리에만 붙입니다.
+
+**(2) pre-nest가 실제로 동작하는지 확인** (1분 이내)
+
+```bash
+cd ~/nested-bench/data/nested-parquet-datasets/nested-tpch
+for f in ~/nested-bench/duckdb_rey/benchmark/nested_parquet/queries/tpch_sf1/*.builtin.sql; do
+  echo -n "$(basename $f .builtin.sql): "
+  ~/nested-bench/duckdb_prenest/build/release/duckdb -noheader -list -c "
+    SELECT parquet_prenest_stat('reset');
+    SET parquet_prenest_auto=true;
+    $(sed 's/;[[:space:]]*$//' $f);
+    SELECT parquet_prenest_stat('elements_decoded')||' '||parquet_prenest_stat('elements_appended');" 2>/dev/null | tail -1
+done
+```
+
+줄마다 `읽은 원소 수 남긴 원소 수`가 나옵니다. 둘째 수가 첫째보다 작으면 원소를 걸러 낸 것입니다. 2026-10-26 확인 결과는 아래와 같습니다. q01은 조건이 거의 모든 행을 남겨서 차이가 작습니다.
+
+```
+q01: 6051219 5916591
+q03: 150000 30142
+q04: 1550004 57218
+q06: 6051219 76033
+q10: 1550004 57069
+q12: 6051219 30988
+```
+
+**(3) 측정** (tmux 안에서)
+
+7단계보다 오래 걸립니다. builtin 쿼리가 대부분의 시간을 쓰므로, prenest만 넣으면 대략 2배, `--prenest-off`까지 넣으면 3배 가까이 걸립니다.
+
+```bash
+tmux new -s bench3
+cd ~/nested-bench/duckdb_rey/benchmark/nested_parquet
+./run_all.sh --base ~/nested-bench/duckdb_base/build/release/duckdb \
+             --final ~/nested-bench/duckdb_rey/build/release/duckdb \
+             --prenest ~/nested-bench/duckdb_prenest/build/release/duckdb --prenest-off \
+             --data ~/nested-bench/data --threads "1 10 20 40"
+```
+
+- 결과 폴더는 7단계와 같습니다. `run_info.txt`에는 `prenest:` 줄로 prenest-3way의 커밋이 추가됩니다.
+- `summary.md`의 마지막 절 "Three binaries"에 데이터셋 × 스레드별 `base / prenest`, `base / prenestoff`, `base / flat` 배수와 쿼리별 초가 있습니다.
+- `result_check.txt`는 flat뿐 아니라 prenest, prenestoff의 builtin 결과도 base와 비교합니다.
+
 ## 자주 생기는 문제
 
 **시작이 거부됨: `STOPPED: other processes keep the CPU busy`**

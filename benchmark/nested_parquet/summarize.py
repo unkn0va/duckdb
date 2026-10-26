@@ -5,6 +5,9 @@ dataset and thread count, and per query. XMark uses the flat_minmax form. With s
 
 Times are the fastest of the runs (run_bench.py). A result that differs from its reference is marked with (!).
 
+When the builtin queries also ran with prenest-3way (run_all.sh --prenest, labels prenest and prenestoff), a further
+section puts the three binaries side by side.
+
 Usage: summarize.py <results folder> [--base-label base] [--final-label final]
 """
 import csv
@@ -24,6 +27,7 @@ NAMES = {
     "selectivity_sorted": "Selectivity (B), a < 10^6 / N",
 }
 FLAT_VARIANTS = ("flat", "flat_minmax")
+PRENEST_LABELS = ("prenest", "prenestoff")
 
 
 def option(name, default):
@@ -128,7 +132,60 @@ def main():
             variant = next((q[2] for q in per_query[dataset] if q[0] == row["query"] and q[2]), "flat")
             print(f"| {name}{' (' + variant + ')' if variant != 'flat' else ''} | " + " | ".join(cells) + " |")
         print()
+    labels = [
+        label
+        for label in PRENEST_LABELS
+        if any(row.get(f"builtin_{label}_t{t}_s") for rows, threads in tables.values() for row in rows for t in threads)
+    ]
+    if labels:
+        print_prenest(tables, all_threads, base, final, labels)
     return 0
+
+
+def print_prenest(tables, all_threads, base, final, labels):
+    def seconds(row, t):
+        variant = next((v for v in FLAT_VARIANTS if row.get(f"{v}_{final}_t{t}_s")), None)
+        flat = number(row, f"{variant}_{final}_t{t}_s") if variant else None
+        flat_ok = row.get(f"{variant}_{final}_ok", "") if variant else ""
+        values = [(number(row, f"builtin_{base}_t{t}_s"), "True")]
+        values += [(number(row, f"builtin_{label}_t{t}_s"), row.get(f"builtin_{label}_ok", "")) for label in labels]
+        return values + [(flat, flat_ok)]
+
+    names = [base] + list(labels) + [f"flat ({final})"]
+    print("## Three binaries: original DuckDB, prenest-3way, main_rey\n")
+    print(
+        f"`{base}` = builtin query of the original DuckDB, `prenest` = the same builtin query with prenest-3way "
+        "(parquet_prenest_auto = true)"
+        + (", `prenestoff` = prenest-3way with parquet_prenest_auto = false" if "prenestoff" in labels else "")
+        + f", flat = `read_parquet_flat` of main_rey (`{final}`). Ratio = {base} seconds / seconds of the column "
+        "(> 1: faster than the original DuckDB); geometric mean over the queries.\n"
+    )
+    print("| dataset | threads | " + " | ".join(f"{base} / {name}" for name in names[1:]) + " |")
+    print("|---|---|" + "---|" * (len(names) - 1))
+    for dataset, (rows, threads) in tables.items():
+        for t in threads:
+            cells = []
+            for i in range(1, len(names)):
+                ratios = []
+                for row in rows:
+                    values = seconds(row, t)
+                    ratios.append(values[0][0] / values[i][0] if values[0][0] and values[i][0] else None)
+                mean = geometric_mean(ratios)
+                cells.append(f"{mean:.2f}x" if mean else "-")
+            print(f"| {NAMES.get(dataset, dataset)} | {t} | " + " | ".join(cells) + " |")
+    print("\n### Per query (seconds)\n")
+    print("| dataset | query | threads | " + " | ".join(names) + " |")
+    print("|---|---|---|" + "---|" * len(names))
+    for dataset, (rows, threads) in tables.items():
+        for row in rows:
+            for t in threads:
+                cells = [
+                    ("-" if value is None else f"{value:.3f}") + ("" if ok == "True" or value is None else " (!)")
+                    for value, ok in seconds(row, t)
+                ]
+                name = query_name(dataset, row["query"])
+                print(f"| {NAMES.get(dataset, dataset)} | {name} | {t} | " + " | ".join(cells) + " |")
+    print()
 
 
 if __name__ == "__main__":

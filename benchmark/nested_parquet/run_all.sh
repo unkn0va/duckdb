@@ -3,9 +3,15 @@
 # flat queries (XMark: flat_minmax) with main_rey, every query interleaved between the two binaries and all thread
 # counts, fastest of RUNS runs; then the selectivity experiment the same way (main_rey with the "query" settings: no
 # join filter pushdown). Afterwards the results are checked (check_results.py) and summarized (summarize.py).
+# With --prenest, the builtin queries also run with prenest-3way (parquet_prenest_auto = true), interleaved with the
+# other two, and their results are compared with those of the original DuckDB.
 #
 # Usage: run_all.sh --base <duckdb of the original DuckDB> --final <duckdb of main_rey> --data <data folder>
 #                   --threads "1 16 32 64" [--out <results folder>] [--runs 10] [--split] [--datasets "..."] [--force]
+#                   [--prenest <duckdb of prenest-3way> [--prenest-off]]
+#   --prenest   also run the builtin queries with prenest-3way, label "prenest"
+#   --prenest-off  and with the same binary with parquet_prenest_auto = false, label "prenestoff" (separates the
+#               pre-nest pass from the other differences between the prenest-3way and the original DuckDB)
 #   --out       where the results go (default: results_<date>_<time> next to this script)
 #   --runs      runs per query and configuration; the fastest counts (default 10)
 #   --split     also run the paper's pre-split files (split variant) with main_rey
@@ -15,9 +21,9 @@
 set -uo pipefail
 
 HERE=$(cd "$(dirname "$0")" && pwd)
-BASE="" FINAL="" DATA="" THREADS="" OUT="" RUNS=10 SPLIT=0 FORCE=0
+BASE="" FINAL="" DATA="" THREADS="" OUT="" RUNS=10 SPLIT=0 FORCE=0 PRENEST="" PRENEST_OFF=0
 DATASETS="tpch_sf1 xmark dblp tpch_sf10 selectivity_random selectivity_sorted"
-usage() { sed -n '2,15p' "$0"; exit 2; }
+usage() { sed -n '2,21p' "$0"; exit 2; }
 while [ $# -gt 0 ]; do
 	case "$1" in
 	--base) BASE=$2; shift 2 ;;
@@ -29,16 +35,20 @@ while [ $# -gt 0 ]; do
 	--datasets) DATASETS=$2; shift 2 ;;
 	--split) SPLIT=1; shift ;;
 	--force) FORCE=1; shift ;;
+	--prenest) PRENEST=$2; shift 2 ;;
+	--prenest-off) PRENEST_OFF=1; shift ;;
 	*) echo "unknown option: $1"; usage ;;
 	esac
 done
 [ -n "$BASE" ] && [ -n "$FINAL" ] && [ -n "$DATA" ] && [ -n "$THREADS" ] || usage
-for binary in "$BASE" "$FINAL"; do
+[ "$PRENEST_OFF" = 0 ] || [ -n "$PRENEST" ] || { echo "ERROR: --prenest-off needs --prenest"; exit 2; }
+for binary in "$BASE" "$FINAL" ${PRENEST:+"$PRENEST"}; do
 	[ -x "$binary" ] || { echo "ERROR: $binary is not an executable file (SERVER.md, step 2)"; exit 1; }
 done
 [ -d "$DATA/nested-parquet-datasets" ] || { echo "ERROR: $DATA/nested-parquet-datasets not found (SERVER.md, step 3)"; exit 1; }
 BASE=$(cd "$(dirname "$BASE")" && pwd)/$(basename "$BASE")
 FINAL=$(cd "$(dirname "$FINAL")" && pwd)/$(basename "$FINAL")
+[ -z "$PRENEST" ] || PRENEST=$(cd "$(dirname "$PRENEST")" && pwd)/$(basename "$PRENEST")
 DATA=$(cd "$DATA" && pwd)
 OUT=${OUT:-$HERE/results_$(date +%Y%m%d_%H%M)}
 mkdir -p "$OUT/logs"
@@ -55,9 +65,22 @@ data_dir() {
 	esac
 }
 
-version() { "$1" -no-agent -csv -noheader -c "SELECT concat_ws(' ', library_version, source_id) FROM pragma_version()" 2>&1; }
+# -no-agent only for the shells that know it (prenest-3way is older)
+version() {
+	local sql="SELECT concat_ws(' ', library_version, source_id) FROM pragma_version()"
+	"$1" -no-agent -csv -noheader -c "$sql" 2>/dev/null || "$1" -csv -noheader -c "$sql" 2>&1
+}
 
 VARIANTS="base=builtin final=flat,flat_minmax"
+PRENEST_BINARIES=""
+if [ -n "$PRENEST" ]; then
+	VARIANTS="$VARIANTS prenest=builtin"
+	PRENEST_BINARIES=",prenest=$PRENEST;SET parquet_prenest_auto = true"
+	if [ "$PRENEST_OFF" = 1 ]; then
+		VARIANTS="$VARIANTS prenestoff=builtin"
+		PRENEST_BINARIES="$PRENEST_BINARIES,prenestoff=$PRENEST;SET parquet_prenest_auto = false"
+	fi
+fi
 [ "$SPLIT" = 1 ] && VARIANTS="$VARIANTS,split"
 QUERY_SETUP="SET disabled_optimizers = 'join_filter_pushdown';SET parquet_node_join_filter_pruning = false"
 
@@ -68,6 +91,7 @@ QUERY_SETUP="SET disabled_optimizers = 'join_filter_pushdown';SET parquet_node_j
 	echo "memory:    $(free -g | awk '/^Mem:/ {print $2}') GiB"
 	echo "base:      $(version "$BASE")  $BASE"
 	echo "final:     $(version "$FINAL")  $FINAL"
+	[ -z "$PRENEST" ] || echo "prenest:   $(version "$PRENEST")  $PRENEST"
 	echo "data:      $DATA"
 	echo "threads:   $THREADS"
 	echo "runs:      $RUNS"
@@ -88,8 +112,8 @@ for dataset in $DATASETS; do
 		echo "ERROR: the data of $dataset is incomplete - see SERVER.md, steps 3-5."
 		exit 1
 	fi
-	binaries="base=$BASE,final=$FINAL"
-	[[ $dataset == selectivity_* ]] && binaries="base=$BASE,final=$FINAL;$QUERY_SETUP"
+	binaries="base=$BASE$PRENEST_BINARIES,final=$FINAL"
+	[[ $dataset == selectivity_* ]] && binaries="base=$BASE$PRENEST_BINARIES,final=$FINAL;$QUERY_SETUP"
 	echo "== $dataset: started $(date +%H:%M), log: $OUT/logs/$dataset.log"
 	RUNS=$RUNS THREADS=$(echo "$THREADS" | xargs | tr ' ' ',') VARIANTS=$VARIANTS \
 		python3 "$HERE/run_bench.py" "$binaries" "$HERE/queries/$dataset" "$DATA/$dir" "$OUT/$dataset.csv" \
