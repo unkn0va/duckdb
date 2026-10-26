@@ -1,0 +1,12 @@
+date:      2026-10-26T11:25:26+00:00
+host:      apache10
+cpu:       Intel(R) Xeon(R) Gold 5215 CPU @ 2.50GHz (40 hardware threads)
+memory:    125 GiB
+base:      v2.1.0-dev88383 a809d3cd51  /home/layun03/nested-bench/duckdb_base/build/release/duckdb
+final:     v2.1.0-dev88410 2d6066fd4d  /home/layun03/nested-bench/duckdb_rey/build/release/duckdb
+prenest:   v2.1.0-dev88385 fabde05fe6  /home/layun03/nested-bench/duckdb_prenest_base/build/release/duckdb
+data:      /home/layun03/nested-bench/data
+threads:   1 10 20 40
+runs:      10
+variants:  base=builtin final=flat,flat_minmax prenest=builtin
+datasets:  tpch_sf1 xmark dblp tpch_sf10 selectivity_random selectivity_sorted

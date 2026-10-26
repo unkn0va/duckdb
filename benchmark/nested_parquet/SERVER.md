@@ -567,24 +567,22 @@ builtin은 따로 봅니다.
 | 구성 | 바이너리 | 쿼리 |
 |---|---|---|
 | base | 원래 DuckDB (`duckdb_base`) | builtin |
-| prenest | prenest-3way (`duckdb_prenest`), `parquet_prenest_auto = true` | 같은 builtin |
-| prenestoff (선택) | 같은 prenest-3way, `parquet_prenest_auto = false` | 같은 builtin |
+| prenest | prenest-3way-base (`duckdb_prenest_base`), `parquet_prenest_auto = true` | 같은 builtin |
 | final | main_rey (`duckdb_rey`) | flat (XMark: flat_minmax) |
 
 - prenest-3way는 UNNEST 쿼리 안의 리스트 원소 조건을 리스트를 조립하는 단계로 내려 보냅니다. 그래서 쿼리를 따로 만들지 않고 builtin 쿼리를 그대로 씁니다.
-- prenest-3way는 원래 DuckDB보다 오래된 커밋(`83ae79e5b7`, 2026-02)에서 갈라졌습니다. 그래서 base와의 차이에는 pre-nest 최적화 말고 DuckDB 자체의 변화도 섞입니다. `--prenest-off`를 붙이면 같은 바이너리를 pre-nest 필터 없이 함께 재므로, `prenestoff / prenest`가 pre-nest 필터만의 효과입니다.
-- prenestoff는 원래 DuckDB가 아닙니다. prenest-3way에는 pre-nest 필터 전에 LIST<STRUCT> 필드 pruning(projection pushdown, `58a44bb203`)이 들어 있고, 이것은 설정과 상관없이 켜져 있습니다. 그래서 `base / prenestoff`는 "옛 DuckDB + pruning"과 원래 DuckDB의 차이입니다.
+- 원래 브랜치 `prenest-3way`는 원래 DuckDB보다 오래된 커밋(`83ae79e5b7`, 2026-02)에서 갈라져서, base와의 차이에 DuckDB 자체의 변화가 섞였습니다. 그래서 같은 변경을 원래 DuckDB의 커밋(`a809d3cd51`) 위로 옮긴 `prenest-3way-base`를 씁니다. 이제 `base / prenest`는 prenest-3way의 변경(LIST<STRUCT> 필드 pruning + pre-nest 필터)만의 효과입니다.
 - prenest의 결과도 base의 builtin 결과와 같은지 자동으로 확인합니다.
 
-**(1) prenest-3way 받기와 빌드** (처음 한 번)
+**(1) prenest-3way-base 받기와 빌드** (처음 한 번)
 
 ```bash
 cd ~/nested-bench/duckdb_rey && git fetch origin
-git worktree add -b prenest-3way ~/nested-bench/duckdb_prenest origin/prenest-3way
-cd ~/nested-bench/duckdb_prenest && CMAKE_BUILD_PARALLEL_LEVEL=$(nproc) GEN=ninja make release
+git worktree add -b prenest-3way-base ~/nested-bench/duckdb_prenest_base origin/prenest-3way-base
+cd ~/nested-bench/duckdb_prenest_base && CMAKE_BUILD_PARALLEL_LEVEL=$(nproc) GEN=ninja make release
 ```
 
-prenest-3way의 셸은 `-no-agent` 옵션을 모릅니다. 이 단계의 명령은 그 옵션 없이 실행합니다. 벤치마크 스크립트는 옵션을 아는 바이너리에만 붙입니다.
+옛 `prenest-3way`(`~/nested-bench/duckdb_prenest`)도 `--prenest`에 줄 수 있습니다. 그 셸은 `-no-agent` 옵션을 모르지만, 벤치마크 스크립트는 옵션을 아는 바이너리에만 붙입니다.
 
 **(2) pre-nest가 실제로 동작하는지 확인** (1분 이내)
 
@@ -592,7 +590,7 @@ prenest-3way의 셸은 `-no-agent` 옵션을 모릅니다. 이 단계의 명령�
 cd ~/nested-bench/data/nested-parquet-datasets/nested-tpch
 for f in ~/nested-bench/duckdb_rey/benchmark/nested_parquet/queries/tpch_sf1/*.builtin.sql; do
   echo -n "$(basename $f .builtin.sql): "
-  ~/nested-bench/duckdb_prenest/build/release/duckdb -noheader -list -c "
+  ~/nested-bench/duckdb_prenest_base/build/release/duckdb -noheader -list -c "
     SELECT parquet_prenest_stat('reset');
     SET parquet_prenest_auto=true;
     $(sed 's/;[[:space:]]*$//' $f);
@@ -600,7 +598,7 @@ for f in ~/nested-bench/duckdb_rey/benchmark/nested_parquet/queries/tpch_sf1/*.b
 done
 ```
 
-줄마다 `읽은 원소 수 남긴 원소 수`가 나옵니다. 둘째 수가 첫째보다 작으면 원소를 걸러 낸 것입니다. 2026-10-26 확인 결과는 아래와 같습니다. q01은 조건이 거의 모든 행을 남겨서 차이가 작습니다.
+줄마다 `읽은 원소 수 남긴 원소 수`가 나옵니다. 둘째 수가 첫째보다 작으면 원소를 걸러 낸 것입니다. 2026-10-26 확인 결과는 아래와 같습니다(옛 `prenest-3way`와 `prenest-3way-base`가 같음). q01은 조건이 거의 모든 행을 남겨서 차이가 작습니다.
 
 ```
 q01: 6051219 5916591
@@ -613,18 +611,19 @@ q12: 6051219 30988
 
 **(3) 측정** (tmux 안에서)
 
-7단계보다 오래 걸립니다. builtin 쿼리가 대부분의 시간을 쓰므로, prenest를 넣으면 대략 2배 걸립니다. `--prenest-off`는 기본 측정에 넣지 않습니다(위 표의 "선택").
+7단계보다 오래 걸립니다. builtin 쿼리가 대부분의 시간을 쓰므로, prenest를 넣으면 대략 2배 걸립니다. `--prenest-off`(같은 바이너리를 `parquet_prenest_auto = false`로 함께 재기)도 있지만 기본 측정에는 넣지 않습니다.
 
 ```bash
-tmux new -s bench3
+tmux new -s bench3base
 cd ~/nested-bench/duckdb_rey/benchmark/nested_parquet
 ./run_all.sh --base ~/nested-bench/duckdb_base/build/release/duckdb \
              --final ~/nested-bench/duckdb_rey/build/release/duckdb \
-             --prenest ~/nested-bench/duckdb_prenest/build/release/duckdb \
+             --prenest ~/nested-bench/duckdb_prenest_base/build/release/duckdb \
              --data ~/nested-bench/data --threads "1 10 20 40"
 ```
 
-- 결과 폴더는 7단계와 같습니다. `run_info.txt`에는 `prenest:` 줄로 prenest-3way의 커밋이 추가됩니다.
+- 결과 폴더는 7단계와 같습니다. `run_info.txt`에는 `prenest:` 줄로 prenest 바이너리의 커밋이 추가됩니다(2026-10-26: `fabde05fe6`).
+- 2026-10-26 결과: `RESULTS.md`의 "Three binaries on the same DuckDB", 파일은 `server_20261026_3way_base/`.
 - `summary.md`의 마지막 절 "Three binaries"에 데이터셋 × 스레드별 `base / prenest`, `base / flat` 배수와 쿼리별 초가 있습니다(`--prenest-off`를 붙였다면 `base / prenestoff`도).
 - `result_check.txt`는 flat뿐 아니라 prenest의 builtin 결과도 base와 비교합니다.
 
