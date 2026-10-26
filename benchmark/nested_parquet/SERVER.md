@@ -613,20 +613,20 @@ q12: 6051219 30988
 
 **(3) 측정** (tmux 안에서)
 
-7단계보다 오래 걸립니다. builtin 쿼리가 대부분의 시간을 쓰므로, prenest만 넣으면 대략 2배, `--prenest-off`까지 넣으면 3배 가까이 걸립니다.
+7단계보다 오래 걸립니다. builtin 쿼리가 대부분의 시간을 쓰므로, prenest를 넣으면 대략 2배 걸립니다. `--prenest-off`는 기본 측정에 넣지 않습니다(위 표의 "선택").
 
 ```bash
 tmux new -s bench3
 cd ~/nested-bench/duckdb_rey/benchmark/nested_parquet
 ./run_all.sh --base ~/nested-bench/duckdb_base/build/release/duckdb \
              --final ~/nested-bench/duckdb_rey/build/release/duckdb \
-             --prenest ~/nested-bench/duckdb_prenest/build/release/duckdb --prenest-off \
+             --prenest ~/nested-bench/duckdb_prenest/build/release/duckdb \
              --data ~/nested-bench/data --threads "1 10 20 40"
 ```
 
 - 결과 폴더는 7단계와 같습니다. `run_info.txt`에는 `prenest:` 줄로 prenest-3way의 커밋이 추가됩니다.
-- `summary.md`의 마지막 절 "Three binaries"에 데이터셋 × 스레드별 `base / prenest`, `base / prenestoff`, `base / flat` 배수와 쿼리별 초가 있습니다.
-- `result_check.txt`는 flat뿐 아니라 prenest, prenestoff의 builtin 결과도 base와 비교합니다.
+- `summary.md`의 마지막 절 "Three binaries"에 데이터셋 × 스레드별 `base / prenest`, `base / flat` 배수와 쿼리별 초가 있습니다(`--prenest-off`를 붙였다면 `base / prenestoff`도).
+- `result_check.txt`는 flat뿐 아니라 prenest의 builtin 결과도 base와 비교합니다.
 
 ## 자주 생기는 문제
 

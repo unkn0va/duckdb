@@ -1,0 +1,19 @@
+dblp: 4 queries, 12 comparisons
+selectivity_random: 7 queries, 21 comparisons
+selectivity_sorted: 7 queries, 21 comparisons
+tpch_sf1: 6 queries, 18 comparisons
+tpch_sf10: 5 queries, 15 comparisons
+xmark: 4 queries, 12 comparisons
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!! RESULT CHECK FAILED: 8 problem(s)
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  selectivity_random n2: builtin_prenest differs from builtin of base
+  selectivity_random n2: builtin_prenestoff differs from builtin of base
+  selectivity_random n3: builtin_prenest differs from builtin of base
+  selectivity_random n3: builtin_prenestoff differs from builtin of base
+  selectivity_random n5: builtin_prenest differs from builtin of base
+  selectivity_random n5: builtin_prenestoff differs from builtin of base
+  selectivity_sorted n1: builtin_prenest differs from builtin of base
+  selectivity_sorted n1: builtin_prenestoff differs from builtin of base
+The timings of these queries are not comparable. See SERVER.md, 'Common problems'.

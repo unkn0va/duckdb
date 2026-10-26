@@ -519,6 +519,72 @@ alternating, smallest of 5 processes (each running the query 3 times with 1 thre
   by this layout effect (5% in the geometric mean), not by a change of the implementation. This concludes the
   1-thread question.
 
+### Three binaries: original DuckDB, prenest-3way, main_rey (2026-10-26)
+
+`run_all.sh --prenest ... --prenest-off` (`SERVER.md`, step 12) on the same server: the builtin queries also run with
+the prenest-3way branch, interleaved with the other configurations for every query, threads = 1/10/20/40, fastest of
+10 runs, `busy_cpu` = 0. **All 99 results (flat, prenest and prenestoff for each of the 33 queries) equal the builtin
+results of `base`, without oracles.** Files: `server_20261026_3way/`.
+
+| configuration | binary | query |
+|---|---|---|
+| `base` | original DuckDB a809d3cd51 | builtin |
+| `prenest` | prenest-3way e5e140aa2d, `parquet_prenest_auto = true` | builtin |
+| `prenestoff` | prenest-3way e5e140aa2d, `parquet_prenest_auto = false` | builtin |
+| `final` | main_rey 2d6066fd4d | flat (XMark: flat_minmax) |
+
+prenest-3way is a separate line of work on DuckDB's existing UNNEST path: it branches from an older DuckDB
+(83ae79e5b7, 2026-02-27), adds pruning of unused LIST<STRUCT> fields (projection pushdown, 58a44bb203) and then
+pushes element predicates into the list assembly of the Parquet reader (the pre-nest filter, switched by
+`parquet_prenest_auto`). So `prenestoff` is *not* the original DuckDB: it is the older DuckDB with the field pruning;
+`prenestoff -> prenest` is the effect of the pre-nest filter alone.
+
+The CSVs come from three runs on the same day with the same binaries: TPC-H SF1/SF10 and DBLP from the first run
+(`logs/first_run.*`); XMark again after its Q2 builtin query was restricted to the auctions with bidders (the first
+run had compared flat with an oracle; `logs/xmark.run_info.txt`); the selectivity datasets again after the result
+comparison was changed to 12 significant digits (the first run reported prenest's averages as different from base's -
+they differ by 1 ULP, and base's is the one that is off; see "Variants per query" above).
+
+base seconds / seconds of the configuration, geometric mean over the queries, threads = 1 / 10 / 20 / 40 (> 1: faster
+than the original DuckDB):
+
+| dataset | prenest | prenestoff | flat (main_rey) |
+|---|---|---|---|
+| TPC-H SF1 | 5.60 / 5.44 / 5.42 / 5.38 | 1.68 / 1.66 / 1.66 / 1.63 | 15.28 / 50.96 / 49.53 / 45.69 |
+| TPC-H SF10 | 4.57 / 4.07 / 4.14 / 4.07 | 2.22 / 1.74 / 1.86 / 1.83 | 8.90 / 8.48 / 8.58 / 8.07 |
+| XMark | 3.42 / 3.42 / 3.25 / 3.34 | 3.43 / 3.29 / 3.42 / 3.36 | 6.93 / 5.99 / 6.26 / 5.58 |
+| DBLP | 1.04 / 1.14 / 1.14 / 1.10 | 1.04 / 1.12 / 1.15 / 1.11 | 0.81 / 1.37 / 2.12 / 2.52 |
+| Selectivity (A) | 1.77 / 1.52 / 1.72 / 2.17 | 1.78 / 1.53 / 1.72 / 2.18 | 0.76 / 2.79 / 2.95 / 3.43 |
+| Selectivity (B) | 3.67 / 2.57 / 3.28 / 3.42 | 3.72 / 2.72 / 3.30 / 3.58 | 0.42 / 1.30 / 1.35 / 1.40 |
+
+TPC-H, seconds base / prenestoff / prenest / flat:
+
+| query | SF1, 1 thread | SF1, 40 threads | SF10, 1 thread | SF10, 40 threads |
+|---|---|---|---|---|
+| q01 | 6.47 / 4.04 / 3.88 / 0.63 | 6.36 / 4.15 / 4.00 / 0.13 | 34.8 / 18.2 / 18.4 / 6.24 | 2.81 / 1.77 / 1.78 / 0.42 |
+| q03 | 5.93 / 3.30 / 1.71 / 0.42 | 5.88 / 3.37 / 1.70 / 0.18 | 29.6 / 11.7 / 4.97 / 3.51 | 2.43 / 1.27 / 0.44 / 0.43 |
+| q04 | 5.97 / 3.47 / 0.60 / 0.33 | 5.94 / 3.54 / 0.64 / 0.13 | 30.2 / 11.2 / 7.62 / 3.10 | 2.53 / 1.12 / 0.72 / 0.35 |
+| q06 | 6.10 / 3.53 / 0.74 / 0.33 | 5.97 / 3.58 / 0.76 / 0.07 | 31.2 / 15.8 / 5.05 / 2.69 | 2.56 / 1.46 / 0.45 / 0.19 |
+| q10 | 5.98 / 3.71 / 0.77 / 0.42 | 5.83 / 3.67 / 0.78 / 0.26 | - | - |
+| q12 | 6.26 / 3.84 / 0.76 / 0.35 | 6.24 / 3.91 / 0.78 / 0.11 | 32.3 / 15.6 / 4.48 / 3.09 | 2.69 / 1.58 / 0.42 / 0.29 |
+
+- **flat (main_rey) is the fastest on TPC-H and XMark at every thread count**: 1.7-2.1x faster than prenest on
+  TPC-H SF10 and XMark, 2.7x (1 thread) to 9.4x (10 threads) on TPC-H SF1, whose file has a single row group (of 5
+  rows), so the builtin queries of both other binaries take the same time with 1 and 40 threads. On DBLP and the
+  selectivity data, flat is slower than base with 1 thread (as in all server runs) and faster with 10-40 threads.
+- **The pre-nest filter (prenestoff -> prenest) helps where a predicate on list elements filters many of them**:
+  TPC-H q03/q04/q06/q10/q12 (1.5-5.8x); not q01, whose predicate keeps 98% of the lineitems. It does nothing on
+  XMark, DBLP and the selectivity queries (geometric means 0.94-1.04): their predicates are on the parent (`a`) or
+  above an aggregate (XMark q03), not on list elements.
+- **base -> prenestoff is not explained by these measurements.** The field pruning likely explains XMark (3.4x: wide
+  auction structs, not verified) and part of TPC-H (2026-09-29 notes of prenest-3way: pruning alone 1.8-2.0x), but the selectivity list `b` is `LIST<BIGINT>`, which has no fields to prune, and
+  prenestoff is still 1.5-5.4x faster there (B, N = 10^3: 0.065s vs 0.012s). The gap is either a change in DuckDB
+  between 83ae79e5b7 and a809d3cd51 or another commit of the pruning branch; a run with the stock 83ae79e5b7 binary
+  would separate them. Until then, base / prenest is not the effect of the prenest-3way changes alone.
+- **flat vs prenest**: flat is faster on TPC-H and XMark; prenest is faster on DBLP and selectivity (A) with 1 thread,
+  and on selectivity (B) at every thread count (2.4x at 40 threads), but its times include the unexplained
+  base -> prenestoff gap above.
+
 ## Split rules after the server results (2026-10-18)
 
 Principle: **a row group is not split where the cost of splitting - the level-count pre-pass and the repeated
