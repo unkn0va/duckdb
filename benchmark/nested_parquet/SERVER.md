@@ -4,7 +4,7 @@
 
 ```
 ~/nested-bench/
-├── duckdb/        main_rey 소스 (이 문서와 스크립트도 여기 있음) + release 빌드
+├── duckdb_rey/    main_rey 소스 (이 문서와 스크립트도 여기 있음) + release 빌드
 ├── duckdb_base/   원래 DuckDB 소스 (main_rey가 갈라져 나온 커밋) + release 빌드
 ├── venv/          데이터 생성용 Python 환경 (pyarrow 26.0.0)
 └── data/          논문 데이터와 선택도 실험 데이터
@@ -83,8 +83,8 @@ git push origin main_rey
 
 ```bash
 cd ~/nested-bench
-git clone https://github.com/unkn0va/duckdb.git duckdb
-cd ~/nested-bench/duckdb
+git clone https://github.com/unkn0va/duckdb.git duckdb_rey
+cd ~/nested-bench/duckdb_rey
 git checkout main_rey
 git log -1 --format="main_rey: %H %s"
 # 원래 DuckDB = main_rey가 DuckDB main에서 갈라져 나온 커밋 (merge-base)
@@ -97,16 +97,16 @@ git worktree add ~/nested-bench/duckdb_base a809d3cd519df6db70223c562c4de80da311
 이제 두 소스를 release로 빌드합니다. 하나에 10–30분 걸립니다. 다른 사람과 같이 쓰는 서버라면 `CMAKE_BUILD_PARALLEL_LEVEL`을 코어 수의 절반쯤으로 줄이세요.
 
 ```bash
-cd ~/nested-bench/duckdb && CMAKE_BUILD_PARALLEL_LEVEL=$(nproc) GEN=ninja make release
+cd ~/nested-bench/duckdb_rey && CMAKE_BUILD_PARALLEL_LEVEL=$(nproc) GEN=ninja make release
 cd ~/nested-bench/duckdb_base && CMAKE_BUILD_PARALLEL_LEVEL=$(nproc) GEN=ninja make release
 ```
 
 빌드가 잘 됐는지 확인합니다.
 
 ```bash
-~/nested-bench/duckdb/build/release/duckdb -no-agent -c "SELECT library_version, source_id FROM pragma_version()"
+~/nested-bench/duckdb_rey/build/release/duckdb -no-agent -c "SELECT library_version, source_id FROM pragma_version()"
 ~/nested-bench/duckdb_base/build/release/duckdb -no-agent -c "SELECT library_version, source_id FROM pragma_version()"
-~/nested-bench/duckdb/build/release/duckdb -no-agent -c "SELECT count(*) FROM duckdb_functions() WHERE function_name = 'read_parquet_flat'"
+~/nested-bench/duckdb_rey/build/release/duckdb -no-agent -c "SELECT count(*) FROM duckdb_functions() WHERE function_name = 'read_parquet_flat'"
 ```
 
 - 처음 두 줄은 버전과 커밋을 하나씩 보여 줍니다.
@@ -145,7 +145,7 @@ ls ~/nested-bench/data/nested-parquet-datasets
 [data_manifest.tsv](data_manifest.tsv)에 모든 파일의 크기와 SHA-256 체크섬이 적혀 있습니다. 이 값은 노트북에서 계산했습니다. 확인은 두 단계로 합니다.
 
 ```bash
-cd ~/nested-bench/duckdb/benchmark/nested_parquet
+cd ~/nested-bench/duckdb_rey/benchmark/nested_parquet
 python3 check_data.py ~/nested-bench/data --only nested-parquet-datasets/          # 크기만 (몇 초)
 python3 check_data.py ~/nested-bench/data --only nested-parquet-datasets/ --full   # 체크섬까지 (몇 분)
 ```
@@ -160,7 +160,7 @@ python3 check_data.py ~/nested-bench/data --only nested-parquet-datasets/ --full
 - (B) `a`를 정렬한 데이터와 그 split 파일
 
 ```bash
-cd ~/nested-bench/duckdb/benchmark/nested_parquet
+cd ~/nested-bench/duckdb_rey/benchmark/nested_parquet
 ./prepare_data.sh ~/nested-bench/data ~/nested-bench/venv/bin/python
 ```
 
@@ -171,9 +171,9 @@ cd ~/nested-bench/duckdb/benchmark/nested_parquet
 본 측정 전에 모든 단계가 동작하는지 작게 시험합니다. 시험 결과는 따로 `/tmp/bench-smoke`에 둡니다.
 
 ```bash
-cd ~/nested-bench/duckdb/benchmark/nested_parquet
+cd ~/nested-bench/duckdb_rey/benchmark/nested_parquet
 ./run_all.sh --base ~/nested-bench/duckdb_base/build/release/duckdb \
-             --final ~/nested-bench/duckdb/build/release/duckdb \
+             --final ~/nested-bench/duckdb_rey/build/release/duckdb \
              --data ~/nested-bench/data --threads "1 4" --runs 1 \
              --datasets "xmark selectivity_sorted" --out /tmp/bench-smoke
 ```
@@ -187,7 +187,7 @@ main_rey는 레벨을 세야 하는 스캔을 "row group 수 < min(스레드 수
 
 ```bash
 lscpu -p=CORE,SOCKET | grep -v '^#' | sort -u | wc -l
-(cd ~/nested-bench/data/nested-parquet-datasets/nested-tpch-sf10 && ~/nested-bench/duckdb/build/release/duckdb -no-agent -csv -noheader -c "SET threads = 40; CALL enable_logging(level := 'debug', storage := 'memory')" -c "SELECT count(_ak0) FROM read_parquet_node('nestedcustomer.parquet', node := 'c_orders')" -c "SELECT message FROM duckdb_logs WHERE message LIKE '%physical cores%'")
+(cd ~/nested-bench/data/nested-parquet-datasets/nested-tpch-sf10 && ~/nested-bench/duckdb_rey/build/release/duckdb -no-agent -csv -noheader -c "SET threads = 40; CALL enable_logging(level := 'debug', storage := 'memory')" -c "SELECT count(_ak0) FROM read_parquet_node('nestedcustomer.parquet', node := 'c_orders')" -c "SELECT message FROM duckdb_logs WHERE message LIKE '%physical cores%'")
 ```
 
 - 연구실 서버(소켓 2개 × 10코어)라면 첫 줄은 `20`입니다.
@@ -206,9 +206,9 @@ tmux new -s bench
 tmux 화면이 열리면 아래를 붙여 넣습니다. `--threads`는 원하는 스레드 수로 바꾸세요. `nproc`가 보여 준 수보다 큰 값은 의미가 적습니다. 미리 쪼갠 파일(split)도 재려면 마지막 줄 끝에 ` --split`을 붙이세요.
 
 ```bash
-cd ~/nested-bench/duckdb/benchmark/nested_parquet
+cd ~/nested-bench/duckdb_rey/benchmark/nested_parquet
 ./run_all.sh --base ~/nested-bench/duckdb_base/build/release/duckdb \
-             --final ~/nested-bench/duckdb/build/release/duckdb \
+             --final ~/nested-bench/duckdb_rey/build/release/duckdb \
              --data ~/nested-bench/data --threads "1 16 32 64"
 ```
 
@@ -219,7 +219,7 @@ cd ~/nested-bench/duckdb/benchmark/nested_parquet
 
 ## 8. 결과 파일
 
-결과는 `~/nested-bench/duckdb/benchmark/nested_parquet/results_<날짜>_<시각>/`에 모입니다.
+결과는 `~/nested-bench/duckdb_rey/benchmark/nested_parquet/results_<날짜>_<시각>/`에 모입니다.
 
 | 파일 | 내용 |
 |---|---|
@@ -239,7 +239,7 @@ python3 check_results.py <결과 폴더>
 노트북으로 가져오려면 노트북에서 아래처럼 실행합니다.
 
 ```bash
-rsync -av <서버>:~/nested-bench/duckdb/benchmark/nested_parquet/results_<날짜>_<시각> .
+rsync -av <서버>:~/nested-bench/duckdb_rey/benchmark/nested_parquet/results_<날짜>_<시각> .
 ```
 
 **XMark Q2 등 원래 결과가 다른 경우**:
@@ -264,7 +264,7 @@ rsync -av <서버>:~/nested-bench/duckdb/benchmark/nested_parquet/results_<날�
 **준비**: main_rey를 최신으로 받아 다시 빌드합니다(원래 DuckDB는 필요 없습니다).
 
 ```bash
-cd ~/nested-bench/duckdb && git pull && CMAKE_BUILD_PARALLEL_LEVEL=$(nproc) GEN=ninja make release
+cd ~/nested-bench/duckdb_rey && git pull && CMAKE_BUILD_PARALLEL_LEVEL=$(nproc) GEN=ninja make release
 ```
 
 **측정 (약 1시간)**: tmux 안에서 실행하세요(7단계).
@@ -276,8 +276,8 @@ cd ~/nested-bench/duckdb && git pull && CMAKE_BUILD_PARALLEL_LEVEL=$(nproc) GEN=
 - 끊겼다면 같은 명령을 다시 붙여 넣으면 됩니다. 끝난 데이터셋은 건너뜁니다.
 
 ```bash
-cd ~/nested-bench/duckdb/benchmark/nested_parquet
-B=~/nested-bench/duckdb/build/release/duckdb
+cd ~/nested-bench/duckdb_rey/benchmark/nested_parquet
+B=~/nested-bench/duckdb_rey/build/release/duckdb
 DATA=~/nested-bench/data/nested-parquet-datasets
 OUT=~/nested-bench/results_split_rule
 ON="SET parquet_node_split_half_threads = true"
@@ -340,9 +340,9 @@ python3 split_rule_table.py $OUT $B ~/nested-bench/data | tee $OUT/table.md
 
 - 전체 데이터셋을 1스레드로만 잽니다.
 - 쿼리마다 네 바이너리를 번갈아 실행하고, 10번 중 가장 빠른 시간을 씁니다.
-- 이미 있는 `~/nested-bench/duckdb`와 `~/nested-bench/duckdb_base` 폴더의 파일은 바꾸지 않습니다.
+- 이미 있는 `~/nested-bench/duckdb_rey`와 `~/nested-bench/duckdb_base` 폴더의 파일은 바꾸지 않습니다.
   - 새 폴더는 `git worktree`로 `~/nested-bench/build_diff/` 아래에 만듭니다.
-  - `~/nested-bench/duckdb/.git`에는 worktree 목록과 `git fetch`로 받은 원격 브랜치 정보만 추가됩니다. 마지막 정리 단계에서 worktree 목록을 지웁니다.
+  - `~/nested-bench/duckdb_rey/.git`에는 worktree 목록과 `git fetch`로 받은 원격 브랜치 정보만 추가됩니다. 마지막 정리 단계에서 worktree 목록을 지웁니다.
 
 **시간과 디스크**
 
@@ -356,7 +356,7 @@ python3 split_rule_table.py $OUT $B ~/nested-bench/data | tee $OUT/table.md
 **10-1. worktree 만들기와 빌드** (tmux 안에서 실행하세요. 7단계 참고)
 
 ```bash
-cd ~/nested-bench/duckdb
+cd ~/nested-bench/duckdb_rey
 git fetch origin
 mkdir -p ~/nested-bench/build_diff
 git worktree add --detach ~/nested-bench/build_diff/a1 924a47be83
@@ -404,7 +404,7 @@ done
 **10-3. 표 만들기**
 
 ```bash
-ls -d ~/nested-bench/results_* ~/nested-bench/duckdb/benchmark/nested_parquet/results_* 2>/dev/null
+ls -d ~/nested-bench/results_* ~/nested-bench/duckdb_rey/benchmark/nested_parquet/results_* 2>/dev/null
 python3 ~/nested-bench/build_diff/build_diff_table.py ~/nested-bench/build_diff/results \
   --earlier first=<1차 측정 결과 폴더> --earlier final=~/nested-bench/results_final \
   | tee ~/nested-bench/build_diff/results/table.md
@@ -439,12 +439,12 @@ python3 ~/nested-bench/build_diff/build_diff_table.py ~/nested-bench/build_diff/
 **10-4. 정리** (결과를 가져온 뒤, 약 4.5 GB 확보)
 
 ```bash
-cd ~/nested-bench/duckdb
+cd ~/nested-bench/duckdb_rey
 for w in a1 a2 b; do git worktree remove --force ~/nested-bench/build_diff/$w; done
 git worktree list
 ```
 
-`git worktree list`에 `~/nested-bench/duckdb` 한 줄만 남으면 됩니다. `~/nested-bench/build_diff/results`와 빌드 로그는 남아 있습니다.
+`git worktree list`에 `~/nested-bench/duckdb_rey` 한 줄만 남으면 됩니다. `~/nested-bench/build_diff/results`와 빌드 로그는 남아 있습니다.
 
 ## 11. 명령어 수 비교 (A1 vs B)
 
@@ -500,7 +500,7 @@ perf stat -e instructions:u,cycles:u -- true
 쿼리마다 a1과 b를 번갈아 5번씩 실행하고, 가장 작은 값을 씁니다. 한 번 실행은 프로세스 하나가 쿼리를 3번 반복하는 것입니다. flat 쿼리 5개와 builtin 쿼리 4개를 잽니다.
 
 ```bash
-cd ~/nested-bench/duckdb && git fetch origin
+cd ~/nested-bench/duckdb_rey && git fetch origin
 git show origin/main_rey:benchmark/nested_parquet/perf_compare.py > ~/nested-bench/build_diff/perf_compare.py
 cd ~/nested-bench/build_diff/a1/benchmark/nested_parquet
 python3 ~/nested-bench/build_diff/perf_compare.py perf \
