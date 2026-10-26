@@ -249,7 +249,7 @@ rsync -av <서버>:~/nested-bench/duckdb_rey/benchmark/nested_parquet/results_<�
 ## 9. 쪼개기 기준 실험 (규칙 (a) 켬/끔)
 
 > **2026-10-18에 끝난 실험입니다.**
-> - 결과는 `server_20261018_split_rule/`에, 해석은 RESULTS.md의 "Hardware experiment and the final criterion"에 있습니다.
+> - 결과(`server_20261018_split_rule/`)와 해석(RESULTS.md의 "Hardware experiment and the final criterion")은 2026-10-26 정리 때 저장소에서 지웠습니다. 커밋 `680aab9a8d`에 남아 있습니다.
 > - 이 결과로 정한 최종 기준은 "레벨을 세야 하면 row group 수 < min(스레드 수, 물리 코어 수)일 때만 쪼갠다"입니다.
 > - 최종 버전에는 아래 명령이 쓰는 설정 `parquet_node_split_half_threads`가 없습니다. 같은 실험을 다시 하려면 2단계에서 main_rey 대신 커밋 `7f2e2261de3`을 빌드하세요.
 
@@ -623,7 +623,7 @@ cd ~/nested-bench/duckdb_rey/benchmark/nested_parquet
 ```
 
 - 결과 폴더는 7단계와 같습니다. `run_info.txt`에는 `prenest:` 줄로 prenest 바이너리의 커밋이 추가됩니다(2026-10-26: `fabde05fe6`).
-- 2026-10-26 결과: `RESULTS.md`의 "Three binaries on the same DuckDB", 파일은 `server_20261026_3way_base/`.
+- 2026-10-26 결과: `RESULTS.md`의 "Final results", 파일은 `server_20261026_3way_base/`.
 - `summary.md`의 마지막 절 "Three binaries"에 데이터셋 × 스레드별 `base / prenest`, `base / flat` 배수와 쿼리별 초가 있습니다(`--prenest-off`를 붙였다면 `base / prenestoff`도).
 - `result_check.txt`는 flat뿐 아니라 prenest의 builtin 결과도 base와 비교합니다.
 

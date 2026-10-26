@@ -4,9 +4,14 @@ Queries of the paper "Nested Parquet Is Flat, Why Not Use It?" (Rey et al., SIGM
 https://github.com/alicerey/nested-parquet, on the paper's datasets (Google Drive archive linked from that repository,
 8,551,262,143 bytes; the Twitter dataset is not included).
 
+This file holds the final results (2026-10-26). The earlier measurements and their analyses (laptop runs, the first
+server runs, the split-rule and hardware experiments, the build comparison, the first three-binary run on the old
+DuckDB, the selectivity and filter-pushdown experiments) were removed from the repository on 2026-10-26; they are in
+commit `680aab9a8d` (`RESULTS.md` and the `server_2026*` folders and CSVs there).
+
 ## Differences from the paper (summary)
 
-What this implementation and its measurements do differently from the paper; details in the sections below.
+What this implementation and its measurements do differently from the paper.
 
 **System and interface**
 - The paper implements its approach in Umbra; here it is a DuckDB extension in the Parquet reader: the table functions
@@ -30,13 +35,13 @@ What this implementation and its measurements do differently from the paper; det
   flat queries return the results of the builtin queries. Only XMark Q2 differed: the authors' builtin query indexes
   the list, so `bidder[1]` gives a NULL row for each of the 11,586 auctions without bidders (NULL lists in
   `sf10.parquet`), which every other form joins away. The builtin query now keeps only the auctions with bidders
-  (`where len(a.bidder) > 0`), so all forms are compared with it directly (until 2026-10-26: with an oracle).
+  (`where len(a.bidder) > 0`), so all forms are compared with it directly.
 
 **Parallel scan (paper: Listing 3)**
 - A row group is split only when there are fewer row groups than threads - and, when the keys need a count of its
   levels, fewer than physical cores that run the threads (decided on the 2-socket server: beyond the cores, threads are
-  hyper-threads, which gain less than the count costs; "Hardware experiment and the final criterion"). With 1 thread,
-  or row groups that are not split, the scan is the unchanged single scan.
+  hyper-threads, which gain less than the count costs). With 1 thread, or row groups that are not split, the scan is
+  the unchanged single scan.
 - The parts start at the page boundaries of the largest column that is read (the paper's per-page jumps) - or at
   offsets within its pages when it has fewer pages than threads (Listing 3's offset). The keys at the start of a part
   come from a pre-pass that counts the repetition levels per page (reading neither the dictionary nor the values), in
@@ -44,8 +49,8 @@ What this implementation and its measurements do differently from the paper; det
   slots (`parquet_node_task_slots`).
 - Limitation: columns with few pages (XMark bidders: 1-8 pages) are split within pages, which every part then
   decompresses.
-- Limitation: short queries over a single row group (XMark, 60-110 ms with 1 thread) are slower with 10-40 threads than
-  with 1 thread on the 2-socket server, although they are faster with more threads on the laptop ("Server results").
+- Limitation: short queries over a single row group (XMark, 60-120 ms with 1 thread) are slower with 10-40 threads than
+  with 1 thread on the 2-socket server (see "Final results").
 
 **Filters (phase 1 only)**
 - Filters are evaluated in the scan after key generation, the other columns are decoded only for the rows that pass,
@@ -54,24 +59,22 @@ What this implementation and its measurements do differently from the paper; det
 - Skipping with the filters that joins create while the query runs (sideways information passing, which the paper only
   names as future work in Section 6.5) is an addition beyond the paper's scope, off by default
   (`parquet_node_join_filter_pruning`).
-- In the selectivity experiment the flat (and node/split) queries also run with DuckDB's `join_filter_pushdown`
-  optimizer disabled, to leave out sideways information passing beyond the paper's scope: without it, `split` (plain
-  `read_parquet`) would skip row groups by the join's filters, and every join would spend time building filters that
-  the node scans do not use. The other datasets run with DuckDB's default optimizers.
+- In the selectivity experiment the flat queries also run with DuckDB's `join_filter_pushdown` optimizer disabled, to
+  leave out sideways information passing beyond the paper's scope. The other datasets run with DuckDB's default
+  optimizers.
 - As in the paper (Section 6.5, Listing 3), skipping parts of a child requires counting the repetition levels of its
   pages first: a structural cost of reading the nested file in situ that stored keys (`split`) avoid.
 
 **Benchmark setup**
-- Hardware and software: a laptop (i7-1360P, 4P+8E cores, 16 hardware threads, WSL2) and a lab server (Xeon Gold
-  5215, 2 sockets x 10 cores; final numbers in "Final server run") instead of the paper's server; DuckDB v2.1.0-dev
-  release builds; timings drift by tens of percent, so configurations are compared interleaved. Binaries of
-  different commits can differ by up to 10% at 1 thread on the server from code layout alone - same instructions,
-  fewer per cycle ("1-thread difference between the first and the final run").
+- Hardware and software: a lab server (Xeon Gold 5215, 2 sockets x 10 cores, 40 hardware threads) instead of the
+  paper's server; DuckDB v2.1.0-dev release builds. Binaries of different commits can differ by up to 10% at 1 thread
+  on this server from code layout alone (same instructions, fewer per cycle), so small differences between binaries
+  are not meaningful.
 - Compared systems: the paper compares Umbra with other systems; here everything runs in DuckDB - `builtin` (DuckDB's
-  nested types with UNNEST), `node`/`flat` (this implementation), `split` (the paper's pre-split files).
-- Baseline: on the server, `base` is a809d3cd51, the commit of DuckDB main that main_rey branches from (the merge base
-  of main_rey and DuckDB main, and the parent of main_rey's first commit 87b27256b9; no merges since). The builtin
-  queries therefore run on the same DuckDB that main_rey adds to.
+  nested types with UNNEST) on the original DuckDB and on prenest-3way-base, and `flat` (this implementation).
+- Baseline: `base` is a809d3cd51, the commit of DuckDB main that main_rey branches from (the merge base of main_rey and
+  DuckDB main, and the parent of main_rey's first commit 87b27256b9; no merges since). prenest-3way-base is on the
+  same commit, so all three binaries share the same DuckDB underneath.
 - Datasets: the paper's archive without the Twitter dataset. All files use data pages v1; only the parquet-mr files
   (TPC-H SF10) have a page index.
 - Queries: the authors' repository, with these changes - XMark Q2's builtin query restricted to the auctions with
@@ -79,10 +82,8 @@ What this implementation and its measurements do differently from the paper; det
   added (Q4 returns no rows), arrow lambdas rewritten (`lambda x: ...`), XMark element order through `"<path>._sk"`
   in two forms (Umbra's correlated subqueries, and a min/max join).
 - Selectivity experiment (Fig. 15): every variant computes `avg(greatest(a, b))` (the paper's builtin query computes
-  `avg(b)`); `split` reads files cut from the paper's `l1.parquet`, as the paper's pre-split files hold other random
-  values; experiment (B) with sorted data and a range predicate is an addition beyond the paper's scope. With 1
-  thread, builtin is faster than flat for every N >= 10 (laptop and server), unlike the paper's Fig. 15 ("Server
-  results").
+  `avg(b)`); experiment (B) with sorted data and a range predicate is an addition beyond the paper's scope. With 1
+  thread, builtin is faster than flat for every N >= 10, unlike the paper's Fig. 15 (see "Final results").
 
 Variants per query (`queries/<dataset>/<query>.<variant>.sql`):
 - `builtin`: the repository's DuckDB query over the nested file (UNNEST of nested types)
@@ -94,939 +95,139 @@ Variants per query (`queries/<dataset>/<query>.<variant>.sql`):
   with the min/max key per parent (`GROUP BY "open_auctions.open_auction._sk"`)
 - `split`: the repository's normalized query over the paper's pre-split files with stored keys
 
+The final run measures `builtin` and `flat` (XMark: `flat_minmax`, the faster of the two element-order forms).
+
 A variant's result is compared with the builtin one by an order-insensitive hash (numbers rounded to 2 decimals and then
 to 12 significant digits), or with `<query>.<variant>.oracle` where the variant has a different result by definition
-(see XMark below). The 12 digits absorb a last-bit difference between DuckDB versions: since commit 363a7253e8
+(XMark Q4, see below). The 12 digits absorb a last-bit difference between DuckDB versions: since commit 363a7253e8
 (2026-03-02), DuckDB's `aggregate_function_rewriter` turns an ungrouped `avg(x)` into `sum(x) / count(x)` in DOUBLE,
-which rounds twice and can be 1 ULP off the exact mean, whereas the older `avg` (prenest-3way on 83ae79e5b7) divides in long double
+which rounds twice and can be 1 ULP off the exact mean, whereas older DuckDB versions divide in long double
 (selectivity `avg(greatest(a, b))` over values near 2^63).
-**All variants return their expected result for all queries, with both binaries and both thread counts.**
 
 ## Running
 
+On the server, with the kit of `SERVER.md` (step 12):
+
 ```
-python3 make_queries.py <nested-parquet repo> queries                       # builtin, node, split
-python3 make_flat_queries.py <duckdb> <datasets dir> queries                 # flat
-RUNS=5 THREADS=1,16 python3 run_bench.py base=<old duckdb>,new=<duckdb> queries/xmark <datasets dir>/xmark parallel_xmark.csv
+./run_all.sh --base <original duckdb> --final <main_rey duckdb> --prenest <prenest-3way-base duckdb> \
+             --data <datasets dir> --threads "1 10 20 40"
 ```
-Dataset directories: `nested-tpch` (tpch_sf1), `nested-tpch-sf10`, `xmark`, `dblp`. Fastest of RUNS runs.
+
+`run_all.sh` checks the data files, runs `run_bench.py` per dataset, compares the results (`result_check.txt`) and
+writes `summary.md`. The queries come from `make_queries.py` (builtin, node, split), `make_flat_queries.py` (flat)
+and `make_selectivity_queries.py`.
 
 ## Method
 
-i7-1360P (16 hardware threads), 15 GiB, WSL2. **"Final results" (2026-10-17) uses release builds and 10 runs; the
-sections after it are the earlier measurements of the individual steps (reldebug builds, 3-5 runs, 2026-10-16)**, kept
-for their analyses - compare numbers only within one section.
+- All configurations are compared **interleaved**: for every query, every binary and thread count runs one after the
+  other, and the fastest of 10 runs is taken. Differences between separate runs are not meaningful.
+- `run_bench.py` samples the CPU use of other processes before every query (column `busy_cpu`) and does not start when
+  other processes keep more than half a core busy; it kills the process group of a query on a timeout or when it is
+  interrupted.
+- Geometric means are over the queries of a dataset; queries with a failed or oracle-only comparison would be left
+  out (none in the final run).
 
-- The timings of this laptop drift by tens of percent within an hour: the same builtin TPC-H SF1 query took 5.7s in
-  one run and 3.5s ten minutes later. Binaries and thread counts are therefore compared **interleaved**: for every
-  query and variant, all configurations run one after the other (`base`/`new` x `threads=1`/`16`). Differences between
-  separate runs are not meaningful.
-- Within a run the noise is still visible: the builtin and split variants, whose code did not change, have
-  new/base ratios of 0.91-1.04 with 1 thread and 0.77-1.27 with 16 threads.
-- `run_bench.py` samples the CPU use of other processes before every query (column `busy_cpu`) and warns above 50% of
-  a core; it does not start when other processes keep more than half a core busy, and kills the process group of a
-  query on a timeout or when it is interrupted. Two earlier runs were discarded after a leftover process (a hung query,
-  a file search) was found to occupy a core during them.
-- In the earlier sections: `base` = the build before the parallel scan (with `"<path>._sk"`), `new` = with the
-  parallel scan. In "Final results": `base` = commit 72f26314b3c (without `"<path>._sk"`), `final` = the final version.
+## Final results: original DuckDB, prenest-3way-base, main_rey (2026-10-26)
 
-## Final results (release builds, base vs final)
-
-`make release` builds of `base` = commit 72f26314b3c (before the parallel scan) and `final` = commit 0d7359b9c2f
-(parallel scan + filter pushdown, default settings). Interleaved with threads = 1 and 16, **fastest of 10 runs**, CPU =
-smallest user + sys of all threads of the 10 runs; 2026-10-17, no other process used the CPU (`busy_cpu` <= 10% of a
-core). CSVs: `release_<dataset>.csv`, `release_selectivity_*.csv`.
-
-```
-RUNS=10 THREADS=1,16 python3 run_bench.py base=<base duckdb>,final=<final duckdb> queries/<dataset> <datasets dir>/<dir> release_<dataset>.csv
-```
-
-All variants return their expected results with both binaries and both thread counts, except that `base` cannot run
-the XMark `flat_umbra`/`flat_minmax` queries (n/a): `"<path>._sk"` was added in the same commit as the parallel scan.
-
-Seconds; `t1 final/base` < 1 is faster; `t16 base/final` and `final t1/t16` are speedups:
-
-| dataset | query | variant | base t1 | final t1 | t1 final/base | base t16 | final t16 | t16 base/final | final t1/t16 | CPU t16 base / final |
-|---|---|---|---|---|---|---|---|---|---|---|
-| TPC-H SF1 (1 RG) | q01 | builtin | 3.379 | 3.404 | 1.01 | 3.475 | 3.493 | 0.99x | 0.97x | 3.47 / 3.49 |
-|  | q01 | node | 0.334 | 0.314 | 0.94 | 0.334 | 0.078 | 4.28x | 4.03x | 0.34 / 1.01 |
-|  | q01 | flat | 0.325 | 0.314 | 0.97 | 0.332 | 0.081 | 4.10x | 3.88x | 0.33 / 1.02 |
-|  | q01 | split | 0.250 | 0.234 | 0.94 | 0.243 | 0.237 | 1.03x | 0.99x | 0.48 / 0.48 |
-|  | q03 | builtin | 3.039 | 3.097 | 1.02 | 3.279 | 3.143 | 1.04x | 0.99x | 3.28 / 3.15 |
-|  | q03 | node | 0.220 | 0.223 | 1.01 | 0.229 | 0.087 | 2.63x | 2.56x | 0.23 / 0.94 |
-|  | q03 | flat | 0.227 | 0.220 | 0.97 | 0.226 | 0.085 | 2.66x | 2.59x | 0.23 / 0.91 |
-|  | q03 | split | 0.136 | 0.131 | 0.96 | 0.144 | 0.135 | 1.07x | 0.97x | 0.26 / 0.27 |
-|  | q04 | builtin | 3.094 | 3.170 | 1.02 | 3.252 | 3.358 | 0.97x | 0.94x | 3.26 / 3.36 |
-|  | q04 | node | 0.169 | 0.168 | 0.99 | 0.172 | 0.062 | 2.77x | 2.71x | 0.18 / 0.69 |
-|  | q04 | flat | 0.168 | 0.168 | 1.00 | 0.171 | 0.063 | 2.71x | 2.67x | 0.17 / 0.71 |
-|  | q04 | split | 0.092 | 0.090 | 0.98 | 0.105 | 0.097 | 1.08x | 0.93x | 0.21 / 0.19 |
-|  | q06 | builtin | 3.192 | 3.171 | 0.99 | 3.157 | 3.464 | 0.91x | 0.92x | 3.15 / 4.02 |
-|  | q06 | node | 0.191 | 0.162 | 0.85 | 0.173 | 0.038 | 4.55x | 4.26x | 0.17 / 0.49 |
-|  | q06 | flat | 0.168 | 0.175 | 1.04 | 0.165 | 0.049 | 3.37x | 3.57x | 0.17 / 0.61 |
-|  | q06 | split | 0.091 | 0.123 | 1.35 | 0.107 | 0.101 | 1.06x | 1.22x | 0.15 / 0.20 |
-|  | q10 | builtin | 3.243 | 3.151 | 0.97 | 3.209 | 3.424 | 0.94x | 0.92x | 3.21 / 3.73 |
-|  | q10 | node | 0.219 | 0.229 | 1.05 | 0.228 | 0.121 | 1.88x | 1.89x | 0.24 / 0.89 |
-|  | q10 | flat | 0.221 | 0.235 | 1.06 | 0.225 | 0.139 | 1.62x | 1.69x | 0.24 / 0.96 |
-|  | q10 | split | 0.164 | 0.160 | 0.98 | 0.163 | 0.170 | 0.96x | 0.94x | 0.30 / 0.33 |
-|  | q12 | builtin | 3.357 | 3.302 | 0.98 | 3.514 | 3.529 | 1.00x | 0.94x | 3.53 / 3.98 |
-|  | q12 | node | 0.181 | 0.179 | 0.99 | 0.183 | 0.062 | 2.95x | 2.89x | 0.19 / 0.75 |
-|  | q12 | flat | 0.182 | 0.175 | 0.96 | 0.181 | 0.068 | 2.66x | 2.57x | 0.18 / 0.68 |
-|  | q12 | split | 0.107 | 0.109 | 1.02 | 0.110 | 0.112 | 0.98x | 0.97x | 0.13 / 0.22 |
-| TPC-H SF10 (22 RG) | q01 | builtin | 18.796 | 18.765 | 1.00 | 3.841 | 3.983 | 0.96x | 4.71x | 48.18 / 50.43 |
-|  | q01 | node | 3.499 | 3.334 | 0.95 | 0.614 | 0.585 | 1.05x | 5.70x | 7.41 / 7.16 |
-|  | q01 | flat | 3.387 | 3.300 | 0.97 | 0.613 | 0.596 | 1.03x | 5.54x | 7.21 / 7.02 |
-|  | q01 | split | 2.523 | 2.489 | 0.99 | 0.488 | 0.480 | 1.02x | 5.19x | 5.64 / 5.67 |
-|  | q03 | builtin | 15.794 | 15.650 | 0.99 | 3.548 | 3.496 | 1.01x | 4.48x | 46.07 / 45.41 |
-|  | q03 | node | 2.017 | 1.994 | 0.99 | 0.369 | 0.361 | 1.02x | 5.52x | 4.37 / 4.05 |
-|  | q03 | flat | 1.976 | 1.957 | 0.99 | 0.372 | 0.365 | 1.02x | 5.36x | 4.29 / 4.15 |
-|  | q03 | split | 1.245 | 1.238 | 0.99 | 0.302 | 0.298 | 1.01x | 4.15x | 2.62 / 2.86 |
-|  | q04 | builtin | 15.988 | 16.039 | 1.00 | 3.424 | 3.425 | 1.00x | 4.68x | 43.05 / 43.10 |
-|  | q04 | node | 1.606 | 1.643 | 1.02 | 0.318 | 0.317 | 1.00x | 5.18x | 3.64 / 3.54 |
-|  | q04 | flat | 1.598 | 1.619 | 1.01 | 0.311 | 0.314 | 0.99x | 5.16x | 3.40 / 3.52 |
-|  | q04 | split | 0.842 | 0.852 | 1.01 | 0.207 | 0.212 | 0.98x | 4.02x | 1.88 / 1.83 |
-|  | q06 | builtin | 16.676 | 16.580 | 0.99 | 3.574 | 3.579 | 1.00x | 4.63x | 46.45 / 45.53 |
-|  | q06 | node | 1.549 | 1.528 | 0.99 | 0.266 | 0.262 | 1.02x | 5.83x | 3.13 / 3.09 |
-|  | q06 | flat | 1.520 | 1.491 | 0.98 | 0.261 | 0.258 | 1.01x | 5.78x | 3.06 / 3.06 |
-|  | q06 | split | 0.921 | 0.918 | 1.00 | 0.178 | 0.174 | 1.02x | 5.28x | 2.06 / 2.06 |
-|  | q12 | builtin | 17.404 | 17.344 | 1.00 | 3.764 | 3.830 | 0.98x | 4.53x | 47.72 / 48.66 |
-|  | q12 | node | 1.637 | 1.643 | 1.00 | 0.315 | 0.317 | 0.99x | 5.18x | 3.72 / 3.52 |
-|  | q12 | flat | 1.597 | 1.609 | 1.01 | 0.301 | 0.310 | 0.97x | 5.19x | 3.50 / 3.52 |
-|  | q12 | split | 1.051 | 1.054 | 1.00 | 0.231 | 0.229 | 1.01x | 4.60x | 2.49 / 2.51 |
-| XMark (1 RG) | q02 | builtin | 0.329 | 0.332 | 1.01 | 0.326 | 0.335 | 0.97x | 0.99x | 0.33 / 0.33 |
-|  | q02 | node | 0.029 | 0.031 | 1.07 | 0.025 | 0.019 | 1.32x | 1.63x | 0.05 / 0.09 |
-|  | q02 | flat_umbra | n/a | 0.053 | - | n/a | 0.051 | - | 1.04x | n/a / 0.14 |
-|  | q02 | flat_minmax | n/a | 0.033 | - | n/a | 0.031 | - | 1.06x | n/a / 0.09 |
-|  | q02 | split | 0.050 | 0.050 | 1.00 | 0.047 | 0.048 | 0.98x | 1.04x | 0.11 / 0.11 |
-|  | q03 | builtin | 0.335 | 0.335 | 1.00 | 0.338 | 0.338 | 1.00x | 0.99x | 0.34 / 0.34 |
-|  | q03 | node | 0.035 | 0.036 | 1.03 | 0.037 | 0.026 | 1.42x | 1.38x | 0.05 / 0.10 |
-|  | q03 | flat_umbra | n/a | 0.295 | - | n/a | 0.133 | - | 2.22x | n/a / 0.55 |
-|  | q03 | flat_minmax | n/a | 0.064 | - | n/a | 0.053 | - | 1.21x | n/a / 0.13 |
-|  | q03 | split | 0.264 | 0.241 | 0.91 | 0.236 | 0.235 | 1.00x | 1.03x | 0.57 / 0.47 |
-|  | q04 | builtin | 0.338 | 0.335 | 0.99 | 0.339 | 0.341 | 0.99x | 0.98x | 0.34 / 0.34 |
-|  | q04 | node | 0.030 | 0.028 | 0.93 | 0.031 | 0.021 | 1.48x | 1.33x | 0.04 / 0.07 |
-|  | q04 | flat_umbra | n/a | 0.061 | - | n/a | 0.049 | - | 1.24x | n/a / 0.11 |
-|  | q04 | flat_minmax | n/a | 0.038 | - | n/a | 0.029 | - | 1.31x | n/a / 0.08 |
-|  | q04 | split | 0.031 | 0.030 | 0.97 | 0.026 | 0.026 | 1.00x | 1.15x | 0.05 / 0.04 |
-|  | q04p | builtin | 0.345 | 0.347 | 1.01 | 0.352 | 0.346 | 1.02x | 1.00x | 0.35 / 0.35 |
-|  | q04p | node | 0.035 | 0.035 | 1.00 | 0.036 | 0.024 | 1.50x | 1.46x | 0.04 / 0.09 |
-|  | q04p | flat_umbra | n/a | 0.065 | - | n/a | 0.051 | - | 1.27x | n/a / 0.11 |
-|  | q04p | flat_minmax | n/a | 0.055 | - | n/a | 0.040 | - | 1.38x | n/a / 0.09 |
-|  | q04p | split | 0.046 | 0.046 | 1.00 | 0.045 | 0.043 | 1.05x | 1.07x | 0.07 / 0.07 |
-| DBLP (6 RG) | q06 | builtin | 2.064 | 2.063 | 1.00 | 0.696 | 0.701 | 0.99x | 2.94x | 3.48 / 3.56 |
-|  | q06 | node | 2.552 | 2.506 | 0.98 | 0.811 | 0.645 | 1.26x | 3.89x | 4.46 / 8.49 |
-|  | q06 | flat | 2.513 | 2.527 | 1.01 | 0.778 | 0.615 | 1.27x | 4.11x | 4.36 / 8.28 |
-|  | q06 | split | 2.723 | 2.746 | 1.01 | 0.878 | 0.846 | 1.04x | 3.25x | 5.45 / 5.47 |
-|  | q07 | builtin | 2.882 | 2.859 | 0.99 | 0.842 | 0.871 | 0.97x | 3.28x | 5.05 / 5.77 |
-|  | q07 | node | 3.438 | 3.428 | 1.00 | 0.998 | 0.852 | 1.17x | 4.02x | 6.09 / 10.89 |
-|  | q07 | flat | 3.456 | 3.449 | 1.00 | 1.026 | 0.839 | 1.22x | 4.11x | 6.47 / 10.72 |
-|  | q07 | split | 3.487 | 3.563 | 1.02 | 1.053 | 1.094 | 0.96x | 3.26x | 7.39 / 7.39 |
-|  | q08 | builtin | 0.834 | 0.843 | 1.01 | 0.288 | 0.291 | 0.99x | 2.90x | 1.02 / 1.03 |
-|  | q08 | node | 1.128 | 1.135 | 1.01 | 0.326 | 0.298 | 1.09x | 3.81x | 1.37 / 4.09 |
-|  | q08 | flat | 1.122 | 1.117 | 1.00 | 0.316 | 0.295 | 1.07x | 3.79x | 1.34 / 4.04 |
-|  | q08 | split | 0.570 | 0.568 | 1.00 | 0.193 | 0.190 | 1.02x | 2.99x | 0.77 / 0.76 |
-|  | q09 | builtin | 1.502 | 1.484 | 0.99 | 0.481 | 0.451 | 1.07x | 3.29x | 1.96 / 1.84 |
-|  | q09 | node | 1.562 | 1.537 | 0.98 | 0.442 | 0.413 | 1.07x | 3.72x | 1.86 / 5.80 |
-|  | q09 | flat | 1.551 | 1.547 | 1.00 | 0.443 | 0.360 | 1.23x | 4.30x | 1.89 / 4.93 |
-|  | q09 | split | 1.316 | 1.246 | 0.95 | 0.422 | 0.391 | 1.08x | 3.19x | 1.91 / 1.68 |
-
-- **1 thread**: node/flat final/base 0.85-1.07 - the unchanged single scan; builtin/split, whose code did not change,
-  show the noise of the run (0.91-1.35).
-- **16 threads, files with fewer row groups than threads**: TPC-H SF1 (1 row group) node/flat 1.6-4.6x faster than
-  base (base cannot use more than one thread per row group), XMark (1 row group) 1.3-1.5x, DBLP (6 row groups)
-  1.07-1.27x - with 1.8-4.2x the CPU of base. TPC-H SF10 (22 row groups) is not split: 0.97-1.05x.
-- **final, 1 -> 16 threads**: TPC-H SF1 1.7-4.3x, SF10 5.2-5.8x, DBLP 3.7-4.3x, XMark node 1.3-1.6x (20-35 ms
-  queries; few pages per column).
-- **Against the other variants at 16 threads**: node is 1.4-3.0x faster than split on TPC-H SF1 (whose pre-split
-  files have one row group each), 1.2-1.5x slower on SF10, faster on all XMark queries (1.2-9x) and on DBLP Q6/Q7,
-  slower on DBLP Q8/Q9 (1.6x / 1.06x). builtin is 28-91x slower than node on TPC-H SF1, 7-14x on SF10, 13-18x on
-  XMark, and about equal on DBLP (0.98-1.09x).
-
-### Selectivity experiment (release builds)
-
-Configurations as in "How the configurations were aligned" below, with `base` (before the parallel scan) instead of
-`page`; `query`/`join` = the final binary with the setup SQL of that section. 10 runs. Columns marked † belong to the
-`join` configuration (beyond the paper's scope); "skipped" as below.
-
-(A) paper data, `a % N = 0`, threads=1: wall seconds (CPU seconds)
-
-| N | builtin | node base | node query | node join† | skipped q+j/tasks† | flat query | flat join† | split query | split join† |
-|---|---|---|---|---|---|---|---|---|---|
-| 1 | 0.119 (0.12) | 0.159 (0.16) | 0.158 (0.16) | 0.164 (0.16) | 0+0/1 | 0.161 (0.16) | 0.165 (0.16) | 0.132 (0.13) | 0.136 (0.14) |
-| 10^1 | 0.059 (0.06) | 0.092 (0.09) | 0.095 (0.10) | 0.099 (0.10) | 0+0/2 | 0.094 (0.09) | 0.100 (0.10) | 0.067 (0.07) | 0.065 (0.06) |
-| 10^2 | 0.052 (0.05) | 0.084 (0.08) | 0.084 (0.08) | 0.086 (0.09) | 0+0/2 | 0.085 (0.09) | 0.088 (0.09) | 0.056 (0.06) | 0.055 (0.05) |
-| 10^3 | 0.049 (0.05) | 0.085 (0.09) | 0.087 (0.09) | 0.082 (0.08) | 0+0/2 | 0.085 (0.08) | 0.084 (0.08) | 0.057 (0.06) | 0.049 (0.05) |
-| 10^4 | 0.040 (0.04) | 0.080 (0.08) | 0.083 (0.08) | 0.079 (0.08) | 0+0/2 | 0.085 (0.09) | 0.082 (0.08) | 0.055 (0.05) | 0.041 (0.04) |
-| 10^5 | 0.038 (0.04) | 0.082 (0.08) | 0.082 (0.08) | 0.079 (0.08) | 0+0/2 | 0.084 (0.08) | 0.079 (0.08) | 0.055 (0.06) | 0.034 (0.03) |
-| 10^6 | 0.037 (0.04) | 0.081 (0.08) | 0.083 (0.08) | 0.076 (0.08) | 0+0/2 | 0.083 (0.08) | 0.076 (0.08) | 0.055 (0.05) | 0.011 (0.01) |
-
-(A) paper data, `a % N = 0`, threads=16: wall seconds (CPU seconds)
-
-| N | builtin | node base | node query | node join† | skipped q+j/tasks† | flat query | flat join† | split query | split join† |
-|---|---|---|---|---|---|---|---|---|---|
-| 1 | 0.124 (0.16) | 0.157 (0.16) | 0.052 (0.55) | 0.061 (0.52) | 0+0/16 | 0.054 (0.54) | 0.058 (0.42) | 0.045 (0.22) | 0.049 (0.22) |
-| 10^1 | 0.061 (0.09) | 0.097 (0.10) | 0.039 (0.44) | 0.041 (0.39) | 0+0/24 | 0.038 (0.34) | 0.040 (0.36) | 0.028 (0.14) | 0.028 (0.15) |
-| 10^2 | 0.054 (0.07) | 0.081 (0.08) | 0.037 (0.31) | 0.037 (0.30) | 0+0/24 | 0.038 (0.29) | 0.037 (0.38) | 0.026 (0.13) | 0.025 (0.12) |
-| 10^3 | 0.052 (0.07) | 0.084 (0.08) | 0.036 (0.38) | 0.036 (0.38) | 0+0/24 | 0.036 (0.41) | 0.036 (0.36) | 0.025 (0.12) | 0.022 (0.11) |
-| 10^4 | 0.041 (0.06) | 0.082 (0.08) | 0.034 (0.42) | 0.035 (0.41) | 0+0/24 | 0.035 (0.42) | 0.033 (0.33) | 0.022 (0.12) | 0.021 (0.09) |
-| 10^5 | 0.039 (0.06) | 0.083 (0.09) | 0.034 (0.26) | 0.030 (0.20) | 0+6/24 | 0.035 (0.41) | 0.031 (0.28) | 0.025 (0.13) | 0.019 (0.07) |
-| 10^6 | 0.022 (0.03) | 0.082 (0.08) | 0.034 (0.41) | 0.023 (0.18) | 0+15/24 | 0.034 (0.33) | 0.023 (0.16) | 0.024 (0.12) | 0.013 (0.02) |
-
-(B) sorted `a`, `a < 10^6/N` — beyond the paper's scope, threads=1: wall seconds (CPU seconds)
-
-| N | builtin | node base | node query | node join† | skipped q+j/tasks† | flat query | flat join† | split query | split join† |
-|---|---|---|---|---|---|---|---|---|---|
-| 1 | 0.094 (0.09) | 0.134 (0.13) | 0.132 (0.13) | 0.142 (0.14) | 0+0/1 | 0.135 (0.14) | 0.139 (0.14) | 0.108 (0.11) | 0.115 (0.11) |
-| 10^1 | 0.044 (0.04) | 0.090 (0.09) | 0.088 (0.09) | 0.084 (0.08) | 0+0/2 | 0.087 (0.09) | 0.085 (0.08) | 0.060 (0.06) | 0.021 (0.02) |
-| 10^2 | 0.036 (0.03) | 0.084 (0.08) | 0.086 (0.09) | 0.078 (0.08) | 0+0/2 | 0.086 (0.09) | 0.077 (0.08) | 0.054 (0.05) | 0.015 (0.01) |
-| 10^3 | 0.032 (0.03) | 0.083 (0.08) | 0.085 (0.09) | 0.076 (0.08) | 0+0/2 | 0.086 (0.09) | 0.077 (0.08) | 0.052 (0.05) | 0.014 (0.01) |
-| 10^4 | 0.033 (0.03) | 0.083 (0.08) | 0.085 (0.08) | 0.076 (0.08) | 0+0/2 | 0.084 (0.08) | 0.076 (0.08) | 0.054 (0.05) | 0.014 (0.01) |
-| 10^5 | 0.035 (0.04) | 0.085 (0.09) | 0.086 (0.09) | 0.076 (0.08) | 0+0/2 | 0.085 (0.09) | 0.077 (0.08) | 0.054 (0.05) | 0.013 (0.01) |
-| 10^6 | 0.034 (0.03) | 0.086 (0.09) | 0.084 (0.08) | 0.077 (0.08) | 0+0/2 | 0.086 (0.09) | 0.078 (0.08) | 0.054 (0.05) | 0.014 (0.01) |
-
-(B) sorted `a`, `a < 10^6/N` — beyond the paper's scope, threads=16: wall seconds (CPU seconds)
-
-| N | builtin | node base | node query | node join† | skipped q+j/tasks† | flat query | flat join† | split query | split join† |
-|---|---|---|---|---|---|---|---|---|---|
-| 1 | 0.099 (0.12) | 0.137 (0.14) | 0.053 (0.43) | 0.057 (0.54) | 0+0/16 | 0.053 (0.55) | 0.057 (0.55) | 0.045 (0.20) | 0.049 (0.19) |
-| 10^1 | 0.027 (0.04) | 0.090 (0.09) | 0.037 (0.44) | 0.029 (0.23) | 0+14/24 | 0.038 (0.44) | 0.029 (0.13) | 0.026 (0.12) | 0.022 (0.03) |
-| 10^2 | 0.020 (0.03) | 0.085 (0.09) | 0.035 (0.33) | 0.025 (0.15) | 0+15/24 | 0.036 (0.31) | 0.025 (0.20) | 0.024 (0.12) | 0.017 (0.02) |
-| 10^3 | 0.019 (0.03) | 0.083 (0.08) | 0.034 (0.36) | 0.025 (0.21) | 0+15/24 | 0.035 (0.35) | 0.025 (0.11) | 0.024 (0.12) | 0.015 (0.03) |
-| 10^4 | 0.018 (0.03) | 0.084 (0.08) | 0.034 (0.29) | 0.024 (0.22) | 0+15/24 | 0.035 (0.31) | 0.025 (0.20) | 0.024 (0.11) | 0.014 (0.02) |
-| 10^5 | 0.035 (0.03) | 0.085 (0.09) | 0.034 (0.29) | 0.024 (0.20) | 0+15/24 | 0.036 (0.30) | 0.025 (0.14) | 0.024 (0.11) | 0.017 (0.02) |
-| 10^6 | 0.019 (0.03) | 0.087 (0.09) | 0.035 (0.30) | 0.024 (0.16) | 0+15/24 | 0.035 (0.38) | 0.025 (0.13) | 0.023 (0.12) | 0.016 (0.02) |
-
-- `base` takes the same time with 1 and 16 threads (one task per node: no parallel scan); `query` is the parallel
-  scan of the final binary and, as before, does not get faster with selectivity - the condition on the parent does not
-  reduce the child scan (Section 6.5).
-- `join` (16 threads) skips 15 of 16 child parts at N = 10^6 in (A) and 14-15 from N = 10 on in (B): 0.034-0.037s ->
-  0.023-0.029s; `split` in `join` reaches 0.013-0.022s (and 0.011-0.021s with 1 thread, where the node scan cannot
-  skip) - the pre-pass over the child's levels is the remaining cost (see "Interpretation").
-
-## Server results (2026-10-17)
-
-The kit of `SERVER.md` (`run_all.sh`) on the lab server: Intel Xeon Gold 5215, **2 sockets x 10 cores** (40 hardware
-threads), 125 GiB; `base` = the original DuckDB (merge base a809d3cd51, builtin queries), `final` = main_rey 787dcd6d1b
-(flat queries; XMark: `flat_minmax`; selectivity: the `query` settings). threads = 1/10/20/40, interleaved, fastest of
-10 runs, no other process used the CPU (`busy_cpu` = 0 everywhere). **All 33 results equal the builtin results or
-their oracles.** Files: `server_20261017/` (CSVs, `summary.md`, `result_check.txt`, `run_info.txt`, logs).
-
-builtin / flat, geometric mean over the queries (> 1: flat is faster):
-
-| dataset | threads=1 | threads=10 | threads=20 | threads=40 |
-|---|---|---|---|---|
-| TPC-H SF1 | 16.35x | 52.24x | 45.56x | 45.80x |
-| TPC-H SF10 | 9.30x | 8.84x | 8.83x | 5.59x |
-| XMark | 7.18x | 5.16x | 5.11x | 4.81x |
-| DBLP | 0.82x | 1.11x | 1.82x | 2.13x |
-| Selectivity (A), a % N = 0 | 0.77x | 2.87x | 2.70x | 3.18x |
-| Selectivity (B), a < 10^6 / N | 0.48x | 1.23x | 1.41x | 1.54x |
-
-- **More threads than cores of a socket.** The server has two CPUs of 10 cores each. Up to 10 threads can run on one
-  socket; beyond that the threads span both sockets and access memory attached to the other socket (NUMA), and beyond
-  20 they share cores (hyper-threading). Scaling above 10 threads is therefore not linear even without the issues below:
-  TPC-H SF1 flat, a single row group whose scan already finishes in 58-234 ms with 10 threads, is fastest with 10
-  threads (q03 0.157s -> 0.183s/0.200s with 20/40); the builtin queries of SF1 use one thread for the single row group
-  and stay at 5.8-6.5s with every thread count.
-- **TPC-H SF10 with 40 threads (problem (a))**: q03, q04 and q12 got 2x slower from 20 to 40 threads (q03 0.394s ->
-  0.815s, CPU 5.1s -> 15.5s). The file has 22 row groups: with 40 threads the old rule (split when there are fewer row
-  groups than threads) split all of them, which costs a level-count pre-pass for every row group and repeated
-  decompression of the pages that parts start in, for a parallelism gain of at most 40/22 = 1.8x. q01 and q06 need no
-  ancestor keys (no pre-pass) and still got faster. Fixed by rule (a) in the next section.
-- **XMark with 10+ threads (problem (b))**: flat_minmax got slower than with 1 thread (q02 0.059s -> 0.094s, CPU
-  0.318s; q04 0.071s -> 0.089s). The file has a single row group, so it is split; on the laptop most of the extra CPU
-  of these queries came from the level-count pre-pass, which decoded the dictionary of an 8.8 MB string column in each
-  of its 8 tasks (next section).
-- **DBLP with 1 thread**: flat is slower than builtin (0.71-0.95x); it overtakes from 10 threads on (1.03-1.33x at 10,
-  1.86-2.32x at 40) - the joins of the flat plan parallelize, the 6 row groups of the builtin scan do not beyond 6
-  threads.
-- **Selectivity with 1 thread: builtin is faster than flat** for N >= 10 (A: 0.43-1.02x, B: 0.37-0.46x; only the
-  unfiltered N = 1 is faster with flat, 1.15x/1.24x). **This differs from the paper's Fig. 15.** A likely reason is
-  that DuckDB's own Parquet scan has improved since the version the paper measured: `read_parquet` evaluates the
-  predicate on `a` during the scan and decodes the list `b` only for the rows that qualify, while the flat plan reads
-  all of the child node and joins it with the parent (the condition on the parent does not reduce the child scan,
-  Section 6.5, as on the laptop). With 10-40 threads flat is faster again (A: 1.6-4.2x, B: 0.87-3.3x), since the
-  builtin query has a single row group and thus one thread.
-
-### Second server run with the split rules (2026-10-18)
-
-The same kit after the changes of the next section (rule (a) for all scans, level-only pre-pass): `final` = main_rey
-bcf1076e62, everything else as above. **All 33 results equal the builtin results or their oracles**, `busy_cpu` = 0.
-Files: `server_20261018/`. The builtin times are within 3% of the first run (selectivity: noisier, 30-80 ms queries),
-so the flat times of both runs can be compared directly.
-
-builtin / flat, geometric mean (first run -> second run):
-
-| dataset | threads=1 | threads=10 | threads=20 | threads=40 |
-|---|---|---|---|---|
-| TPC-H SF1 | 16.35x -> 16.50x | 52.24x -> 52.29x | 45.56x -> 47.93x | 45.80x -> 48.35x |
-| TPC-H SF10 | 9.30x -> 9.31x | 8.84x -> 8.90x | 8.83x -> 8.84x | **5.59x -> 7.76x** |
-| XMark | 7.18x -> 7.19x | **5.16x -> 6.09x** | 5.11x -> 6.35x | 4.81x -> 5.61x |
-| DBLP | 0.82x -> 0.83x | **1.11x -> 0.89x** | 1.82x -> 2.15x | 2.13x -> 2.51x |
-| Selectivity (A) | 0.77x -> 0.80x | 2.87x -> 2.73x | 2.70x -> 3.11x | 3.18x -> 3.28x |
-| Selectivity (B) | 0.48x -> 0.46x | 1.23x -> 1.42x | 1.41x -> 1.48x | 1.54x -> 1.62x |
-
-flat seconds, first run -> second run:
-- **TPC-H SF10, 40 threads (problem (a)) - fixed**: q03 0.815 -> 0.398, q04 0.629 -> 0.316, q12 0.586 -> 0.301 (CPU
-  15.5s -> 6.0s for q03); 40 threads are now as fast as 20 or faster. But q01 0.400 -> 0.481 and q06 0.174 -> 0.220:
-  they need no level count, and rule (a) had stopped splitting them too - since restricted to scans that count levels
-  (next section).
-- **XMark, 10-40 threads (problem (b)) - 12-20% faster, CPU -19-36%** (q02 t10 0.094 -> 0.075, CPU 0.318 -> 0.204;
-  q03 0.165 -> 0.133), **but still slower than 1 thread** (q02 0.059, q03 0.113, q04 0.071). Kept as a limitation:
-  on the laptop the same queries are 22-31% faster with 10 threads than with 1, so the remaining cost is that of
-  running 60-110 ms queries on many threads of this 2-socket machine (starting the tasks, the pre-pass before the
-  scan, memory of the other socket), not a cost that the split rules can avoid - a query this short has little work
-  to spread.
-- **DBLP, 10 threads - slower**: q06 0.885 -> 1.180, q07 1.256 -> 1.586, q08 0.429 -> 0.508, q09 0.526 -> 0.676 -
-  rule (a) no longer splits its 6 row groups at 10 threads, and here splitting was worth 18-33% (on the laptop it was
-  not). With 20 and 40 threads DBLP is 8-25% faster (level-only pre-pass).
-- **TPC-H SF1**: unchanged with 10 threads, faster with 20/40 (q03 t40 0.200 -> 0.163, q10 0.271 -> 0.239).
-- **Selectivity**: unchanged with 1 thread; with 10-40 threads mostly 0-15% faster.
-
-DBLP at 10 threads (6 row groups: 0.6 of the threads) gained from splitting, TPC-H SF10 at 40 threads (22: 0.55)
-lost - the ratio of row groups to threads cannot tell them apart. What differs is the hardware they ran on: 40 threads
-use hyper-threads and both sockets, 10 threads fit the cores of one socket. `SERVER.md`, step 9, measures this with a
-single binary (rule (a) on/off at 10/20/30/40 threads, and DBLP at 10 threads pinned to one socket, two sockets or
-hyper-threads); its result decides the final criterion.
-
-### Hardware experiment and the final criterion (2026-10-18)
-
-`SERVER.md`, step 9, on the same server with main_rey 7f2e2261de3: flat queries, rule (a) on (`on`: row groups x 2 <=
-threads) and off (`off`: row groups < threads) interleaved, fastest of 10 runs; DBLP once more with 10 threads pinned
-(`taskset`) to 10 cores of one socket (`one`), 5 cores of each socket (`two`) or 5 cores with both hyper-threads
-(`ht`). Files: `server_20261018_split_rule/` (`table.md`: all rows). off/on < 1: splitting is faster. Where both
-settings give the same plan, off/on is within 0.09 of 1 (median 0.03) - the noise.
-
-| comparison (plans differ) | off/on |
-|---|---|
-| DBLP, 10 threads, not pinned (q06 q07 q08 q09) | 0.76 0.79 0.81 0.87 |
-| DBLP, 10 threads, `one` | 0.75 0.75 0.86 0.87 |
-| DBLP, 10 threads, `two` | 0.74 0.75 0.84 0.84 |
-| DBLP, 10 threads, `ht` | 0.92 0.86 1.06 1.03 |
-| TPC-H SF10, 30 threads (q03 q04 q12) | 1.92 1.69 1.93 |
-| TPC-H SF10, 40 threads (q03 q04 q12) | 1.83 1.79 1.99 |
-
-- **Two sockets do not matter**: `two` equals `one` (both 13-26% faster when split).
-- **Hyper-threads do**: on 5 cores with their hyper-threads (`ht`) the gain of splitting DBLP is gone (0.86-1.06,
-  around the noise).
-- **TPC-H SF10 loses with every layout it can be split in**: its 22 row groups are only split from 23 threads on, and
-  the server has 20 cores - so the extra threads are always hyper-threads. Splitting then doubles the CPU time (q03 at
-  30 threads 5.7s -> 12.2s, the pre-pass counts the levels of every row group) and makes q03/q04/q12 1.7-2.0x slower.
-  The scans without a level count (q01, q06) are split by both settings and have their times of the first server run
-  again (40 threads: 0.400s, 0.172s).
-
-**The criterion that explains all of it: with a level count, split only when there are fewer row groups than the
-physical cores that run the threads** (`row groups < min(threads, physical cores)`). Unsplit, the row groups already
-occupy that many cores; beyond the physical cores, more threads are hyper-threads, which add some throughput (SF10
-q01/q06, without a count, 0.588s -> 0.400s and 0.253s -> 0.174s from 20 to 40 threads) but less than the pre-pass
-costs. Checked against every measurement on
-the server: TPC-H SF10 (22 >= 20 cores) is no longer split when it counts levels (the faster `on`), DBLP (6 < 20) is
-split from 7 threads on (the faster `off` at 10 threads, unchanged at 20-40), XMark, TPC-H SF1 and the selectivity
-files (1 row group) from 2 threads on (unchanged). Scans without a count keep `row groups < threads`. The physical
-cores are the distinct (package, core) pairs of `/sys/devices/system/cpu` on Linux, the hardware threads elsewhere;
-the setting `parquet_node_physical_cores` overrides them (the tests set it, so that their plans do not depend on the
-machine). A CPU affinity mask (`taskset`) is not taken into account - with `ht` above, DuckDB still sees 20 cores and
-splits, which costs nothing measurable there. This ends the tuning of the split rules.
-
-### Final server run (2026-10-19)
-
-`run_all.sh` with the final split rule, same server, threads = 1/10/20/40, fastest of 10 runs, `busy_cpu` = 0. **All
-33 results equal the builtin results or their oracles.** Files: `server_20261019_final/`. The first run of it
-(main_rey 206fb25028) did not detect the physical cores: `FileSystem::Glob` returns no directories, so the
-`/sys/devices/system/cpu/cpu<N>` directories were not found and the hardware threads (40) were used - TPC-H SF10 was
-split at 40 threads again (q03 0.771s). After the fix (924a47be83: the directory is listed instead; the debug log now
-says `... 40 threads run on 20 physical cores: the row groups are not split`, `SERVER.md` step 6) TPC-H SF10 was
-measured again; its first measurement is kept as `tpch_sf10_detection_bug.csv.txt`. The other datasets are not
-affected by the fix (DBLP: 6 row groups < 20 cores either way; the others have 1 row group).
-
-builtin / flat, geometric mean (first server run -> final):
-
-| dataset | threads=1 | threads=10 | threads=20 | threads=40 |
-|---|---|---|---|---|
-| TPC-H SF1 | 16.35x -> 15.36x | 52.24x -> 51.51x | 45.56x -> 47.58x | 45.80x -> 46.12x |
-| TPC-H SF10 | 9.30x -> 8.93x | 8.84x -> 8.44x | 8.83x -> 8.45x | **5.59x -> 8.23x** |
-| XMark | 7.18x -> 6.92x | **5.16x -> 5.95x** | 5.11x -> 5.99x | 4.81x -> 5.56x |
-| DBLP | 0.82x -> 0.82x | **1.11x -> 1.39x** | 1.82x -> 2.22x | 2.13x -> 2.59x |
-| Selectivity (A) | 0.77x -> 0.74x | 2.87x -> 2.87x | 2.70x -> 3.02x | 3.18x -> 3.03x |
-| Selectivity (B) | 0.48x -> 0.42x | 1.23x -> 1.35x | 1.41x -> 1.29x | 1.54x -> 1.51x |
-
-- **TPC-H SF10, 40 threads**: q03 0.815 -> 0.422s, q04 0.629 -> 0.323s, q12 0.586 -> 0.286s (not split: they count
-  levels, 22 row groups >= 20 cores); q01 0.426s and q06 0.186s (split: no count) - near their best (0.400s, 0.174s
-  in the first run). With 40 threads SF10 is now as fast as with 20 or faster (q03 0.408s/0.422s).
-- **DBLP**: split at 10 threads again - the fastest of all runs (q06 0.771s, q07 1.045s, q08 0.328s, q09 0.427s;
-  first run 0.885/1.256/0.429/0.526s), and 8-25% faster than the first run at 20/40 threads (level-only pre-pass).
-- **XMark**: 9-18% faster than the first run with 10-40 threads, still slower than with 1 thread (limitation above).
-- **TPC-H SF1 and selectivity**: as in the first run with 10-40 threads.
-- **1 thread**: flat is up to 11% slower than in the first run (SF1 q06 0.293 -> 0.326s, selectivity 0.165 ->
-  0.182s), builtin is not - in every dataset, so it was checked whether this is a difference between builds (next
-  section): it is not.
-
-### 1-thread difference between the first and the final run (2026-10-19)
-
-`SERVER.md`, step 10: the flat queries of all datasets with 1 thread in three fresh builds - A1 and A2 from the final
-commit 924a47be83 in two folders, B from the commit of the first run 787dcd6d1b - and builtin with the original DuckDB,
-interleaved, fastest of 10 runs, `busy_cpu` = 0. All results equal the builtin results. Files:
-`server_20261019_build_diff/` (`table.md`: every query).
-
-| dataset | A2/A1 | B/A1 | largest A2/A1 difference | builtin now / first run, final run |
-|---|---|---|---|---|
-| DBLP | 1.000 | 0.986 | 0.9% | 1.000, 1.002 |
-| Selectivity (A) | 1.005 | 0.932 | 2.8% | 1.043, 1.000 |
-| Selectivity (B) | 1.003 | 0.938 | 3.5% | 0.967, 1.032 |
-| TPC-H SF1 | 1.001 | 0.929 | 1.2% | 1.009, 0.998 |
-| TPC-H SF10 | 1.003 | 0.962 | 1.0% | 0.998, 1.000 |
-| XMark | 1.006 | 0.958 | 1.4% | 1.006, 0.997 |
-| all 33 queries | 1.003 | 0.947 | 3.5% | |
-
-- The machine ran as in the earlier runs (builtin within 4% of both).
-- Two builds of the same commit are the same (A2/A1 1.003, at most 3.5% apart, in both directions: A2 faster in 12
-  of 33 queries) - on this server a rebuild does not change the timings.
-- B is faster than A1 in **all 33 queries** (5.3% in the geometric mean, 7.1% in TPC-H SF1), beyond the difference
-  between two builds in every dataset (DBLP only just: 1.4% against 0.9%). **So the 1-thread slowdown comes from the code changes between
-  787dcd6d1b and 924a47be83, not from the build.**
-- Those changes (the split rule, the level-only pre-pass, the physical-core detection) are not executed by a scan
-  with 1 thread: the plan is the unsplit scan in both, and the core detection runs once per process (the 10 runs of a
-  query share a process; the fastest counts).
-
-**Cause: code layout.** `SERVER.md`, step 11: `perf stat -e instructions:u,cycles:u` on the server, A1 and B
-alternating, smallest of 5 processes (each running the query 3 times with 1 thread). File:
-`server_20261019_build_diff/perf.md`.
-
-| query | instructions B/A1 | cycles B/A1 | IPC A1 | IPC B |
-|---|---|---|---|---|
-| TPC-H SF1 q06, flat | 0.9988 | 0.898 | 2.76 | 3.07 |
-| TPC-H SF1 q12, flat | 0.9998 | 0.924 | 2.63 | 2.84 |
-| XMark q02, flat_minmax | 0.9991 | 0.951 | 2.06 | 2.16 |
-| Selectivity (A) N = 10^6, flat | 0.9997 | 0.921 | 2.56 | 2.77 |
-| Selectivity (B) N = 10, flat | 0.9997 | 0.931 | 2.71 | 2.90 |
-| TPC-H SF1 q06, builtin | 1.0000 | 0.962 | 1.78 | 1.85 |
-| XMark q02, builtin | 0.9999 | 0.987 | 1.79 | 1.81 |
-| DBLP q08, builtin | 0.9992 | 0.995 | 1.85 | 1.86 |
-| Selectivity (A) N = 10^6, builtin | 1.0001 | 0.958 | 1.41 | 1.47 |
-
-- **A1 executes the same instructions as B** (within 0.12% in every query) **but needs 5-10% more cycles for them**
-  in the flat queries: fewer instructions per cycle. A1 does no extra work; the same machine code runs slower where
-  it is placed in A1. The changes between the commits (`column_reader.cpp`, `parquet_nested_keys.cpp`,
-  `parquet_node_scan.cpp`, `parquet_extension.cpp`) change the size of functions linked into the same binary, which
-  moves the hot decoding and key-generation loops to other addresses - and their alignment, instruction-cache and
-  branch-predictor behaviour on this CPU (Xeon Gold 5215) with them. Which front-end resource is affected was not
-  measured. On the laptop (another CPU) the same two codes showed no difference.
-- **DuckDB's own Parquet scan is affected the same way**: the builtin queries run by A1 and B (not by the original
-  DuckDB, `base`, which the benchmark uses for builtin) execute the same instructions, B in 0.5-4% fewer cycles. The
-  changes slowed no read path by adding work.
-- **Consequence for the measurements**: on this server, binaries of different commits can differ by up to 10% at
-  1 thread from code layout alone, with the same work. Comparisons between configurations within one binary, and of
-  builtin (one `base` binary throughout), are not affected; the 1-thread ratios of the first and the final run differ
-  by this layout effect (5% in the geometric mean), not by a change of the implementation. This concludes the
-  1-thread question.
-
-### Three binaries: original DuckDB, prenest-3way, main_rey (2026-10-26)
-
-`run_all.sh --prenest ... --prenest-off` (`SERVER.md`, step 12) on the same server: the builtin queries also run with
-the prenest-3way branch, interleaved with the other configurations for every query, threads = 1/10/20/40, fastest of
-10 runs, `busy_cpu` = 0. **All 99 results (flat, prenest and prenestoff for each of the 33 queries) equal the builtin
-results of `base`, without oracles.** Files: `server_20261026_3way/`.
+`run_all.sh --prenest ...` (`SERVER.md`, step 12) on the lab server (Intel Xeon Gold 5215, 2 sockets x 10 cores, 40
+hardware threads, 125 GiB), threads = 1/10/20/40, fastest of 10 runs, `busy_cpu` = 0, one run for all datasets.
+**All 66 results (flat and prenest for each of the 33 queries) equal the builtin results of `base`, without
+oracles.** Files: `server_20261026_3way_base/` (CSVs, `summary.md`, `result_check.txt`, `run_info.txt`, logs, and
+`three_binaries.xlsx` with all numbers and charts).
 
 | configuration | binary | query |
 |---|---|---|
 | `base` | original DuckDB a809d3cd51 | builtin |
-| `prenest` | prenest-3way e5e140aa2d, `parquet_prenest_auto = true` | builtin |
-| `prenestoff` | prenest-3way e5e140aa2d, `parquet_prenest_auto = false` | builtin |
+| `prenest` | prenest-3way-base fabde05fe6, `parquet_prenest_auto = true` | builtin |
 | `final` | main_rey 2d6066fd4d | flat (XMark: flat_minmax) |
 
-prenest-3way is a separate line of work on DuckDB's existing UNNEST path: it branches from an older DuckDB
-(83ae79e5b7, 2026-02-27), adds pruning of unused LIST<STRUCT> fields (projection pushdown, 58a44bb203) and then
-pushes element predicates into the list assembly of the Parquet reader (the pre-nest filter, switched by
-`parquet_prenest_auto`). So `prenestoff` is *not* the original DuckDB: it is the older DuckDB with the field pruning;
-`prenestoff -> prenest` is the effect of the pre-nest filter alone.
-
-The CSVs come from three runs on the same day with the same binaries: TPC-H SF1/SF10 and DBLP from the first run
-(`logs/first_run.*`); XMark again after its Q2 builtin query was restricted to the auctions with bidders (the first
-run had compared flat with an oracle; `logs/xmark.run_info.txt`); the selectivity datasets again after the result
-comparison was changed to 12 significant digits (the first run reported prenest's averages as different from base's -
-they differ by 1 ULP, and base's is the one that is off; see "Variants per query" above).
+**prenest-3way-base** is DataFusion's pre-nest filter pushdown ported into DuckDB's existing UNNEST path, on the same
+DuckDB commit as `base`: 548a58078e prunes unused LIST<STRUCT> fields (projection pushdown), fabde05fe6 pushes
+predicates on list elements into the list assembly of the Parquet reader (`parquet_prenest_auto`). It is the branch
+prenest-3way (e2e140aa2d, on the older DuckDB 83ae79e5b7) moved onto a809d3cd51. The port only adapts the code to the
+newer DuckDB APIs and passes the filter through the multi-file wrapper of the newer `read_parquet`; it adds nothing
+else. Before the run, all prenest tests and DuckDB's copy/optimizer/nested/list/pragma/table_function/explain suites
+passed, and the pre-nest counters (`elements_decoded`, `elements_appended`) of the old and the new branch were equal
+on TPC-H SF1, XMark, DBLP (server) and the selectivity files (laptop). An earlier run with the old branch mixed in
+differences of the older DuckDB: it was 1.5-5.4x faster than base on the selectivity data, where neither change
+applies. That is why the branch was moved.
 
 base seconds / seconds of the configuration, geometric mean over the queries, threads = 1 / 10 / 20 / 40 (> 1: faster
 than the original DuckDB):
 
-| dataset | prenest | prenestoff | flat (main_rey) |
-|---|---|---|---|
-| TPC-H SF1 | 5.60 / 5.44 / 5.42 / 5.38 | 1.68 / 1.66 / 1.66 / 1.63 | 15.28 / 50.96 / 49.53 / 45.69 |
-| TPC-H SF10 | 4.57 / 4.07 / 4.14 / 4.07 | 2.22 / 1.74 / 1.86 / 1.83 | 8.90 / 8.48 / 8.58 / 8.07 |
-| XMark | 3.42 / 3.42 / 3.25 / 3.34 | 3.43 / 3.29 / 3.42 / 3.36 | 6.93 / 5.99 / 6.26 / 5.58 |
-| DBLP | 1.04 / 1.14 / 1.14 / 1.10 | 1.04 / 1.12 / 1.15 / 1.11 | 0.81 / 1.37 / 2.12 / 2.52 |
-| Selectivity (A) | 1.77 / 1.52 / 1.72 / 2.17 | 1.78 / 1.53 / 1.72 / 2.18 | 0.76 / 2.79 / 2.95 / 3.43 |
-| Selectivity (B) | 3.67 / 2.57 / 3.28 / 3.42 | 3.72 / 2.72 / 3.30 / 3.58 | 0.42 / 1.30 / 1.35 / 1.40 |
-
-TPC-H, seconds base / prenestoff / prenest / flat:
-
-| query | SF1, 1 thread | SF1, 40 threads | SF10, 1 thread | SF10, 40 threads |
-|---|---|---|---|---|
-| q01 | 6.47 / 4.04 / 3.88 / 0.63 | 6.36 / 4.15 / 4.00 / 0.13 | 34.8 / 18.2 / 18.4 / 6.24 | 2.81 / 1.77 / 1.78 / 0.42 |
-| q03 | 5.93 / 3.30 / 1.71 / 0.42 | 5.88 / 3.37 / 1.70 / 0.18 | 29.6 / 11.7 / 4.97 / 3.51 | 2.43 / 1.27 / 0.44 / 0.43 |
-| q04 | 5.97 / 3.47 / 0.60 / 0.33 | 5.94 / 3.54 / 0.64 / 0.13 | 30.2 / 11.2 / 7.62 / 3.10 | 2.53 / 1.12 / 0.72 / 0.35 |
-| q06 | 6.10 / 3.53 / 0.74 / 0.33 | 5.97 / 3.58 / 0.76 / 0.07 | 31.2 / 15.8 / 5.05 / 2.69 | 2.56 / 1.46 / 0.45 / 0.19 |
-| q10 | 5.98 / 3.71 / 0.77 / 0.42 | 5.83 / 3.67 / 0.78 / 0.26 | - | - |
-| q12 | 6.26 / 3.84 / 0.76 / 0.35 | 6.24 / 3.91 / 0.78 / 0.11 | 32.3 / 15.6 / 4.48 / 3.09 | 2.69 / 1.58 / 0.42 / 0.29 |
-
-- **flat (main_rey) is the fastest on TPC-H and XMark at every thread count**: 1.7-2.1x faster than prenest on
-  TPC-H SF10 and XMark, 2.7x (1 thread) to 9.4x (10 threads) on TPC-H SF1, whose file has a single row group (of 5
-  rows), so the builtin queries of both other binaries take the same time with 1 and 40 threads. On DBLP and the
-  selectivity data, flat is slower than base with 1 thread (as in all server runs) and faster with 10-40 threads.
-- **The pre-nest filter (prenestoff -> prenest) helps where a predicate on list elements filters many of them**:
-  TPC-H q03/q04/q06/q10/q12 (1.5-5.8x); not q01, whose predicate keeps 98% of the lineitems. It does nothing on
-  XMark, DBLP and the selectivity queries (geometric means 0.94-1.04): their predicates are on the parent (`a`) or
-  above an aggregate (XMark q03), not on list elements.
-- **base -> prenestoff is not explained by these measurements.** The field pruning likely explains XMark (3.4x: wide
-  auction structs, not verified) and part of TPC-H (2026-09-29 notes of prenest-3way: pruning alone 1.8-2.0x), but the selectivity list `b` is `LIST<BIGINT>`, which has no fields to prune, and
-  prenestoff is still 1.5-5.4x faster there (B, N = 10^3: 0.065s vs 0.012s). The gap is either a change in DuckDB
-  between 83ae79e5b7 and a809d3cd51 or another commit of the pruning branch; a run with the stock 83ae79e5b7 binary
-  would separate them. Until then, base / prenest is not the effect of the prenest-3way changes alone.
-  **Resolved by the next run**: the gap comes from the older DuckDB.
-- **flat vs prenest**: flat is faster on TPC-H and XMark; prenest is faster on DBLP and selectivity (A) with 1 thread,
-  and on selectivity (B) at every thread count (2.4x at 40 threads), but its times include the unexplained
-  base -> prenestoff gap above.
-
-### Three binaries on the same DuckDB: prenest-3way-base (2026-10-26)
-
-The run above mixed two things in `base / prenest`: the prenest-3way changes and the older DuckDB they were built on.
-The branch `prenest-3way-base` carries the same changes, ported onto the original DuckDB's commit a809d3cd51:
-548a58078e = the LIST<STRUCT> field pruning (83ae79e5b7..58a44bb203), fabde05fe6 = the pre-nest filter (up to
-e2e140aa2d). The port only adapts the code to the newer DuckDB APIs; the planning rules and the reader are unchanged,
-and nothing else is added. The one structural change is wiring: `read_parquet` is now a single-file function inside
-`TableFunctionMultiFileWrapper`, so the wrapper passes the pre-nest filter on to each file's bind data.
-
-Checks before the run: all 13 prenest tests and DuckDB's copy/optimizer/nested/list/pragma/table_function/explain
-suites pass; on the server, the pre-nest counters (`elements_decoded`, `elements_appended`) of the old and the new
-binary are equal for every query of TPC-H SF1, XMark and DBLP, and on the local selectivity files. They differ on
-TPC-H SF10 q01/q04/q06/q12, where the new binary filters more lineitems; see below.
-
-`run_all.sh --prenest ~/nested-bench/duckdb_prenest_base/build/release/duckdb` (`SERVER.md`, step 12), threads =
-1/10/20/40, fastest of 10 runs, `busy_cpu` = 0, one run for all datasets. **All 66 results (flat and prenest for each
-of the 33 queries) equal the builtin results of `base`, without oracles.** Files: `server_20261026_3way_base/`.
-
-| configuration | binary | query |
+| dataset | prenest | flat (main_rey) |
 |---|---|---|
-| `base` | original DuckDB a809d3cd51 | builtin |
-| `prenest` | prenest-3way-base fabde05fe6 (= a809d3cd51 + prenest-3way), `parquet_prenest_auto = true` | builtin |
-| `final` | main_rey 2d6066fd4d | flat (XMark: flat_minmax) |
+| TPC-H SF1 | 5.49 / 5.50 / 5.47 / 5.44 | 15.34 / 52.09 / 49.00 / 46.62 |
+| TPC-H SF10 | 5.27 / 5.04 / 5.06 / 4.85 | 8.92 / 8.52 / 8.50 / 8.17 |
+| XMark | 3.82 / 3.79 / 3.78 / 3.84 | 6.99 / 6.16 / 5.96 / 5.66 |
+| DBLP | 0.99 / 0.98 / 1.01 / 0.99 | 0.82 / 1.35 / 2.11 / 2.47 |
+| Selectivity (A), a % N = 0 | 0.99 / 1.07 / 1.01 / 0.82 | 0.73 / 2.89 / 2.93 / 2.93 |
+| Selectivity (B), a < 10^6 / N | 0.98 / 0.94 / 1.04 / 0.99 | 0.41 / 1.22 / 1.48 / 1.55 |
 
-base seconds / seconds of the configuration, geometric mean over the queries, threads = 1 / 10 / 20 / 40; the prenest
-column of the previous run (prenest-3way on 83ae79e5b7) for comparison:
-
-| dataset | prenest (a809d3cd51) | prenest (83ae79e5b7, run above) | flat (main_rey) |
-|---|---|---|---|
-| TPC-H SF1 | 5.49 / 5.50 / 5.47 / 5.44 | 5.60 / 5.44 / 5.42 / 5.38 | 15.34 / 52.09 / 49.00 / 46.62 |
-| TPC-H SF10 | 5.27 / 5.04 / 5.06 / 4.85 | 4.57 / 4.07 / 4.14 / 4.07 | 8.92 / 8.52 / 8.50 / 8.17 |
-| XMark | 3.82 / 3.79 / 3.78 / 3.84 | 3.42 / 3.42 / 3.25 / 3.34 | 6.99 / 6.16 / 5.96 / 5.66 |
-| DBLP | 0.99 / 0.98 / 1.01 / 0.99 | 1.04 / 1.14 / 1.14 / 1.10 | 0.82 / 1.35 / 2.11 / 2.47 |
-| Selectivity (A) | 0.99 / 1.07 / 1.01 / 0.82 | 1.77 / 1.52 / 1.72 / 2.17 | 0.73 / 2.89 / 2.93 / 2.93 |
-| Selectivity (B) | 0.98 / 0.94 / 1.04 / 0.99 | 3.67 / 2.57 / 3.28 / 3.42 | 0.41 / 1.22 / 1.48 / 1.55 |
-
-TPC-H, seconds base / prenest (83ae79e5b7, run above) / prenest (a809d3cd51) / flat:
+TPC-H, seconds base / prenest / flat:
 
 | query | SF1, 1 thread | SF1, 40 threads | SF10, 1 thread | SF10, 40 threads |
 |---|---|---|---|---|
-| q01 | 6.49 / 3.88 / 3.75 / 0.63 | 6.49 / 4.00 / 3.77 / 0.12 | 34.9 / 18.4 / 17.1 / 6.26 | 2.79 / 1.78 / 1.45 / 0.42 |
-| q03 | 5.94 / 1.71 / 1.89 / 0.41 | 5.94 / 1.70 / 1.88 / 0.17 | 29.8 / 4.97 / 5.74 / 3.52 | 2.46 / 0.44 / 0.52 / 0.38 |
-| q04 | 5.96 / 0.60 / 0.73 / 0.33 | 5.92 / 0.64 / 0.74 / 0.13 | 30.2 / 7.62 / 5.17 / 3.08 | 2.46 / 0.72 / 0.47 / 0.36 |
-| q06 | 6.09 / 0.74 / 0.66 / 0.33 | 6.01 / 0.76 / 0.65 / 0.06 | 31.1 / 5.05 / 3.92 / 2.68 | 2.54 / 0.45 / 0.36 / 0.19 |
-| q10 | 5.97 / 0.77 / 0.89 / 0.43 | 5.93 / 0.78 / 0.88 / 0.25 | - | - |
-| q12 | 6.29 / 0.76 / 0.63 / 0.34 | 6.33 / 0.78 / 0.66 / 0.11 | 32.5 / 4.48 / 3.89 / 3.08 | 2.68 / 0.42 / 0.34 / 0.29 |
+| q01 | 6.49 / 3.75 / 0.63 | 6.49 / 3.77 / 0.12 | 34.9 / 17.1 / 6.26 | 2.79 / 1.45 / 0.42 |
+| q03 | 5.94 / 1.89 / 0.41 | 5.94 / 1.88 / 0.17 | 29.8 / 5.74 / 3.52 | 2.46 / 0.52 / 0.38 |
+| q04 | 5.96 / 0.73 / 0.33 | 5.92 / 0.74 / 0.13 | 30.2 / 5.17 / 3.08 | 2.46 / 0.47 / 0.36 |
+| q06 | 6.09 / 0.66 / 0.33 | 6.01 / 0.65 / 0.06 | 31.1 / 3.92 / 2.68 | 2.54 / 0.36 / 0.19 |
+| q10 | 5.97 / 0.89 / 0.43 | 5.93 / 0.88 / 0.25 | - | - |
+| q12 | 6.29 / 0.63 / 0.34 | 6.33 / 0.66 / 0.11 | 32.5 / 3.89 / 3.08 | 2.68 / 0.34 / 0.29 |
 
-(base's own times agree with the run above within noise, e.g. TPC-H SF1 q01 6.49 vs 6.47 s, selectivity (B) N = 10^3
-0.062 vs 0.065 s, so the two runs can be compared.)
+XMark and DBLP, seconds base / prenest / flat:
 
-- **base / prenest is now the effect of the prenest-3way changes alone**, and they help only TPC-H (4.9-5.5x) and
-  XMark (3.8x). On DBLP and the selectivity data, prenest equals base (geometric means 0.82-1.07; single queries of
-  0.05-0.3 s vary by up to ±40% at 20-40 threads in both directions, e.g. selectivity (A) N = 10^6, 40 threads: 0.074
-  vs 0.129 s). Their predicates are on the parent `a`, not on list elements, and selectivity's `b` is a `LIST<BIGINT>`
-  with no fields to prune, so neither the pruning nor the pre-nest filter applies - as expected.
-- **This settles the open point of the run above** ("base -> prenestoff is not explained"): the 1.5-5.4x of the old
-  binary on the selectivity data and its ~1.1x on DBLP came from the older DuckDB (83ae79e5b7), not from the
-  prenest-3way changes, since the new branch has all of them and no longer shows the gap (selectivity (B), N = 10^3,
-  1 thread: old prenest 0.012 s, new prenest 0.065 s, base 0.062 s). Which DuckDB change between 83ae79e5b7 and
-  a809d3cd51 makes these queries slower was not investigated.
-- **TPC-H SF10 q01/q04/q06/q12 filter more lineitems with the new binary, because of the input plan, not the pass.**
-  These SF10 queries compute dates as `date '...' ± interval`. The older DuckDB bound this as a TIMESTAMP comparison
-  with a cast on the column (`CAST(l_shipdate AS TIMESTAMP) <= '1998-09-02 00:00:00'::TIMESTAMP`), which the pre-nest
-  rules refuse (a cast on the element column is not pushed). a809d3cd51 binds it as a DATE comparison without a cast
-  (`l_shipdate <= '1998-09-02'::DATE`; q06: `l_shipdate BETWEEN '1994-01-01'::DATE AND '1995-01-01'::DATE`), which
-  the same rules push. Hence q01 (1 thread) 18.4 -> 17.1 s, q04 7.62 -> 5.17 s, q06 5.05 -> 3.92 s, q12 4.48 -> 3.89 s.
-  The SF1 queries do not produce this cast; their counters are unchanged. The results still equal base's.
-- **Other per-query differences between the two prenest binaries come from the rest of DuckDB**: with equal counters,
-  SF1 q06/q12 and XMark are 7-16% faster on a809d3cd51, SF1 q03/q04/q10 and SF10 q03 10-22% slower.
-- **flat (main_rey) vs prenest on the same DuckDB**: flat is faster on every TPC-H and XMark query at every thread
-  count (1 thread: 1.3-6.0x on TPC-H, 1.3-2.2x on XMark; 40 threads: 1.2-30x on TPC-H, 1.1-1.7x on XMark). On DBLP
-  and the selectivity data prenest is the original DuckDB, so flat vs prenest is flat vs base there: slower with 1
-  thread, faster with 10-40 threads (except a few selectivity (B) queries at 0.04-0.08 s).
+| query | 1 thread | 40 threads |
+|---|---|---|
+| XMark q02 | 0.561 / 0.133 / 0.061 | 0.550 / 0.134 / 0.079 |
+| XMark q03 | 0.562 / 0.151 / 0.116 | 0.583 / 0.152 / 0.142 |
+| XMark q04 | 0.570 / 0.152 / 0.075 | 0.582 / 0.151 / 0.092 |
+| XMark q04p | 0.572 / 0.158 / 0.081 | 0.567 / 0.159 / 0.100 |
+| DBLP q06 | 3.371 / 3.457 / 4.065 | 1.035 / 1.095 / 0.409 |
+| DBLP q07 | 4.557 / 4.500 / 5.399 | 1.222 / 1.217 / 0.580 |
+| DBLP q08 | 1.333 / 1.375 / 1.934 | 0.460 / 0.460 / 0.196 |
+| DBLP q09 | 2.420 / 2.458 / 2.573 | 0.766 / 0.769 / 0.256 |
 
-## Split rules after the server results (2026-10-18)
+All queries and thread counts: `server_20261026_3way_base/summary.md` and `three_binaries.xlsx`.
 
-Principle: **a row group is not split where the cost of splitting - the level-count pre-pass and the repeated
-decompression of the pages that parts start in - exceeds the parallelism it buys.** Two changes, each with a reason
-that does not depend on the benchmark's numbers, and two candidates that the measurements rejected.
-
-**Rule (a), first version (measured in the second server run): when the keys need a level count, split only when the
-row groups occupy at most half of the threads** (`row groups x 2 <= threads`; otherwise, and before: `row groups <
-threads`). Splitting raises the parallelism of the scan at most threads / row groups times; below 2x that gain was
-taken not to pay for a pre-pass per row group. A scan that needs no level count (no ancestor keys, e.g. TPC-H Q1/Q6)
-splits at page boundaries at almost no cost, so it keeps the old rule - the second server run showed that stopping
-those splits made SF10 q01/q06 20-26% slower at 40 threads. The server found this rule right for SF10 at 40 threads
-but wrong for DBLP at 10 threads; the hardware experiment of the previous section replaced it by **the final rule:
-with a level count, split only when there are fewer row groups than physical cores that run the threads**.
-
-**Count only the levels in the pre-pass.** The pre-pass reads the repetition levels of every page of one column, but
-it positioned its reader with the scan's `SeekToPage`, which loads the dictionary of the column chunk - decompressing
-the dictionary page and, for strings, checking every entry for valid UTF-8 - in each of its per-page tasks, and it
-skipped the values of every page. Neither is needed for the levels: the pre-pass now reads no dictionary and no
-values (`SeekToPage(page, false)`, `ReadLevels`). This removes work that never contributed to the result; it is not a
-threshold. Profile of XMark q02, 40 runs, 10 threads (`perf`, CPU samples at 2 kHz): old 7953 samples (snappy 18%,
-`VerifyString` 8%, `StringColumnReader::Plain` 6% - the dictionary of `bidder.personref._person`, 8.8 MB uncompressed,
-decoded by each of its 8 counting tasks), new 5426 (-32%); with 1 thread 2762.
-
-Rejected after measuring (laptop, interleaved):
-- *At most two parts per page* (when a read column has fewer pages than parts). Reason considered: the m-th part in a
-  page saves only 1/(m(m-1)) of its decoding for one more decompression. But the parts also parallelize all work after
-  the scan (key generation, joins), and decompressing a page again is cheap: in TPC-H SF1 the orders scans (1 page,
-  10 parts) used the same CPU with 2 parts and were slower (10 threads: q12 60 -> 75 ms in 20 runs, q10 123 -> 158 ms
-  in 15); XMark did not get faster either (q02 31 -> 32 ms).
-- *Counting the smallest column* instead of the cheapest one with a page for every part. It saves bytes, but the
-  pages of a column with fewer pages than parts are counted by fewer threads, and every part counts the page it starts
-  in up to its offset: TPC-H SF1 q03 84 -> 119 ms, q04 57 -> 81 ms (10 threads, 15 runs). The column with a page for
-  every part is kept.
-
-**Laptop measurements** (i7-1360P, 16 hardware threads; threads beyond 16 are set with `SET threads`): `old` =
-the final build of 2026-10-17 (0d7359b9c2, the split rules the server ran), `new` = this version; interleaved, fastest
-of 15 (XMark, TPC-H SF1) or 10 runs, ms wall (CPU). All results equal the builtin results. CSVs: `rules_*.csv`.
-
-XMark, flat_minmax:
-
-| query | old t1 | new t1 | old t10 | new t10 | old t16 | new t16 |
-|---|---|---|---|---|---|---|
-| q02 | 33 (33) | 32 (32) | 30 (89) | 25 (63) | 31 (89) | 26 (66) |
-| q03 | 65 (65) | 65 (66) | 56 (139) | 46 (108) | 55 (141) | 47 (105) |
-| q04 | 38 (38) | 39 (39) | 30 (84) | 27 (61) | 31 (87) | 29 (67) |
-| q04p | 45 (45) | 45 (45) | 36 (92) | 32 (74) | 40 (111) | 36 (87) |
-
-TPC-H SF10, flat (16 threads: not split by either rule; 40 threads: split only by `old`):
-
-| query | old t16 | new t16 | old t40 | new t40 |
-|---|---|---|---|---|
-| q01 | 865 (10298) | 896 (10953) | 873 (12362) | 820 (11415) |
-| q03 | 566 (6582) | 546 (6342) | 710 (8990) | 518 (6506) |
-| q04 | 447 (5049) | 482 (5445) | 554 (5931) | 547 (6067) |
-| q06 | 367 (4212) | 393 (4603) | 347 (4622) | 352 (4802) |
-| q12 | 472 (5462) | 491 (5718) | 569 (7336) | 468 (6015) |
-
-DBLP, flat (10 threads: split only by `old`):
-
-| query | old t10 | new t10 | old t16 | new t16 |
-|---|---|---|---|---|
-| q06 | 1053 (9231) | 1051 (5182) | 894 (11888) | 760 (10241) |
-| q07 | 1302 (10808) | 1311 (6611) | 1142 (14836) | 1026 (13107) |
-| q08 | 520 (4604) | 417 (1793) | 450 (5951) | 305 (4009) |
-| q09 | 631 (5661) | 584 (2450) | 552 (7402) | 408 (5263) |
-
-TPC-H SF1, flat, 30 runs, with `head` = commit 787dcd6d1b without these changes, built on the same day as `new`:
-
-| query | old t10 | head t10 | new t10 | old t16 | head t16 | new t16 |
-|---|---|---|---|---|---|---|
-| q01 | 90 (709) | 93 (734) | 112 (870) | 85 (1111) | 89 (1150) | 109 (1328) |
-| q03 | 89 (611) | 102 (718) | 99 (667) | 108 (1099) | 110 (1151) | 93 (970) |
-| q04 | 58 (368) | 70 (420) | 70 (426) | 82 (911) | 79 (869) | 71 (756) |
-| q06 | 43 (322) | 57 (414) | 55 (408) | 49 (604) | 49 (615) | 48 (603) |
-| q10 | 128 (572) | 144 (629) | 137 (578) | 150 (998) | 159 (1008) | 139 (847) |
-| q12 | 58 (412) | 73 (530) | 73 (528) | 85 (1003) | 88 (1003) | 79 (886) |
-
-Selectivity (A), flat with the `query` settings, 15 runs (B behaves the same, `rules_selectivity_sorted.csv`):
-
-| N | old t1 | head t1 | new t1 | old t16 | head t16 | new t16 |
-|---|---|---|---|---|---|---|
-| 1 | 151 (151) | 156 (156) | 151 (151) | 53 (514) | 52 (518) | 44 (402) |
-| 10^1 | 96 (96) | 95 (95) | 94 (94) | 41 (409) | 39 (350) | 34 (322) |
-| 10^2 | 85 (85) | 85 (86) | 87 (87) | 37 (319) | 37 (367) | 30 (293) |
-| 10^3 | 84 (84) | 85 (85) | 84 (84) | 37 (325) | 37 (345) | 30 (303) |
-| 10^4 | 84 (84) | 85 (85) | 85 (85) | 36 (362) | 35 (340) | 30 (304) |
-| 10^5 | 83 (83) | 85 (85) | 86 (86) | 36 (328) | 35 (317) | 30 (279) |
-| 10^6 | 84 (84) | 85 (85) | 86 (86) | 34 (360) | 35 (421) | 29 (265) |
-
-- **XMark** (problem (b)): with 10/16 threads 6-18% faster and 20-29% less CPU; 1 thread unchanged (no split).
-- **TPC-H SF10 with 40 threads** (problem (a)): no longer split - q03 710 -> 518 ms, q12 569 -> 468 ms; 40 threads are
-  now faster than 16 except q04 (547 vs 482 ms). With 16 threads the plan is the same in both builds (up to 8% apart:
-  build noise, below).
-- **DBLP**: with 10 threads (no longer split) the same time or faster with 39-61% less CPU; with 16 threads (still
-  split, levels only) 10-32% faster.
-- **Selectivity**: with 16 threads 13-19% faster than `head` (the child's dictionary is no longer decoded by the
-  pre-pass).
-- **TPC-H SF1 - build noise**: compared with `old`, `new` looked 5-15 ms slower with 10 threads, also for q01 and q06,
-  whose plans and executed code did not change. `head` (the unchanged code, built on the same day) is as slow as `new`
-  there, so the difference comes from the build (code layout), not from the rules; against `head`, `new` is equal
-  with 10 threads and faster with 16 (q03 110 -> 93, q10 159 -> 139 ms). q01 (no pre-pass, unchanged code) still
-  differs by up to 20 ms between `head` and `new`: the noise floor of comparing two binaries on these 50-150 ms
-  queries.
-
-Plans that change (debug log of the scans, threads 10/16/20/40): the scans of TPC-H SF10 at 40 threads that count levels
-(q03, q04, q12) and DBLP at 10 threads are no longer split (rule (a), first version - the final rule splits DBLP at
-10 threads again); every scan that counts levels in a
-dictionary-encoded column does less work (all datasets with a split row group: TPC-H SF1, XMark, DBLP from 12 threads
-on, the selectivity files); the parts themselves are unchanged. The datasets to measure again on the server are
-therefore `tpch_sf1 tpch_sf10 xmark dblp selectivity_random selectivity_sorted`.
-
-## Row groups of the nested files
-
-| file | row groups | rows | writer |
-|---|---|---|---|
-| dblp.parquet | 6 | 6,150,738 | parquet-cpp-arrow 13 |
-| nested-tpch-sf10/nestedcustomer.parquet | 22 | 1,500,000 | parquet-mr 1.13.1 |
-| nested-tpch/nestedregion.parquet | 1 | 5 | parquet-cpp-arrow 13 |
-| xmark/sf10.parquet | 1 | 1 | parquet-cpp-arrow 13 |
-| synthetic/l0.parquet | 10 | 10,000,000 | parquet-cpp-arrow 17 |
-| synthetic/l1..l6.parquet | 1 each | 10^6 .. 10 | parquet-cpp-arrow 17 |
-
-Pre-split files: dblp 6+6, tpch-sf10 1/5/18, tpch-sf1 and xmark 1 each (`row_groups_*.csv`).
-
-## Results (seconds, `new` binary, 16 threads)
-
-| dataset | query | builtin | node | flat | flat_umbra | flat_minmax | split | builtin/node | node/split |
-|---|---|---|---|---|---|---|---|---|---|
-| TPC-H SF1 (1 RG) | q01 | 3.808 | 0.166 | 0.150 | - | - | 0.264 | 22.94 | 0.63 |
-|  | q03 | 3.527 | 0.159 | 0.148 | - | - | 0.164 | 22.18 | 0.97 |
-|  | q04 | 3.427 | 0.095 | 0.087 | - | - | 0.111 | 36.07 | 0.86 |
-|  | q06 | 3.727 | 0.068 | 0.077 | - | - | 0.112 | 54.81 | 0.61 |
-|  | q10 | 3.349 | 0.163 | 0.144 | - | - | 0.184 | 20.55 | 0.89 |
-|  | q12 | 4.046 | 0.119 | 0.099 | - | - | 0.119 | 34.00 | 1.00 |
-| TPC-H SF10 (22 RG) | q01 | 4.092 | 0.623 | 0.633 | - | - | 0.510 | 6.57 | 1.22 |
-|  | q03 | 3.614 | 0.368 | 0.374 | - | - | 0.320 | 9.82 | 1.15 |
-|  | q04 | 4.317 | 0.351 | 0.335 | - | - | 0.255 | 12.30 | 1.38 |
-|  | q06 | 3.564 | 0.268 | 0.266 | - | - | 0.177 | 13.30 | 1.51 |
-|  | q12 | 4.928 | 0.371 | 0.320 | - | - | 0.267 | 13.28 | 1.39 |
-| XMark (1 RG) | q02 | 0.346 | 0.015 | - | 0.041 | 0.024 | 0.055 | 23.07 | 0.27 |
-|  | q03 | 0.337 | 0.021 | - | 0.125 | 0.046 | 0.220 | 16.05 | 0.10 |
-|  | q04 | 0.354 | 0.016 | - | 0.036 | 0.025 | 0.027 | 22.12 | 0.59 |
-|  | q04p | 0.349 | 0.020 | - | 0.039 | 0.028 | 0.048 | 17.45 | 0.42 |
-| DBLP (6 RG) | q06 | 0.746 | 0.607 | 0.809 | - | - | 1.088 | 1.23 | 0.56 |
-|  | q07 | 1.054 | 0.808 | 0.801 | - | - | 1.157 | 1.30 | 0.70 |
-|  | q08 | 0.311 | 0.273 | 0.305 | - | - | 0.235 | 1.14 | 1.16 |
-|  | q09 | 0.602 | 0.346 | 0.340 | - | - | 0.414 | 1.74 | 0.84 |
-
-## Parallel scan below the row group: threads=1 and threads=16
-
-Before, a node scan was parallelized per row group only: on the files with a single row group, every variant took
-the same time with 1 and 16 threads, as the scan is the source of the pipelines above it. Now a row group is split
-into ranges of slots when the file has fewer row groups than threads; the keys at the start of a range are computed
-by a parallel pre-pass that reads only the repetition levels of the node's cheapest column, and only for the ancestor
-keys that are used. With 1 thread, or when a row group is not split, the scan is the one from before.
-
-Seconds, fastest of 5, `base` -> `new` interleaved (t1 ratio: new/base, < 1 is faster; t16: base/new speedup):
-
-| dataset | query | variant | base t1 | new t1 | t1 new/base | base t16 | new t16 | t16 speedup |
-|---|---|---|---|---|---|---|---|---|
-| TPC-H SF1 (1 RG) | q01 | node | 0.355 | 0.347 | 0.98 | 0.351 | 0.166 | 2.11x |
-|  | q01 | flat | 0.354 | 0.339 | 0.96 | 0.347 | 0.150 | 2.31x |
-|  | q03 | node | 0.231 | 0.248 | 1.07 | 0.238 | 0.159 | 1.50x |
-|  | q03 | flat | 0.247 | 0.225 | 0.91 | 0.240 | 0.148 | 1.62x |
-|  | q04 | node | 0.178 | 0.179 | 1.01 | 0.182 | 0.095 | 1.92x |
-|  | q04 | flat | 0.176 | 0.177 | 1.01 | 0.177 | 0.087 | 2.03x |
-|  | q06 | node | 0.160 | 0.160 | 1.00 | 0.161 | 0.068 | 2.37x |
-|  | q06 | flat | 0.164 | 0.174 | 1.06 | 0.169 | 0.077 | 2.19x |
-|  | q10 | node | 0.224 | 0.231 | 1.03 | 0.231 | 0.163 | 1.42x |
-|  | q10 | flat | 0.224 | 0.227 | 1.01 | 0.236 | 0.144 | 1.64x |
-|  | q12 | node | 0.175 | 0.188 | 1.07 | 0.186 | 0.119 | 1.56x |
-|  | q12 | flat | 0.177 | 0.183 | 1.03 | 0.185 | 0.099 | 1.87x |
-| TPC-H SF10 (22 RG) | q01 | node | 3.587 | 3.501 | 0.98 | 0.613 | 0.623 | 0.98x |
-|  | q01 | flat | 3.472 | 3.478 | 1.00 | 0.635 | 0.633 | 1.00x |
-|  | q03 | node | 2.061 | 2.077 | 1.01 | 0.373 | 0.368 | 1.01x |
-|  | q03 | flat | 2.036 | 2.050 | 1.01 | 0.376 | 0.374 | 1.01x |
-|  | q04 | node | 1.663 | 1.641 | 0.99 | 0.362 | 0.351 | 1.03x |
-|  | q04 | flat | 1.608 | 1.596 | 0.99 | 0.326 | 0.335 | 0.97x |
-|  | q06 | node | 1.579 | 1.548 | 0.98 | 0.269 | 0.268 | 1.00x |
-|  | q06 | flat | 1.532 | 1.523 | 0.99 | 0.262 | 0.266 | 0.98x |
-|  | q12 | node | 1.691 | 1.662 | 0.98 | 0.434 | 0.371 | 1.17x |
-|  | q12 | flat | 1.610 | 1.656 | 1.03 | 0.311 | 0.320 | 0.97x |
-| XMark (1 RG) | q02 | node | 0.030 | 0.031 | 1.03 | 0.028 | 0.015 | 1.87x |
-|  | q02 | flat_umbra | 0.052 | 0.054 | 1.04 | 0.056 | 0.041 | 1.37x |
-|  | q02 | flat_minmax | 0.034 | 0.032 | 0.94 | 0.036 | 0.024 | 1.50x |
-|  | q03 | node | 0.035 | 0.035 | 1.00 | 0.037 | 0.021 | 1.76x |
-|  | q03 | flat_umbra | 0.268 | 0.263 | 0.98 | 0.237 | 0.125 | 1.90x |
-|  | q03 | flat_minmax | 0.063 | 0.062 | 0.98 | 0.065 | 0.046 | 1.41x |
-|  | q04 | node | 0.028 | 0.029 | 1.04 | 0.032 | 0.016 | 2.00x |
-|  | q04 | flat_umbra | 0.045 | 0.043 | 0.96 | 0.030 | 0.036 | 0.83x |
-|  | q04 | flat_minmax | 0.039 | 0.038 | 0.97 | 0.040 | 0.025 | 1.60x |
-|  | q04p | node | 0.034 | 0.035 | 1.03 | 0.036 | 0.020 | 1.80x |
-|  | q04p | flat_umbra | 0.065 | 0.066 | 1.02 | 0.053 | 0.039 | 1.36x |
-|  | q04p | flat_minmax | 0.044 | 0.045 | 1.02 | 0.046 | 0.028 | 1.64x |
-| DBLP (6 RG) | q06 | node | 2.544 | 2.535 | 1.00 | 0.790 | 0.607 | 1.30x |
-|  | q06 | flat | 2.553 | 2.549 | 1.00 | 0.939 | 0.809 | 1.16x |
-|  | q07 | node | 3.415 | 3.479 | 1.02 | 1.069 | 0.808 | 1.32x |
-|  | q07 | flat | 3.463 | 3.510 | 1.01 | 1.089 | 0.801 | 1.36x |
-|  | q08 | node | 1.142 | 1.146 | 1.00 | 0.321 | 0.273 | 1.18x |
-|  | q08 | flat | 1.133 | 1.106 | 0.98 | 0.326 | 0.305 | 1.07x |
-|  | q09 | node | 1.542 | 1.554 | 1.01 | 0.452 | 0.346 | 1.31x |
-|  | q09 | flat | 1.560 | 1.539 | 0.99 | 0.457 | 0.340 | 1.34x |
-
-- **1 thread**: new/base 0.91-1.07 for node and flat, within the noise of the unchanged builtin/split code (0.91-1.04).
-- **16 threads**: TPC-H SF1 1.4-2.4x, XMark 1.4-2.0x (except Q4 flat_umbra), DBLP 1.1-1.4x faster. TPC-H SF10 has
-  more row groups than threads and is not split (0.97-1.03; Q12 node 1.17x is within the 16-thread noise).
-- Known regression: XMark Q4 `flat_umbra` 0.83x (30ms -> 36ms). It scans the bidders twice with a selective filter,
-  so the two pre-passes over the levels cost more than the parallel scan saves. Sharing the pre-pass of a node between
-  the scans of one query, or not splitting small nodes, would avoid it.
-- Two fixes came out of these measurements: an earlier version also split the 22 row groups of TPC-H SF10 (SF10 Q3
-  flat 0.87x), and read the levels for the pre-pass from the first projected column (a string column for XMark Q4).
-
-## Parts at page boundaries, with the pre-pass per page (base / slot / page)
-
-Three binaries, interleaved with 1 and 16 threads (fastest of 3 runs; CPU = user + sys of all threads, smallest of
-3): `base` before the parallel scan, `slot` the parts of 122,880 slots (previous version), `page` the parts at page
-boundaries - or within pages - with the pre-pass counted once per page. All results equal their references.
-
-How the parts are chosen now (`ParquetNodeTaskPlan::Create`):
-- The page headers of the columns that are read are read once (a directory of offset, first slot and values per page),
-  and every column of a part starts at the page that holds its first slot (`ColumnReader::SeekToPage`, after loading
-  the dictionary), then skips to the slot within the page - the paper's "offset" (Listing 3, lines 7-8).
-- About one part per thread (at least `parquet_node_task_slots` slots each). The parts start at the pages of the
-  largest column that is read and has a page for every part - its pages are decompressed once, the other columns at
-  most one page more per part. When no column that is read has that many pages, the parts start at offsets within
-  the pages of the one with the most pages, which are then decompressed by more than one part.
-- The rows before a part are counted per page, in parallel, in the cheapest column of the node that has a page for
-  every part (or else the column of the boundaries), plus the slots of the page a part starts in up to its offset. The
-  pages and their counts are kept for the query (`ClientContextState`), so the parts and all scans of the same column
-  chunk in a query share them.
-- With 1 thread, or row groups that are not split, the scan is the one from before. Page counts per column of these
-  files: TPC-H SF1 lineitems 2-174 (l_linestatus 2, l_shipdate 10, l_extendedprice 46), orders 1-73, XMark bidders 1-8.
-- An earlier version chose the column with the fewest pages for the boundaries (l_linestatus: 2 parts) and the
-  cheapest column for counting (2 pages, counted by 2 threads); it was slower than slot for the joins.
-
-Seconds, base / slot / page (wall: fastest run; CPU: user + sys of all threads):
-
-| dataset | query | variant | wall t1 | CPU t1 | wall t16 | CPU t16 |
-|---|---|---|---|---|---|---|
-| TPC-H SF1 (1 RG) | q01 | node | 0.372 / 0.360 / 0.366 | 0.39 / 0.36 / 0.37 | 0.379 / 0.199 / **0.115** | 0.38 / 2.62 / 1.27 |
-|  | q01 | flat | 0.359 / 0.349 / 0.359 | 0.36 / 0.35 / 0.36 | 0.375 / 0.188 / **0.102** | 0.38 / 2.22 / 1.11 |
-|  | q03 | node | 0.234 / 0.242 / 0.233 | 0.23 / 0.25 / 0.23 | 0.242 / 0.153 / **0.107** | 0.24 / 1.86 / 1.03 |
-|  | q03 | flat | 0.248 / 0.236 / 0.241 | 0.25 / 0.24 / 0.24 | 0.243 / 0.152 / **0.105** | 0.24 / 1.64 / 0.96 |
-|  | q04 | node | 0.183 / 0.177 / 0.206 | 0.18 / 0.18 / 0.21 | 0.176 / 0.099 / **0.077** | 0.19 / 1.28 / 0.84 |
-|  | q04 | flat | 0.220 / 0.170 / 0.174 | 0.22 / 0.17 / 0.18 | 0.175 / 0.089 / **0.067** | 0.18 / 1.09 / 0.77 |
-|  | q06 | node | 0.166 / 0.198 / 0.199 | 0.17 / 0.20 / 0.20 | 0.176 / 0.069 / **0.057** | 0.18 / 0.98 / 0.66 |
-|  | q06 | flat | 0.204 / 0.198 / 0.192 | 0.20 / 0.20 / 0.20 | 0.197 / 0.079 / **0.054** | 0.20 / 1.11 / 0.57 |
-|  | q10 | node | 0.270 / 0.220 / 0.229 | 0.27 / 0.22 / 0.23 | 0.234 / 0.161 / **0.152** | 0.27 / 1.68 / 1.02 |
-|  | q10 | flat | 0.233 / 0.273 / 0.282 | 0.23 / 0.27 / 0.28 | 0.226 / 0.160 / **0.152** | 0.25 / 1.58 / 1.01 |
-|  | q12 | node | 0.180 / 0.208 / 0.210 | 0.18 / 0.21 / 0.21 | 0.201 / 0.142 / **0.091** | 0.21 / 1.75 / 0.99 |
-|  | q12 | flat | 0.192 / 0.191 / 0.194 | 0.20 / 0.19 / 0.19 | 0.187 / 0.124 / **0.072** | 0.20 / 1.51 / 0.82 |
-| XMark (1 RG) | q02 | node | 0.032 / 0.032 / 0.032 | 0.03 / 0.03 / 0.03 | 0.027 / 0.015 / **0.021** | 0.04 / 0.06 / 0.10 |
-|  | q02 | flat_minmax | 0.033 / 0.034 / 0.034 | 0.03 / 0.03 / 0.03 | 0.038 / 0.029 / **0.034** | 0.05 / 0.07 / 0.10 |
-|  | q02 | flat_umbra | 0.053 / 0.055 / 0.052 | 0.05 / 0.05 / 0.05 | 0.063 / 0.043 / **0.051** | 0.08 / 0.11 / 0.14 |
-|  | q03 | node | 0.039 / 0.038 / 0.035 | 0.04 / 0.04 / 0.04 | 0.043 / 0.021 / **0.028** | 0.06 / 0.07 / 0.10 |
-|  | q03 | flat_minmax | 0.072 / 0.066 / 0.067 | 0.07 / 0.07 / 0.07 | 0.067 / 0.050 / **0.056** | 0.08 / 0.12 / 0.15 |
-|  | q03 | flat_umbra | 0.307 / 0.303 / 0.311 | 0.31 / 0.30 / 0.32 | 0.269 / 0.136 / **0.132** | 0.42 / 0.53 / 0.53 |
-|  | q04 | node | 0.030 / 0.030 / 0.030 | 0.03 / 0.03 / 0.03 | 0.032 / 0.020 / **0.023** | 0.04 / 0.08 / 0.08 |
-|  | q04 | flat_minmax | 0.038 / 0.040 / 0.039 | 0.04 / 0.04 / 0.04 | 0.041 / 0.026 / **0.033** | 0.05 / 0.08 / 0.10 |
-|  | q04 | flat_umbra | 0.045 / 0.047 / 0.046 | 0.05 / 0.05 / 0.05 | 0.030 / 0.041 / **0.041** | 0.05 / 0.13 / 0.13 |
-|  | q04p | node | 0.036 / 0.036 / 0.038 | 0.04 / 0.04 / 0.04 | 0.037 / 0.019 / **0.027** | 0.04 / 0.08 / 0.10 |
-|  | q04p | flat_minmax | 0.047 / 0.045 / 0.046 | 0.05 / 0.04 / 0.05 | 0.049 / 0.029 / **0.035** | 0.05 / 0.09 / 0.10 |
-|  | q04p | flat_umbra | 0.066 / 0.067 / 0.072 | 0.07 / 0.07 / 0.07 | 0.053 / 0.043 / **0.043** | 0.08 / 0.13 / 0.13 |
-| DBLP (6 RG) | q06 | node | 2.759 / 2.537 / 2.519 | 2.75 / 2.53 / 2.51 | 1.053 / 0.757 / **0.813** | 5.70 / 10.24 / 10.99 |
-|  | q06 | flat | 2.622 / 2.553 / 2.622 | 2.62 / 2.55 / 2.62 | 1.022 / 0.791 / **0.871** | 5.46 / 10.64 / 11.20 |
-|  | q07 | node | 3.421 / 3.602 / 3.408 | 3.42 / 3.59 / 3.40 | 1.229 / 1.021 / **1.103** | 6.88 / 13.36 / 14.39 |
-|  | q07 | flat | 3.713 / 3.506 / 3.436 | 3.70 / 3.50 / 3.43 | 1.290 / 1.078 / **1.053** | 7.60 / 14.73 / 13.65 |
-|  | q08 | node | 1.140 / 1.131 / 1.134 | 1.14 / 1.13 / 1.13 | 0.403 / 0.323 / **0.380** | 1.75 / 4.35 / 5.03 |
-|  | q08 | flat | 1.126 / 1.111 / 1.144 | 1.12 / 1.11 / 1.14 | 0.375 / 0.336 / **0.393** | 1.73 / 4.53 / 5.34 |
-|  | q09 | node | 1.530 / 1.552 / 1.558 | 1.53 / 1.55 / 1.56 | 0.511 / 0.384 / **0.392** | 2.11 / 4.99 / 5.17 |
-|  | q09 | flat | 1.552 / 1.565 / 1.560 | 1.55 / 1.57 / 1.56 | 0.469 / 0.347 / **0.377** | 2.14 / 4.73 / 5.03 |
-| TPC-H SF10 (22 RG) | q01 | node | 3.540 / 3.571 / 3.485 | 3.53 / 3.57 / 3.48 | 0.756 / 0.744 / **0.752** | 8.89 / 8.64 / 8.35 |
-|  | q01 | flat | 3.493 / 3.526 / 3.502 | 3.49 / 3.53 / 3.50 | 0.869 / 0.865 / **0.858** | 10.03 / 10.07 / 9.97 |
-|  | q03 | node | 2.069 / 2.119 / 2.027 | 2.06 / 2.11 / 2.02 | 0.486 / 0.467 / **0.453** | 5.79 / 5.35 / 5.11 |
-|  | q03 | flat | 2.132 / 2.284 / 2.017 | 2.13 / 2.28 / 2.02 | 0.620 / 0.510 / **0.394** | 7.59 / 5.86 / 4.53 |
-|  | q04 | node | 1.696 / 1.672 / 1.660 | 1.70 / 1.67 / 1.66 | 0.377 / 0.403 / **0.406** | 4.04 / 4.32 / 4.59 |
-|  | q04 | flat | 1.622 / 1.643 / 1.570 | 1.62 / 1.64 / 1.57 | 0.373 / 0.370 / **0.333** | 4.02 / 3.70 / 3.47 |
-|  | q06 | node | 1.552 / 1.566 / 1.551 | 1.55 / 1.56 / 1.55 | 0.259 / 0.260 / **0.269** | 3.00 / 3.05 / 3.00 |
-|  | q06 | flat | 1.549 / 1.578 / 1.529 | 1.55 / 1.58 / 1.53 | 0.262 / 0.265 / **0.258** | 2.99 / 2.90 / 2.87 |
-|  | q12 | node | 1.659 / 1.643 / 1.666 | 1.66 / 1.64 / 1.67 | 0.311 / 0.303 / **0.300** | 3.56 / 3.52 / 3.46 |
-|  | q12 | flat | 1.638 / 1.629 / 1.637 | 1.64 / 1.63 / 1.64 | 0.316 / 0.296 / **0.309** | 3.52 / 3.44 / 3.49 |
-
-With 1 thread, page/base (the scan of 1 thread is unchanged; builtin/split in the same run show the noise):
-
-| dataset | node/flat wall | node/flat CPU | builtin/split wall (unchanged code) |
-|---|---|---|---|
-| TPC-H SF1 (1 RG) | 0.79-1.21 | 0.79-1.22 | 0.76-1.04 |
-| XMark (1 RG) | 0.90-1.09 | 0.90-1.09 | 0.97-1.08 |
-| DBLP (6 RG) | 0.91-1.02 | 0.91-1.02 | 0.98-1.05 |
-| TPC-H SF10 (22 RG) | 0.95-1.00 | 0.95-1.00 | 0.78-1.06 |
-
-- **TPC-H SF1, 16 threads**: page is the fastest for all queries (Q10 node 0.152s, slot 0.161s, base 0.234s), with
-  29-51% less CPU than slot. From 1 to 16 threads SF1 now gets 1.5-3.6x (slot 1.4-2.9x).
-- **XMark**: faster than base and than the version that did not split within pages, but slower than slot by a few
-  milliseconds: its bidder columns have 1-8 pages, so the parts start within pages that every part decompresses
-  (CPU 0.10s vs slot 0.06s for Q2), and the queries take 20-50 ms.
-- **DBLP** (6 row groups, author lists with ~50 pages per row group): equal to slot within 10%, except Q8 (0.380s
-  vs slot 0.323s for node, 17% slower); faster than base for all queries.
-- **TPC-H SF10** (more row groups than threads, not split by any binary): equal within the noise.
-
-**Limitation: columns with few pages.** A page is decompressed as a whole, by every part that reads from it. When the
-columns that are read have fewer pages than threads (XMark bidders: 1-8 pages for 609K slots; parquet-cpp-arrow
-writes pages of about 1 MB, and a compact column - dictionary encoded, few distinct values - holds millions of values
-in one page), the parts start within pages, and each of these pages is decompressed by all the parts that start in or
-cross it: more threads only add CPU, not throughput, for these columns (XMark Q2 node: CPU 0.10s vs slot 0.06s). The
-minimum part size (`parquet_node_task_slots`, 122,880 slots) stays: lower values would give XMark more parts but
-decompress the same pages more often. Avoiding it would need the decompressed pages to be shared between the parts
-(read once, used by several threads), or files with smaller pages; the page index (`OffsetIndex`) does not help, as it
-only locates pages.
-
-## Why 16 threads gave only ~2x on the files with a single row group (slot version)
-
-Measured with `profile_breakdown.py` (perf samples of all threads, mapped to functions with `nm`; this perf has no
-call stacks) and the operator timings of `EXPLAIN ANALYZE` (CPU summed over threads, without the pre-pass, which runs
-when the scan is initialized). Node variants, `new` binary.
-
-| query | wall t1 | wall t16 | speedup | CPU t1 | CPU t16 | CPU x | Parquet decode t1/t16 | of which snappy | levels/skip | keys | join | aggregate |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| SF1 Q1 | 343 | 142 | 2.4x | 334 | 1834 | 5.5 | 136/896 | 50/577 | 0/199 | 36/82 | 0/0 | 47/113 |
-| SF1 Q3 | 236 | 115 | 2.1x | 229 | 1345 | 5.9 | 109/771 | 60/535 | 0/134 | 49/88 | 19/40 | 2/7 |
-| SF1 Q4 | 171 | 89 | 1.9x | 164 | 958 | 5.8 | 51/426 | 15/252 | 0/118 | 48/96 | 17/34 | 5/18 |
-| SF1 Q6 | 158 | 60 | 2.6x | 152 | 752 | 4.9 | 79/426 | 41/293 | 0/43 | 42/81 | 0/0 | 0/0 |
-| SF1 Q10 | 223 | 141 | 1.6x | 215 | 1326 | 6.2 | 97/712 | 52/482 | 0/178 | 49/98 | 13/19 | 6/18 |
-| SF1 Q12 | 179 | 98 | 1.8x | 176 | 1192 | 6.8 | 60/534 | 10/305 | 0/154 | 48/96 | 11/18 | 1/2 |
-| XMark Q2 | 31 | 15 | 2.1x | 31 | 59 | 1.9 | 4/8 | 0/2 | 0/2 | 3/4 | 2/4 | 6/14 |
-| XMark Q3 | 38 | 23 | 1.7x | 38 | 66 | 1.7 | 4/8 | 0/2 | 0/1 | 3/5 | 0/0 | 10/16 |
-| XMark Q4 | 30 | 17 | 1.8x | 29 | 53 | 1.8 | 10/22 | 5/11 | 0/1 | 4/3 | 0/0 | 5/8 |
-| SF10 Q4 (22 RG, not split) | 1671 | 322 | 5.2x | 1626 | 3502 | 2.2 | 441/754 | 0/0 | 0/1 | 402/846 | 233/450 | 68/146 |
-
-(milliseconds; one profiled run each, so the speedups differ slightly from the benchmark tables)
-
-- **The CPU time of the split scans grows 5-7x from 1 to 16 threads** (TPC-H SF10, which is not split: 2.2x - the
-  cost of 16 hardware threads on 4 performance + 8 efficiency cores with SMT). Keys, joins and aggregates grow ~2x like
-  SF10; Parquet decoding grows 6-10x, snappy decompression 10-30x, and level decoding/skipping appears (0 -> 43-199ms).
-  EXPLAIN ANALYZE shows the same: SF1 Q1 table scan 208ms -> 1852ms CPU, its aggregate 73 -> 188ms.
-- Cause: a part of a row group starts with `Skip(start)`. Pages before it are skipped by their header, but the page that
-  contains the start is decompressed completely and its levels are decoded up to the start - for every column of every
-  part. The parts (122,880 slots) are about as large as or smaller than the pages (e.g. `l_shipdate`: 11.6 MB
-  uncompressed for 6M values), so the same pages are decompressed again and again. Q1 and Q6 do not need ancestor keys,
-  have no pre-pass, and are affected just as much.
-- Larger parts trade parallelism for less repeated work (16 threads, fastest of 5, seconds (CPU)):
-
-  | parts of (slots) | 122,880 (default) | 250K | 500K | 1M | 2M | not split |
-  |---|---|---|---|---|---|---|
-  | SF1 Q1 | 0.136 (1.98) | 0.100 (1.27) | 0.086 (1.02) | 0.101 (0.65) | 0.110 (0.42) | 0.337 (0.34) |
-  | SF1 Q4 | 0.082 (1.04) | 0.071 (0.68) | 0.060 (0.49) | 0.073 (0.31) | 0.096 (0.25) | 0.175 (0.18) |
-  | SF1 Q6 | 0.060 (0.86) | 0.046 (0.56) | 0.040 (0.44) | 0.045 (0.26) | 0.053 (0.20) | 0.162 (0.16) |
-
-  Even the best size uses 3x the CPU of a single scan; parts that start at page boundaries would avoid most of it.
-- **The pre-pass** is a phase of its own: SF1 Q4 at 16 threads (89 ms) spends ~25 ms scanning orders and building the
-  hash table (5-10 busy threads), ~25 ms in the pre-pass of the lineitems (15 threads, mostly decompressing the pages
-  of the levels - also repeatedly), ~35 ms in the probe pipeline and ~4 ms in the final aggregate. Q12: ~25 of 98 ms.
-- **XMark**: only 30-60 ms of CPU in total; its bidder node (609K slots) gives 5 parts and the auctions (120K) one, so
-  2-4 threads are busy; the grouped first()/last() aggregates are a large share.
-- **Filters**: in these queries they keep most rows of the large nodes (SF1 Q4: 63% of the lineitems, Q1: 99%); the
-  selective ones are on small nodes (Q4: 3.8% of the orders, 35 ms of CPU with one thread).
+- **flat (main_rey) is the fastest on every TPC-H and XMark query at every thread count.** Compared with prenest, it
+  is 1.3-6.0x faster with 1 thread and 1.2-30x with 40 threads on TPC-H, and 1.3-2.2x and 1.1-1.7x on XMark.
+- **TPC-H SF1 has a single row group.** The builtin queries of base and prenest therefore take the same time with 1
+  and 40 threads. flat splits the row group and is 23-104x faster than base with 10-40 threads.
+- **prenest helps TPC-H (4.9-5.5x) and XMark (3.8x).**
+  - On TPC-H, q03/q04/q06/q10/q12 have predicates on list elements that keep 0.5-20% of the elements read (SF1
+    counters). q01's predicate keeps 98%.
+  - XMark's predicates are not on list elements, so its gain is likely the field pruning of the wide auction structs.
+    This was not measured separately.
+- **On DBLP and the selectivity data, prenest equals base** (geometric means 0.82-1.07). Single queries of 0.05-0.3 s
+  vary by up to +-40% at 20-40 threads, in both directions. Their predicates are on the parent `a`, not on list
+  elements, and selectivity's `b` is a `LIST<BIGINT>` with no fields to prune, so neither change applies.
+- **TPC-H SF10 dates are pushed down.** The SF10 queries compute dates as `date '...' +- interval`. a809d3cd51 binds
+  this as a DATE comparison without a cast on the column (`l_shipdate <= '1998-09-02'::DATE`; q06:
+  `l_shipdate BETWEEN ...`), so prenest pushes it into the scan. The older DuckDB under the original prenest-3way bound
+  it as `CAST(l_shipdate AS TIMESTAMP) <= ...`, which the pre-nest rules refuse.
+- **On DBLP and the selectivity data with 1 thread, flat is slower than base.**
+  - DBLP is at 0.82x. For N >= 10, selectivity (A) is at 0.39-0.91x and (B) at 0.28-0.43x. Only the unfiltered N = 1
+    is about equal or faster.
+  - **This differs from the paper's Fig. 15.** A likely reason is that DuckDB's own Parquet scan has improved since
+    the version the paper measured. `read_parquet` evaluates the predicate on `a` during the scan and decodes the list
+    `b` only for the rows that qualify. The flat plan reads all of the child node and joins it with the parent; the
+    condition on the parent does not reduce the child scan (Section 6.5).
+  - With 10-40 threads, flat is faster again: DBLP 1.35-2.47x, selectivity (A) 2.9x, (B) 1.2-1.6x. The joins of the
+    flat plan parallelize, while the builtin scans do not go beyond their row groups (DBLP 6, selectivity 1).
+- **XMark flat is slower with 10-40 threads than with 1 thread** (q02 0.061 s -> 0.077-0.080 s). The file has a single
+  row group, which is split, and its bidders column has few pages (limitation above).
+- **Scaling above 10 threads is not linear.** Up to 10 threads run on one socket; beyond that the threads span both
+  sockets (NUMA), and beyond 20 they share cores (hyper-threading).
 
 ## XMark: element order
 
 The XMark queries need the order of the bidders of an auction. Umbra exposes a surrogate key per node (`"...bidder.sk"`);
-`read_parquet_flat` now exposes the same as `"<path>._sk"` (the row number of the node in the file, in element order).
+`read_parquet_flat` exposes the same as `"<path>._sk"` (the row number of the node in the file, in element order).
 
-- **Q2, NULL rows**: the builtin query returns a row for every auction (120,000), with NULL for the 11,586 auctions
-  without bidders (`bidder[1]` of an empty list). `read_parquet_flat` joins the nodes with inner joins, so these
-  auctions have no row. The flat variants are compared with `q02.flat_*.oracle`: the builtin query without the NULL
-  rows (108,414 rows). The node variant keeps the NULL rows with a LEFT JOIN and is compared with the builtin query.
+- **Q2**: the authors' builtin query returns a row for every auction (120,000), with NULL for the 11,586 auctions
+  without bidders (`bidder[1]` of an empty list), which the joins of every other form drop. The builtin query keeps
+  only the auctions with bidders (108,414 rows), and all variants are compared with it.
 - **Q3**: auctions without bidders have no first/last increase in any variant - all compare with the builtin query.
 - **Q4**: the builtin query returns an auction once when the first bid of person20 is before the first bid of
   person51; Umbra's (and the split) query returns every pair of such bids. `flat_minmax` and `node` have the builtin
@@ -1034,13 +235,13 @@ The XMark queries need the order of the bidders of an auction. Umbra exposes a s
   positions, from the nested lists).
 - **q04p**: person20 and person51 never bid in the same auction, so Q4 returns no rows and checks nothing. q04p is Q4
   with person148112 and person189013, who bid in 41 common auctions.
-- Correlated subqueries (`flat_umbra`) vs a join with the min/max key per parent (`flat_minmax`), 16 threads: the join
-  is faster for all queries - Q2 0.024s vs 0.041s, Q3 (first and last bidder) 0.046s vs 0.125s, Q4 0.025s vs 0.036s,
-  Q4p 0.028s vs 0.039s. With 1 thread Q3 shows the largest difference (0.062s vs 0.263s).
+- Correlated subqueries (`flat_umbra`) vs a join with the min/max key per parent (`flat_minmax`): the join is faster
+  for all queries (laptop, 16 threads: Q2 0.024s vs 0.041s, Q3 0.046s vs 0.125s, Q4 0.025s vs 0.036s, Q4p 0.028s vs
+  0.039s), so the final run uses `flat_minmax`.
 
 ## Filter pushdown into read_parquet_node (phase 1)
 
-`read_parquet_node` now accepts filters (`filter_pushdown`, generic expressions via `pushdown_expression`), which
+`read_parquet_node` accepts filters (`filter_pushdown`, generic expressions via `pushdown_expression`), which
 `read_parquet_flat` passes on to the scans of its nodes:
 
 - **Evaluation in the scan**: after the keys of a batch are generated, the filters are evaluated on the rows of the
@@ -1054,240 +255,17 @@ The XMark queries need the order of the bidders of an auction. Umbra exposes a s
 - **Filters that joins create while the query runs** (min/max, IN, PRF of the hash join's build side): used only with
   `SET parquet_node_join_filter_pruning = true` (default false), for skipping tasks and evaluating rows; the log then
   adds `, the filters of joins N more`. Using join information to skip parts of the probe side is sideways information
-  passing, which the paper only names as future work (Section 6.5) - **this setting and the `join` configuration below
-  are additions beyond the paper's scope.** With the setting off, these filters are ignored (the joins apply them
-  anyway, so results are the same).
+  passing, which the paper only names as future work (Section 6.5) - **this setting is an addition beyond the paper's
+  scope** and is off in the final run. With the setting off, these filters are ignored (the joins apply them anyway,
+  so results are the same).
 - Scope: phase 1 only. Skipping at page granularity (phase 2) and with page statistics (phase 3) are not implemented.
 
 **Page index in the paper's datasets** (checked in the footers with pyarrow): ColumnIndex/OffsetIndex (page statistics)
 are present in every column chunk only in the parquet-mr files - TPC-H SF10, nested and normalized. The
 parquet-cpp-arrow files (TPC-H SF1, XMark, DBLP, synthetic) have none. All files have column chunk statistics.
 
-### Selectivity experiment (counterpart of the paper's Fig. 15)
-
-Running:
-```
-python3 make_selectivity_queries.py                                     # queries/selectivity_random, selectivity_sorted
-mkdir <dir>/selectivity_random && ln -s <datasets dir>/synthetic/l1.parquet <dir>/selectivity_random/
-python3 split_selectivity_data.py <dir>/selectivity_random/l1.parquet <dir>/selectivity_random   # pyarrow 26
-python3 generate_selectivity_data.py <dir>/selectivity_sorted           # data of experiment (B), pyarrow 26
-CFG="page=<page duckdb>,query=<duckdb>;SET disabled_optimizers = 'join_filter_pushdown';SET parquet_node_join_filter_pruning = false,join=<duckdb>;SET parquet_node_join_filter_pruning = true"
-RUNS=5 THREADS=1,16 SKIPS=1 python3 run_bench.py "$CFG" queries/selectivity_random <dir>/selectivity_random selectivity_random.csv
-RUNS=5 THREADS=1,16 SKIPS=1 python3 run_bench.py "$CFG" queries/selectivity_sorted <dir>/selectivity_sorted selectivity_sorted.csv
-```
-
-- **(A)** the paper's `synthetic/l1.parquet` (1M rows, `a` random BIGINT, a list `b` of 10 BIGINTs, one row group of
-  10M slots) with the paper's predicate `a % N = 0`, N = 1 ... 10^6 (N = 1 without predicate): the selected rows are
-  spread over the whole file. Every variant computes `avg(greatest(a, b))` over the elements of the selected rows.
-- `split` reads pre-split files cut from the same nested file (`split_selectivity_data.py`): `normalized/l1_0.parquet`
-  (`a`, `_sk`, 1 row group) and `l1_1.parquet` (`b`, `_psk0`, `_sk`, 10 row groups of 1M), with 1-based INT32 keys
-  like the paper's files. The paper's own pre-split files hold *other random values* than its `l1.parquet` (other
-  sums, no row matches), so they cannot be checked against the nested variants; the files cut from `l1.parquet` have
-  the same layout and size (12.85 MB / 135.9 MB vs 12.87 MB / 136.2 MB) and give the same results as the nested
-  variants.
-- **(B) - an additional experiment beyond the paper's scope**: the same shape with `a` ascending (a = row number,
-  `generate_selectivity_data.py`, which writes the pre-split files with the same code) and the range predicate
-  `a < 10^6 / N`: the selected rows, and so their keys, are contiguous - the case where the join's min/max filters can
-  skip parts of the child.
-- Variants: `builtin` (unnest), `node` (`read_parquet_node` + join on `_ak0 = _sk`), `flat` (`read_parquet_flat`),
-  `split`. **All variants return the same result in all configurations and at both thread counts**, `split` included.
-
-**How the configurations were aligned.** Three configurations, interleaved for every query and variant, with
-threads = 1 and 16:
-
-| configuration | binary | setup SQL |
-|---|---|---|
-| `page` | before filter pushdown (page-aligned parallel scan) | - |
-| `query` | filter pushdown | `SET disabled_optimizers = 'join_filter_pushdown'; SET parquet_node_join_filter_pruning = false;` |
-| `join` (beyond the paper's scope) | filter pushdown | `SET parquet_node_join_filter_pruning = true;` |
-
-`split` reads the pre-split files with `read_parquet`, which uses the joins' filters by default (it skips row groups by
-the min/max of `_psk0` and filters rows with them). To compare like with like, the setup SQL of a configuration applies
-to *every* variant: in `query` no variant gets information from the joins - the join filter pushdown optimizer is
-disabled, so `split` does not use it either and no join spends time building such filters - and in `join` all
-variants use it (`split` as DuckDB does by default, `node`/`flat` through the setting). `split` is therefore reported
-in `query` and `join`; `builtin` has no join and is unaffected. The setup SQL is recorded in the `setup_<config>`
-columns of the CSV.
-
-Columns marked † belong to the `join` configuration. "skipped" is `<by the query's filters>+<by join filters>/<tasks>`
-of the node variant, summed over its two scans (parent and child). Fastest of 5 runs; no other process used the CPU
-during the runs (`busy_cpu` 0).
-
-(A) paper data, `a % N = 0`, threads=1: wall seconds (CPU seconds)
-
-| N | builtin | node page | node query | node join† | skipped q+j/tasks† | flat query | flat join† | split query | split join† |
-|---|---|---|---|---|---|---|---|---|---|
-| 1 | 0.115 (0.12) | 0.153 (0.15) | 0.152 (0.15) | 0.164 (0.16) | 0+0/1 | 0.153 (0.15) | 0.165 (0.17) | 0.130 (0.13) | 0.138 (0.14) |
-| 10^1 | 0.078 (0.08) | 0.095 (0.09) | 0.097 (0.10) | 0.104 (0.10) | 0+0/2 | 0.097 (0.10) | 0.104 (0.10) | 0.067 (0.07) | 0.068 (0.07) |
-| 10^2 | 0.073 (0.07) | 0.085 (0.08) | 0.087 (0.09) | 0.092 (0.09) | 0+0/2 | 0.087 (0.09) | 0.091 (0.09) | 0.058 (0.06) | 0.056 (0.05) |
-| 10^3 | 0.068 (0.07) | 0.085 (0.08) | 0.088 (0.09) | 0.084 (0.08) | 0+0/2 | 0.087 (0.09) | 0.096 (0.10) | 0.057 (0.06) | 0.049 (0.05) |
-| 10^4 | 0.061 (0.06) | 0.090 (0.09) | 0.089 (0.09) | 0.091 (0.09) | 0+0/2 | 0.091 (0.09) | 0.093 (0.09) | 0.066 (0.07) | 0.043 (0.04) |
-| 10^5 | 0.073 (0.07) | 0.088 (0.09) | 0.096 (0.10) | 0.090 (0.09) | 0+0/2 | 0.088 (0.09) | 0.090 (0.09) | 0.058 (0.06) | 0.039 (0.04) |
-| 10^6 | 0.043 (0.04) | 0.090 (0.09) | 0.090 (0.09) | 0.083 (0.08) | 0+0/2 | 0.094 (0.09) | 0.080 (0.08) | 0.064 (0.06) | 0.018 (0.02) |
-
-(A) paper data, `a % N = 0`, threads=16: wall seconds (CPU seconds)
-
-| N | builtin | node page | node query | node join† | skipped q+j/tasks† | flat query | flat join† | split query | split join† |
-|---|---|---|---|---|---|---|---|---|---|
-| 1 | 0.136 (0.24) | 0.050 (0.53) | 0.057 (0.45) | 0.057 (0.45) | 0+0/16 | 0.056 (0.46) | 0.057 (0.54) | 0.047 (0.22) | 0.053 (0.24) |
-| 10^1 | 0.082 (0.08) | 0.039 (0.41) | 0.040 (0.39) | 0.040 (0.38) | 0+0/24 | 0.041 (0.43) | 0.042 (0.47) | 0.029 (0.14) | 0.030 (0.14) |
-| 10^2 | 0.056 (0.10) | 0.037 (0.42) | 0.036 (0.33) | 0.040 (0.36) | 0+0/24 | 0.036 (0.40) | 0.039 (0.33) | 0.025 (0.13) | 0.022 (0.12) |
-| 10^3 | 0.074 (0.07) | 0.036 (0.37) | 0.037 (0.43) | 0.037 (0.42) | 0+0/24 | 0.038 (0.42) | 0.037 (0.42) | 0.026 (0.12) | 0.022 (0.10) |
-| 10^4 | 0.064 (0.06) | 0.036 (0.27) | 0.036 (0.37) | 0.036 (0.43) | 0+0/24 | 0.040 (0.37) | 0.038 (0.42) | 0.024 (0.11) | 0.021 (0.10) |
-| 10^5 | 0.062 (0.11) | 0.035 (0.36) | 0.036 (0.30) | 0.036 (0.36) | 0+6/24 | 0.037 (0.41) | 0.034 (0.24) | 0.028 (0.14) | 0.019 (0.08) |
-| 10^6 | 0.047 (0.06) | 0.037 (0.40) | 0.037 (0.41) | 0.026 (0.12) | 0+15/24 | 0.036 (0.41) | 0.025 (0.19) | 0.026 (0.14) | 0.018 (0.03) |
-
-(B) sorted `a`, `a < 10^6/N` — beyond the paper's scope, threads=1: wall seconds (CPU seconds)
-
-| N | builtin | node page | node query | node join† | skipped q+j/tasks† | flat query | flat join† | split query | split join† |
-|---|---|---|---|---|---|---|---|---|---|
-| 1 | 0.105 (0.11) | 0.147 (0.15) | 0.141 (0.14) | 0.159 (0.16) | 0+0/1 | 0.150 (0.15) | 0.188 (0.19) | 0.116 (0.12) | 0.132 (0.13) |
-| 10^1 | 0.057 (0.06) | 0.115 (0.11) | 0.095 (0.09) | 0.087 (0.09) | 0+0/2 | 0.107 (0.11) | 0.086 (0.09) | 0.061 (0.06) | 0.032 (0.03) |
-| 10^2 | 0.033 (0.03) | 0.088 (0.09) | 0.089 (0.09) | 0.081 (0.08) | 0+0/2 | 0.102 (0.10) | 0.082 (0.08) | 0.055 (0.05) | 0.021 (0.02) |
-| 10^3 | 0.034 (0.03) | 0.087 (0.09) | 0.086 (0.09) | 0.078 (0.08) | 0+0/2 | 0.108 (0.11) | 0.079 (0.08) | 0.063 (0.06) | 0.025 (0.02) |
-| 10^4 | 0.036 (0.04) | 0.088 (0.09) | 0.086 (0.09) | 0.080 (0.08) | 0+0/2 | 0.086 (0.09) | 0.080 (0.08) | 0.069 (0.07) | 0.021 (0.02) |
-| 10^5 | 0.035 (0.04) | 0.086 (0.09) | 0.087 (0.09) | 0.081 (0.08) | 0+0/2 | 0.108 (0.11) | 0.080 (0.08) | 0.058 (0.06) | 0.021 (0.02) |
-| 10^6 | 0.036 (0.04) | 0.085 (0.08) | 0.089 (0.09) | 0.100 (0.10) | 0+0/2 | 0.085 (0.09) | 0.082 (0.08) | 0.073 (0.07) | 0.021 (0.02) |
-
-(B) sorted `a`, `a < 10^6/N` — beyond the paper's scope, threads=16: wall seconds (CPU seconds)
-
-| N | builtin | node page | node query | node join† | skipped q+j/tasks† | flat query | flat join† | split query | split join† |
-|---|---|---|---|---|---|---|---|---|---|
-| 1 | 0.127 (0.23) | 0.053 (0.51) | 0.052 (0.45) | 0.066 (0.58) | 0+0/16 | 0.070 (0.57) | 0.071 (0.60) | 0.049 (0.21) | 0.057 (0.24) |
-| 10^1 | 0.056 (0.06) | 0.035 (0.40) | 0.037 (0.33) | 0.029 (0.19) | 0+14/24 | 0.037 (0.40) | 0.029 (0.12) | 0.030 (0.15) | 0.032 (0.05) |
-| 10^2 | 0.039 (0.04) | 0.034 (0.42) | 0.035 (0.34) | 0.025 (0.18) | 0+15/24 | 0.038 (0.40) | 0.025 (0.22) | 0.025 (0.11) | 0.023 (0.04) |
-| 10^3 | 0.019 (0.03) | 0.035 (0.27) | 0.036 (0.39) | 0.024 (0.12) | 0+15/24 | 0.035 (0.41) | 0.025 (0.15) | 0.029 (0.14) | 0.017 (0.03) |
-| 10^4 | 0.036 (0.04) | 0.035 (0.29) | 0.035 (0.34) | 0.024 (0.17) | 0+15/24 | 0.035 (0.42) | 0.025 (0.22) | 0.030 (0.13) | 0.020 (0.04) |
-| 10^5 | 0.037 (0.04) | 0.035 (0.28) | 0.035 (0.35) | 0.024 (0.17) | 0+15/24 | 0.043 (0.40) | 0.026 (0.12) | 0.030 (0.12) | 0.023 (0.03) |
-| 10^6 | 0.035 (0.04) | 0.034 (0.35) | 0.036 (0.32) | 0.029 (0.13) | 0+15/24 | 0.034 (0.32) | 0.024 (0.18) | 0.031 (0.14) | 0.023 (0.04) |
-
-**Interpretation**
-
-- **`page` -> `query`: no difference - this reproduces the limitation the paper describes in Section 6.5: a condition
-  on the parent cannot reduce the scan of the child.** In both experiments `node`/`flat` take the same time with and
-  without filter pushdown (N >= 100: 1 thread 0.085-0.096s - `flat` in (B) up to 0.108s - and 16 threads
-  0.034-0.043s, in both configurations). The predicate is on the
-  parent (1M rows, cheap); the cost is the scan of the 10M child elements, which no condition on the parent can
-  restrict without information from the join. `split` shows the same with stored keys: in `query` it stays at
-  0.055-0.073s (1 thread) for N >= 100, as it also reads all 10M child rows.
-- **`join` (beyond the paper's scope)**: the child scan skips tasks only when it has several of them - at 16 threads
-  its row group is split into 16 parts; with 1 thread a node of a single row group is one task and nothing can be
-  skipped (the 1-thread gains of up to ~10%, not at every N, come from evaluating the join filter on the child rows and decoding `b`
-  only for the rows that pass). In (A) the selected keys are spread over the file: parts are skipped only from
-  N = 10^5 (13 selected rows: 6 of 16 child parts) and at N = 10^6 (1 row: 15 of 16; wall 0.037s -> 0.026s, CPU
-  0.41s -> 0.12s). In (B) 14-15 of the 16 child parts are skipped from N = 10 on: wall 0.035-0.037s -> 0.024-0.029s,
-  CPU 0.32-0.39s -> 0.12-0.19s.
-- **`join` slower than `split` - the fundamental cost of generating the keys on the fly: to skip, the levels must be
-  counted first.** `split` in `join` reaches 0.017-0.032s at 16 threads and 0.018-0.032s even with 1 thread (N >= 10 in
-  (B), N = 10^6 in (A)): its keys are stored, and the row group statistics of `_psk0` let it skip 9 of its 10 child row
-  groups without reading them. The node scan has no stored keys: the keys at the start of every part are only known
-  after the repetition levels of all pages of the child column have been counted, which decompresses the whole 80 MB
-  column chunk before any part can be skipped (EXPLAIN ANALYZE of (B) N = 10^6: 173 MB read for an 84 MB file). The
-  parts that remain are not the cost - this pre-pass is, and it is the same work whatever the selectivity.
-- **This is a structural cost of the paper's approach, not of this implementation.** The paper says so itself: in
-  Section 6.5, that the values of inner levels cannot be skipped, and in the explanation of Listing 3, that the
-  repetition levels of the preceding pages are not known from the metadata and have to be scanned. `split` avoids the
-  cost by storing the keys - in exchange for the paper's premise of reading the original nested file as it is
-  (in situ): it needs a second, pre-split copy of the data, written in advance. Skipping without the pre-pass would
-  need the key ranges of the pages without reading them - stored keys, or page-level skipping (phase 2) with page
-  statistics (phase 3), which these parquet-cpp-arrow files do not have.
-- **Page format of the paper's files**: all of them - nested and pre-split, parquet-mr (TPC-H SF10) and
-  parquet-cpp-arrow (all others) - use data pages of version 1 (the type of the first data page of every column
-  chunk, read from its page header: `python3 page_versions.py <datasets dir>`), in which the levels are compressed
-  together with the values. The files written for the selectivity experiment use v1 pages as well, so they match the
-  paper's data: the split files of (A) and the sorted data of (B) with its split files (pyarrow 26, whose default
-  `data_page_version` is 1.0; all their column chunks start with a v1 page). The nested file of (A) is the paper's
-  `l1.parquet` itself.
-  *Possible improvement*: with data pages v2 the repetition and definition levels are stored uncompressed, before and
-  separate from the values, so the pre-pass could count the repetition levels without decompressing the values - this
-  needs files written with v2 pages and a levels-only page read in the column reader (DuckDB's reader decompresses the
-  values of a v2 page when it loads the page).
-- `builtin` gets faster with selectivity at 1 thread (0.105-0.115s -> 0.033-0.043s): `read_parquet` evaluates the
-  predicate on `a` first and decodes the list `b` only for the selected rows, within a single scan.
-
-### Regression check on the paper's queries
-
-The full query set, `page` vs `filter` (filter pushdown, default settings: `parquet_node_join_filter_pruning = false`,
-join filter pushdown on), threads = 1 and 16, interleaved, 5 runs (`filter_<dataset>.csv`). Ratios filter / page of the
-wall time (CPU time); `split` runs unchanged code and shows the noise of this machine: 0.83-1.17. All variants return
-their expected results.
-
-tpch_sf1: filter / page, wall (CPU)
-
-| query | node t1 | node t16 | flat t1 | flat t16 | split t1 | split t16 |
-|---|---|---|---|---|---|---|
-| q01 | 0.89 (0.89) | 0.93 (0.91) | 0.99 (1.00) | 1.01 (1.00) | 1.11 (1.13) | 1.02 (1.02) |
-| q03 | 0.98 (0.99) | 1.01 (0.97) | 1.01 (1.00) | 0.95 (0.90) | 0.88 (0.88) | 1.03 (1.01) |
-| q04 | 1.12 (1.12) | 1.01 (0.95) | 0.99 (0.99) | 0.95 (0.94) | 1.03 (1.03) | 1.03 (1.01) |
-| q06 | 1.08 (1.07) | 0.87 (0.87) | 1.10 (1.09) | 1.03 (0.99) | 1.05 (1.05) | 0.99 (0.98) |
-| q10 | 1.13 (1.11) | 1.05 (1.04) | 1.04 (1.03) | 1.00 (0.83) | 0.92 (0.94) | 1.07 (1.08) |
-| q12 | 1.04 (1.04) | 1.01 (0.99) | 0.99 (1.00) | 0.98 (1.01) | 0.83 (0.83) | 0.98 (0.96) |
-
-tpch_sf10: filter / page, wall (CPU)
-
-| query | node t1 | node t16 | flat t1 | flat t16 | split t1 | split t16 |
-|---|---|---|---|---|---|---|
-| q01 | 0.97 (0.97) | 0.73 (0.73) | 0.98 (0.98) | 0.99 (0.98) | 1.00 (1.00) | 0.99 (1.04) |
-| q03 | 1.00 (1.00) | 1.12 (1.21) | 1.01 (1.01) | 1.04 (1.03) | 1.00 (0.98) | 0.94 (0.90) |
-| q04 | 1.03 (1.02) | 1.20 (1.18) | 1.03 (1.03) | 1.05 (1.04) | 0.99 (0.98) | 1.05 (1.02) |
-| q06 | 0.99 (1.00) | 1.00 (0.96) | 0.99 (0.98) | 1.03 (1.05) | 1.01 (0.99) | 0.93 (1.02) |
-| q12 | 1.01 (1.01) | 0.83 (0.76) | 1.04 (1.04) | 1.00 (0.97) | 1.00 (1.00) | 0.98 (1.01) |
-
-xmark: filter / page, wall (CPU)
-
-| query | node t1 | node t16 | flat_umbra t1 | flat_umbra t16 | flat_minmax t1 | flat_minmax t16 | split t1 | split t16 |
-|---|---|---|---|---|---|---|---|---|
-| q02 | 0.97 (0.95) | 1.00 (0.98) | 1.02 (1.02) | 1.32 (1.10) | 1.02 (1.01) | 1.05 (1.11) | 0.96 (0.95) | 1.10 (1.06) |
-| q03 | 1.03 (1.02) | 1.04 (1.06) | 0.95 (0.95) | 1.01 (0.91) | 1.03 (1.03) | 1.31 (1.27) | 0.97 (0.95) | 0.96 (1.17) |
-| q04 | 1.03 (1.03) | 1.05 (1.04) | 1.39 (1.38) | 1.32 (0.90) | 1.03 (1.03) | 1.06 (1.04) | 1.00 (0.98) | 1.04 (0.87) |
-| q04p | 1.00 (1.00) | 1.00 (1.04) | 1.05 (1.04) | 1.46 (1.00) | 0.98 (0.99) | 1.10 (1.11) | 0.96 (0.95) | 1.09 (1.13) |
-
-dblp: filter / page, wall (CPU)
-
-| query | node t1 | node t16 | flat t1 | flat t16 | split t1 | split t16 |
-|---|---|---|---|---|---|---|
-| q06 | 1.01 (1.01) | 1.07 (1.04) | 1.00 (1.00) | 0.98 (1.00) | 1.00 (1.01) | 1.05 (1.06) |
-| q07 | 0.99 (1.00) | 0.95 (0.95) | 0.95 (0.95) | 1.16 (1.14) | 1.03 (1.03) | 1.17 (1.10) |
-| q08 | 1.00 (1.00) | 1.03 (1.00) | 0.99 (0.99) | 0.96 (0.93) | 0.99 (0.98) | 1.01 (0.98) |
-| q09 | 1.01 (1.01) | 1.20 (1.16) | 1.00 (1.00) | 0.98 (1.02) | 1.06 (1.07) | 1.06 (1.13) |
-
-- TPC-H SF1/SF10 and DBLP: the node/flat ratios (0.73-1.20) lie in or just beside the noise range of `split`, in both
-  directions, without a pattern.
-  Their filters keep most rows of the large nodes, so there is little to gain. A filter in the scan replaces the
-  FILTER above it at the same cost.
-- XMark `flat_umbra` q04 (+15-20 ms at 1 and 16 threads, confirmed in a separate interleaved run with 10 runs) and
-  q04p (+13 ms at 16 threads only): the join order flipped. Both queries are symmetric self-joins of the bidders of
-  two persons, whose filtered scans now have equal estimates as table filters (default selectivity 0.2, the columns
-  have no statistics). In q04, person51 has no bids in the matching auctions: the old plan built the hash table from that
-  side (0 rows), so the probe-side scan stopped almost at once; the new plan builds from person20's side (3 rows) and
-  the person51 scan reads the whole node (20 ms). In q04p both plans read both bidder scans completely and take the
-  same time with 1 thread (0.066s vs 0.065s). The 16-thread difference comes from the flipped order, which changes
-  what runs one after the other; not analysed further. The join filters are not the cause: disabling the join
-  filter pushdown optimizer gives the same times.
-- XMark `flat_umbra` q02 (1.32) and `flat_minmax` q03 (1.31) at 16 threads did not reproduce in a separate run with
-  10 runs (q02 0.054s vs 0.051s; q03 0.049s vs 0.054s), in which all four `flat_minmax` queries were 1-5 ms slower.
-- **`flat_minmax` profiled** (interleaved timings with 15 runs, and perf with `profile_breakdown.py`, 3 profiles per
-  binary, 1 thread): the difference is **not** the evaluation of filters in the scan or the late decoding.
-  - The plans of both binaries are identical, and no node scan of these queries gets a filter: the conditions on the
-    persons (q02/q04/q04p) and on the increases (q03) stay in FILTER / join operators above the scans. The
-    categories "scan filters / late decoding" (`FilterSelection`, filter executors, `ColumnReader::Select`) have no
-    samples at all; decoding and key generation take the same time (q04: 14.0 vs 14.0 ms decoding, 3.0 vs 3.7 ms keys;
-    q03: 9.7 vs 9.3 ms, 11.0 vs 9.0 ms).
-  - The join filters, which the joins now build for the node scans (and the scans ignore with
-    `parquet_node_join_filter_pruning = false`), take <= 0.7 ms, and disabling the join filter pushdown optimizer gives
-    the same times as with it.
-  - With 15 runs the difference is 0-2 ms (0-7%); an identical copy of the old binary differs from it by up to 2 ms in
-    the same run (q03, 1 thread: 0.059s vs 0.061s, filter pushdown 0.064s). The rest of the profile difference lies in
-    the aggregate and hash join (q03 +3.3 / +1.3 ms), which the change does not touch - within the noise of these
-    40-65 ms queries; what remains (about 1 ms) could not be attributed at this resolution.
-
 ## Notes
 
-- XMark node vs split (Q3 ~0.1x, Q2 ~0.3x): caused by the query formulation, not by the files. The repository's split
-  queries find the first/last bidder with correlated subqueries (min/max `_sk` per auction `_id`), which DuckDB plans as
-  CTEs with three scans of the bidders and several joins over ~1.8M intermediate rows. The node queries take
-  `first()`/`last()` per `_ak1` group. With that formulation on the split files: Q2 split 0.021s vs node 0.032s, Q3 split
-  0.035s vs node 0.042s (node/split 1.5x and 1.2x, in line with the other datasets; measured before the parallel scan).
 - XMark Q4 builtin: the repository's `x -> ...` lambdas were rewritten to `lambda x: ...` (arrow lambdas are disabled
   in this build); semantics unchanged.
 - A bug found by these runs and fixed: a top-level column chunk with only NULL values (DBLP `year`, row group 4) is
