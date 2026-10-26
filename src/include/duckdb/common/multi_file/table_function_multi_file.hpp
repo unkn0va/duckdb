@@ -12,6 +12,7 @@
 #include "duckdb/common/multi_file/multi_file_function.hpp"
 #include "duckdb/common/mutex.hpp"
 #include "duckdb/common/once_flag.hpp"
+#include "duckdb/planner/filter/prenest_filter_spec.hpp"
 
 namespace duckdb {
 
@@ -155,6 +156,8 @@ public:
 	shared_ptr<FunctionData> schema_bind_data;
 	//! Whether the scan reads several files
 	bool multi_file_scan = false;
+	//! PROBE: the pre-nest predicates of the scan, handed to the bind data of every file it binds
+	vector<PrenestFilterSpec> prenest_filters;
 };
 
 //! Bind data of a multi-file function that wraps a single-file table function
@@ -419,6 +422,8 @@ public:
 	void FinishReading(ClientContext &context, GlobalTableFunctionState &global_state,
 	                   LocalTableFunctionState &local_state) override;
 	bool SupportsReadAhead(const MultiFileBindData &bind_data) const override;
+	bool TrySetPrenestFilter(MultiFileBindData &bind_data, const vector<PrenestFilterSpec> &specs) override;
+	vector<PrenestFilterSpec> GetPrenestFilters(const MultiFileBindData &bind_data) const override;
 	shared_ptr<BaseFileReader> CreateReader(ClientContext &context, GlobalTableFunctionState &gstate,
 	                                        BaseUnionData &union_data, const MultiFileBindData &bind_data) override;
 	shared_ptr<BaseFileReader> CreateReader(ClientContext &context, GlobalTableFunctionState &gstate,

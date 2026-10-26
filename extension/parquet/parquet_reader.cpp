@@ -1,4 +1,5 @@
 #include "parquet_reader.hpp"
+#include "prenest_filter.hpp"
 
 #include <string.h>
 #include <unordered_map>
@@ -853,8 +854,204 @@ static unique_ptr<ColumnReader> CreateInt96StructReader(ClientContext &context, 
 	return std::move(result);
 }
 
+
+//===--------------------------------------------------------------------===//
+// PROBE: resolving a pre-nest spec to one list node
+//===--------------------------------------------------------------------===//
+// A spec names its target by the full root-relative path the optimizer rendered
+// ("c_orders[].o_lineitems"). The same path is rebuilt here while walking the
+// parquet schema, so the two only have to agree on one rule: descending from a
+// LIST or MAP node appends "[]" and contributes no name, because the element
+// node carries the parquet intermediate group name ("list", "key_value"), which
+// has no counterpart on the DuckDB side. Every other step is ".<field name>",
+// and those names are the same strings on both sides - ParseSchemaRecursive
+// builds the STRUCT LogicalType out of ParquetColumnSchema::name, including the
+// _1/_2 renaming it applies to case-insensitive duplicate siblings.
+//
+// The rendering is NOT injective: a field whose own name contains '.' or ends
+// in "[]" produces a path another node can also produce (a column named "a.b"
+// against a struct "a" with a field "b"). Rather than escape - the optimizer's
+// containment checks parse these paths back - the count below simply refuses
+// any path that is not matched by exactly one node. Failing to match costs a
+// pushdown; matching the wrong list would cost correctness.
+
+//! The path of `child` given the path of its parent `schema`.
+static string PrenestChildPath(const ParquetColumnSchema &schema, const ParquetColumnSchema &child,
+                               const string &path) {
+	if (schema.type.id() == LogicalTypeId::LIST || schema.type.id() == LogicalTypeId::MAP) {
+		return path + "[]";
+	}
+	if (path.empty()) {
+		return child.name;
+	}
+	return path + "." + child.name;
+}
+
+//! Paths of every LIST/MAP node in the file, in schema order. Duplicates are kept - that a
+//! path occurs twice is exactly what makes it unusable.
+static void CollectPrenestListPaths(const ParquetColumnSchema &schema, const string &path, vector<string> &result) {
+	if (schema.type.id() == LogicalTypeId::LIST || schema.type.id() == LogicalTypeId::MAP) {
+		result.push_back(path);
+	}
+	for (auto &child : schema.children) {
+		CollectPrenestListPaths(child, PrenestChildPath(schema, child, path), result);
+	}
+}
+
+static idx_t CountPathMatches(const vector<string> &paths, const string &target) {
+	idx_t count = 0;
+	for (auto &path : paths) {
+		if (StringUtil::CIEquals(path, target)) {
+			count++;
+		}
+	}
+	return count;
+}
+
+static string LastPathSegment(const string &path) {
+	auto pos = path.rfind('.');
+	auto name = pos == string::npos ? path : path.substr(pos + 1);
+	while (name.size() >= 2 && name.compare(name.size() - 2, 2, "[]") == 0) {
+		name = name.substr(0, name.size() - 2);
+	}
+	return name;
+}
+
+//! Resolve what the `parquet_prenest_filter` setting named. The setting speaks names, not
+//! paths, so it is taken first as a path and then as a bare list name. Ambiguity is an error
+//! here rather than a silent choice: the setting is a hand-driven probe, and picking one of
+//! two lists for the user is how the reader used to produce wrong answers.
+static bool ResolveManualPath(PrenestFilterSpec &spec, const vector<string> &list_paths) {
+	auto exact = CountPathMatches(list_paths, spec.list_name);
+	if (exact == 1) {
+		spec.list_path = spec.list_name;
+		spec.list_name = LastPathSegment(spec.list_path);
+		return true;
+	}
+	vector<string> candidates;
+	for (auto &path : list_paths) {
+		if (StringUtil::CIEquals(LastPathSegment(path), spec.list_name)) {
+			candidates.push_back(path);
+		}
+	}
+	if (exact > 1) {
+		// the string is itself a path, and the file renders it more than once
+		candidates.clear();
+		for (auto &path : list_paths) {
+			if (StringUtil::CIEquals(path, spec.list_name)) {
+				candidates.push_back(path);
+			}
+		}
+	}
+	if (candidates.size() == 1) {
+		spec.list_path = candidates[0];
+		spec.list_name = LastPathSegment(spec.list_path);
+		return true;
+	}
+	if (candidates.empty()) {
+		// names no list of this file - keep the stock path, the setting may be meant for
+		// another file being read in the same session
+		return false;
+	}
+	throw InvalidInputException(
+	    "parquet_prenest_filter: \"%s\" is ambiguous - this file has %llu lists it could mean: %s. "
+	    "Use one of those full paths instead of the bare name.",
+	    spec.list_name, (unsigned long long)candidates.size(), StringUtil::Join(candidates, ", "));
+}
+
+PrenestReaderPlan ParquetReader::BuildPrenestPlan(ClientContext &context) const {
+	PrenestReaderPlan plan;
+	vector<string> list_paths;
+	CollectPrenestListPaths(*root_schema, string(), list_paths);
+	if (list_paths.empty()) {
+		return plan;
+	}
+
+	vector<PrenestFilterSpec> candidates;
+	if (!parquet_options.prenest_filters.empty()) {
+		candidates = parquet_options.prenest_filters;
+		plan.from_injection = true;
+	} else {
+		Value setting;
+		if (!context.TryGetCurrentSetting("parquet_prenest_filter", setting) || setting.IsNull()) {
+			return plan;
+		}
+		PrenestFilterSpec manual;
+		if (!PrenestFilter::ParseSpec(setting.ToString(), manual)) {
+			return plan;
+		}
+		if (!ResolveManualPath(manual, list_paths)) {
+			return plan;
+		}
+		candidates.push_back(std::move(manual));
+	}
+
+	for (auto &spec : candidates) {
+		if (spec.empty() || spec.list_path.empty()) {
+			continue;
+		}
+		// Recorded before the uniqueness check, so that a spec this file refuses still shows up
+		// as "asked for" - parquet_prenest_stat cannot otherwise tell a refused list from a
+		// misspelt one, since both read 0.
+		PrenestStats::Get().RegisterPath(spec.list_path);
+		if (CountPathMatches(list_paths, spec.list_path) != 1) {
+			// absent from this file, or rendered by more than one node - either way we cannot
+			// say which list is meant, so this spec is dropped and the stock path is kept
+			continue;
+		}
+		plan.by_path[spec.list_path] = plan.specs.size();
+		plan.specs.push_back(std::move(spec));
+	}
+	return plan;
+}
+
+//! PROBE: build an element-level filter for the LIST at `path`, if a spec resolved to exactly
+//! this node AND every field it names is actually being read (an unprojected child is a
+//! constant NULL vector, which would silently drop every element).
+static unique_ptr<PrenestFilter> TryBuildPrenestFilter(ClientContext &context, const PrenestReaderPlan &plan,
+                                                       const string &path, const ParquetColumnSchema &schema,
+                                                       ColumnReader &child_reader) {
+	auto entry = plan.by_path.find(path);
+	if (entry == plan.by_path.end()) {
+		return nullptr;
+	}
+	auto filter = PrenestFilter::FromSpec(plan.specs[entry->second]);
+	if (!filter) {
+		return nullptr;
+	}
+	if (schema.type.id() != LogicalTypeId::LIST) {
+		// a MAP node never carries a pre-nest predicate: the optimizer cannot render a path
+		// through one (its element is not a STRUCT to DuckDB), and the setting resolves to a
+		// path, so reaching here with a MAP means the spec is not for this node after all
+		return nullptr;
+	}
+	auto &element_type = ListType::GetChildType(schema.type);
+	if (element_type.id() != LogicalTypeId::STRUCT || child_reader.Type().id() != LogicalTypeId::STRUCT) {
+		return nullptr;
+	}
+	if (!filter->Bind(context, element_type)) {
+		// the referenced fields are not in this list's element struct
+		return nullptr;
+	}
+	auto &struct_reader = child_reader.Cast<StructColumnReader>();
+	for (auto child_idx : filter->FieldChildIndexes()) {
+		if (child_idx >= struct_reader.child_readers.size() || !struct_reader.child_readers[child_idx]) {
+			if (plan.from_injection) {
+				// an automatically extracted predicate must never turn a working query into an
+				// error - just keep the stock path for this list
+				return nullptr;
+			}
+			throw InvalidInputException(
+			    "parquet_prenest_filter references a field that this query does not project - the pre-nest "
+			    "filter would see a constant NULL vector. Project the predicate columns or clear the setting.");
+		}
+	}
+	return filter;
+}
+
 unique_ptr<ColumnReader> ParquetReader::CreateReaderRecursive(ClientContext &context, const ColumnIndex &column_id,
-                                                              const ParquetColumnSchema &schema) const {
+                                                              const ParquetColumnSchema &schema, const string &path,
+                                                              const PrenestReaderPlan &prenest) const {
 	auto &indexes = column_id.GetChildIndexes();
 
 	switch (schema.schema_type) {
@@ -880,20 +1077,32 @@ unique_ptr<ColumnReader> ParquetReader::CreateReaderRecursive(ClientContext &con
 
 		if (indexes.empty()) {
 			for (idx_t child_index = 0; child_index < schema.children.size(); child_index++) {
-				children[child_index] =
-				    CreateReaderRecursive(context, ColumnIndex(child_index), schema.children[child_index]);
+				auto &child = schema.children[child_index];
+				children[child_index] = CreateReaderRecursive(context, ColumnIndex(child_index), child,
+				                                              PrenestChildPath(schema, child, path), prenest);
 			}
 		} else {
 			for (idx_t i = 0; i < indexes.size(); i++) {
 				auto child_index = indexes[i].GetPrimaryIndex();
-				children[child_index] = CreateReaderRecursive(context, indexes[i], schema.children[child_index]);
+				auto &child = schema.children[child_index];
+				children[child_index] =
+				    CreateReaderRecursive(context, indexes[i], child, PrenestChildPath(schema, child, path), prenest);
 			}
 		}
 		switch (schema.type.id()) {
 		case LogicalTypeId::LIST:
-		case LogicalTypeId::MAP:
+		case LogicalTypeId::MAP: {
 			D_ASSERT(children.size() == 1);
-			return make_uniq<ListColumnReader>(*this, schema, std::move(children[0]));
+			unique_ptr<PrenestFilter> prenest_filter;
+			if (children[0] && !prenest.by_path.empty()) {
+				prenest_filter = TryBuildPrenestFilter(context, prenest, path, schema, *children[0]);
+			}
+			auto list_reader = make_uniq<ListColumnReader>(*this, schema, std::move(children[0]));
+			if (prenest_filter) {
+				list_reader->SetPrenestFilter(std::move(prenest_filter));
+			}
+			return std::move(list_reader);
+		}
 		case LogicalTypeId::STRUCT:
 		case LogicalTypeId::TUPLE: {
 			if (column_id.IsPushdownExtract()) {
@@ -939,12 +1148,14 @@ unique_ptr<ColumnReader> ParquetReader::CreateReaderRecursive(ClientContext &con
 				//! This field is present in 'typed_value' across all rowgroups
 				//! So we can directly push a struct extract into 'typed_value' and ignore 'value'+'metadata'
 				auto typed_value_index = CreateVariantTypedValuePushdown(typed_value_schema, column_id);
-				return CreateReaderRecursive(context, typed_value_index, typed_value_schema);
+				return CreateReaderRecursive(context, typed_value_index, typed_value_schema,
+				                             PrenestChildPath(schema, typed_value_schema, path), prenest);
 			}
 		}
 		for (idx_t child_index = 0; child_index < schema.children.size(); child_index++) {
-			children[child_index] =
-			    CreateReaderRecursive(context, ColumnIndex(child_index), schema.children[child_index]);
+			auto &child = schema.children[child_index];
+			children[child_index] = CreateReaderRecursive(context, ColumnIndex(child_index), child,
+			                                              PrenestChildPath(schema, child, path), prenest);
 		}
 		// Create the VariantColumnReader with the column index, so we can perform the extract at Read
 		auto column_reader = make_uniq<VariantColumnReader>(context, *this, schema, std::move(children), column_id);
@@ -1939,6 +2150,8 @@ void ParquetReader::InitializeScan(ClientContext &context, ParquetReaderScanStat
 	state.thrift_file_proto = CreateThriftFileProtocol(context, *state.file_handle, state.prefetch_mode,
 	                                                   DetermineAcceptedColumnGap(context, state));
 
+	// PROBE: resolve the pre-nest specs once per scan, before any reader is built
+	auto prenest = BuildPrenestPlan(context);
 	state.column_readers.resize(column_indexes.size());
 	for (idx_t i = 0; i < column_indexes.size(); i++) {
 		auto it = expression_map.find(ProjectionIndex(i));
@@ -1960,7 +2173,7 @@ void ParquetReader::InitializeScan(ClientContext &context, ParquetReaderScanStat
 			vector<unique_ptr<ColumnReader>> child_readers;
 			for (auto &id : expression_column_indexes) {
 				auto &schema = root_schema->children[id.GetPrimaryIndex()];
-				child_readers.push_back(CreateReaderRecursive(context, id, schema));
+				child_readers.push_back(CreateReaderRecursive(context, id, schema, schema.name, prenest));
 			}
 			auto expr_schema = make_uniq<ParquetColumnSchema>(ParquetColumnSchema::FromParentSchema(
 			    child_readers[0]->Schema(), expression->GetReturnType(), ParquetColumnSchemaType::EXPRESSION));
@@ -1971,7 +2184,7 @@ void ParquetReader::InitializeScan(ClientContext &context, ParquetReaderScanStat
 			auto &index = column_indexes[i];
 			auto column_id = index.GetPrimaryIndex();
 			auto &schema = root_schema->children[column_id];
-			auto column_reader = CreateReaderRecursive(context, index, schema);
+			auto column_reader = CreateReaderRecursive(context, index, schema, schema.name, prenest);
 			state.column_readers[i] = std::move(column_reader);
 		}
 	}

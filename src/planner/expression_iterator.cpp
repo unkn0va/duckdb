@@ -100,6 +100,16 @@ void ExpressionIterator::EnumerateChildren(Expression &expr,
 		callback(unnest_expr.ChildMutable());
 		break;
 	}
+	case ExpressionClass::BOUND_COMPREHENSION: {
+		auto &comprehension = expr.Cast<BoundComprehensionExpression>();
+		if (comprehension.predicate) {
+			callback(comprehension.predicate);
+		}
+		if (comprehension.inner) {
+			callback(comprehension.inner);
+		}
+		break;
+	}
 	case ExpressionClass::BOUND_COLUMN_REF:
 	// TODO: enumerate the lambda body here. That would give volatility, CanThrow and Hash for free,
 	// but the body's BoundReferenceExpressions index the lambda's own input chunk rather than the

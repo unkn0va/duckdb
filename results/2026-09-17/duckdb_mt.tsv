@@ -1,0 +1,34 @@
+# DuckDB: auto=false vs auto=true, default parallelism, median-5 (1 discarded), release build, process startup included
+# machine: apache10
+# date: 2026-09-17
+# data: /data/tpch-nested/1/ (SF1)
+# duckdb commit: ea57efbb72 (branch prenest-3way)
+# datafusion commit: 271583af3 (branch nested_data_processing)
+query	off	on	ratio
+q10a	0.86	0.38	2.263
+q10b	0.84	0.40	2.100
+q10	0.86	0.38	2.263
+q11	0.08	0.08	1.000
+q12	1.09	0.32	3.406
+q13	0.23	0.23	1.000
+q14	0.90	0.29	3.103
+q15	0.91	0.25	3.640
+q16	0.17	0.17	1.000
+q17	0.91	0.92	.989
+q18	1.04	1.08	.962
+q19	1.18	0.58	2.034
+q1	1.24	1.12	1.107
+q20	0.96	0.43	2.232
+q21	0.81	0.60	1.350
+q22	1.63	1.65	.987
+q2	0.19	0.18	1.055
+q3a	0.90	0.51	1.764
+q3b	0.87	0.53	1.641
+q3	0.90	0.51	1.764
+q4	0.79	0.30	2.633
+q5	0.88	0.35	2.514
+q6	0.95	0.22	4.318
+q7	0.81	0.38	2.131
+q8	0.83	0.48	1.729
+q9b	1.05	1.06	.990
+q9	1.02	1.05	.971

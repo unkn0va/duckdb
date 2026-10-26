@@ -1,0 +1,130 @@
+# name: test/sql/copy/parquet/prenest_nested_projection.test
+# description: Nested filter pushdown keeps nested projection pushdown, and never changes a result
+# group: [parquet]
+
+# Revived from test/sql/copy/parquet/nested_projection_unnest_element_filter.test, removed in
+# fff6e6276e. Its "Element Filters" EXPLAIN assertions are not revived - they specified the
+# removed design. The projection assertions and every result assertion are kept.
+
+require parquet
+
+statement ok
+PRAGMA enable_verification
+
+statement ok
+SET parquet_prenest_auto=true
+
+statement ok
+COPY (
+    SELECT i AS id,
+        [{'a': i, 'b': i * 10, 'c': i * 100}] AS posts,
+        [{'title': 't' || i,
+          'comments': [{'author': 'au' || i, 'score': i, 'text': 'tx' || i}]}] AS docs
+    FROM range(4) t(i)
+) TO '__TEST_DIR__/prenest_nested_proj.parquet' (FORMAT parquet)
+
+# the predicate field is not referenced above the UNNEST, so it still has to be read
+query I
+SELECT p.a FROM (SELECT UNNEST(posts) AS p FROM '__TEST_DIR__/prenest_nested_proj.parquet')
+WHERE p.b >= 10 ORDER BY p.a
+----
+1
+2
+3
+
+# two-sided range (reaches the rule as BETWEEN)
+query I
+SELECT p.a FROM (SELECT UNNEST(posts) AS p FROM '__TEST_DIR__/prenest_nested_proj.parquet')
+WHERE p.b >= 10 AND p.b < 30 ORDER BY p.a
+----
+1
+2
+
+query I
+SELECT p.a FROM (SELECT UNNEST(posts) AS p FROM '__TEST_DIR__/prenest_nested_proj.parquet')
+WHERE p.b BETWEEN 10 AND 20 ORDER BY p.a
+----
+1
+2
+
+# predicate on one sub-field, projection of another, three levels deep
+query I
+SELECT c.author
+FROM (SELECT UNNEST(d.comments) AS c
+      FROM (SELECT UNNEST(docs) AS d FROM '__TEST_DIR__/prenest_nested_proj.parquet'))
+WHERE c.score >= 2 ORDER BY c.author
+----
+au2
+au3
+
+# predicate comparing two sub-fields of the same element: no constant, so no pre-nest condition
+query I
+SELECT p.a FROM (SELECT UNNEST(posts) AS p FROM '__TEST_DIR__/prenest_nested_proj.parquet')
+WHERE p.c > p.b ORDER BY p.a
+----
+1
+2
+3
+
+# predicate that needs the element as a whole - falls back to reading it in full
+query I
+SELECT p.a FROM (SELECT UNNEST(posts) AS p FROM '__TEST_DIR__/prenest_nested_proj.parquet')
+WHERE p IS NOT NULL ORDER BY p.a
+----
+0
+1
+2
+3
+
+# ---- nested projection pushdown still fires on the same scan ----
+
+statement ok
+SET explain_output='physical_only'
+
+query II
+EXPLAIN SELECT p.a FROM (SELECT UNNEST(posts) AS p FROM '__TEST_DIR__/prenest_nested_proj.parquet')
+WHERE p.b >= 10
+----
+physical_plan	<REGEX>:.*posts\.a.*
+
+query II
+EXPLAIN SELECT p.a FROM (SELECT UNNEST(posts) AS p FROM '__TEST_DIR__/prenest_nested_proj.parquet')
+WHERE p.b >= 10
+----
+physical_plan	<REGEX>:.*posts\.b.*
+
+query II
+EXPLAIN SELECT p.a FROM (SELECT UNNEST(posts) AS p FROM '__TEST_DIR__/prenest_nested_proj.parquet')
+WHERE p.b >= 10
+----
+physical_plan	<!REGEX>:.*posts\.c.*
+
+query II
+EXPLAIN SELECT c.author
+FROM (SELECT UNNEST(d.comments) AS c
+      FROM (SELECT UNNEST(docs) AS d FROM '__TEST_DIR__/prenest_nested_proj.parquet'))
+WHERE c.score >= 2
+----
+physical_plan	<REGEX>:.*docs\.comments\.author.*
+
+query II
+EXPLAIN SELECT c.author
+FROM (SELECT UNNEST(d.comments) AS c
+      FROM (SELECT UNNEST(docs) AS d FROM '__TEST_DIR__/prenest_nested_proj.parquet'))
+WHERE c.score >= 2
+----
+physical_plan	<REGEX>:.*docs\.comments\.score.*
+
+query II
+EXPLAIN SELECT c.author
+FROM (SELECT UNNEST(d.comments) AS c
+      FROM (SELECT UNNEST(docs) AS d FROM '__TEST_DIR__/prenest_nested_proj.parquet'))
+WHERE c.score >= 2
+----
+physical_plan	<!REGEX>:.*docs\.comments\.text.*
+
+query II
+EXPLAIN SELECT p.a FROM (SELECT UNNEST(posts) AS p FROM '__TEST_DIR__/prenest_nested_proj.parquet')
+WHERE p IS NOT NULL
+----
+physical_plan	<!REGEX>:.*posts\.a.*

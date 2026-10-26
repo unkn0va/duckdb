@@ -1,0 +1,141 @@
+# name: test/sql/optimizer/prenest/prenest_deep_safety.test
+# description: Truncating a list must stay invisible to everything that contains it
+# group: [prenest]
+
+# With the deep paradigm a comprehension travels down to the scan, so the reader really does
+# drop elements. These are the shapes where that would be observable: the list, or a value
+# containing it, is read somewhere other than the UNNEST chain that iterates it. The answer
+# must not depend on parquet_prenest_auto.
+
+require parquet
+
+statement ok
+PRAGMA enable_verification
+
+statement ok
+COPY (
+    SELECT i AS cid,
+           [{'oid': i * 10 + k,
+             'items': [{'qty': (i + k + j) % 5, 'price': j * 100} FOR j IN range(3)]}
+            FOR k IN range(2)] AS orders
+    FROM range(6) t(i)
+) TO '__TEST_DIR__/prenest_deep_safety.parquet' (FORMAT parquet)
+
+# ------------------------------------------------------------------------------------------------
+# the inner list is also read whole, two levels down - truncating it would break len()
+# ------------------------------------------------------------------------------------------------
+
+foreach auto false true
+
+statement ok
+SET parquet_prenest_auto=${auto}
+
+query II
+SELECT sum(len(o.items)), count(*) FROM (
+    SELECT o, unnest(o.items) AS l
+    FROM (SELECT unnest(orders) AS o FROM '__TEST_DIR__/prenest_deep_safety.parquet') os
+) WHERE l.qty < 3
+----
+69	23
+
+# the outer list is also read whole - one level
+query II
+SELECT sum(len(orders)), count(*) FROM (
+    SELECT orders, unnest(orders) AS o FROM '__TEST_DIR__/prenest_deep_safety.parquet'
+) WHERE o.oid < 30
+----
+12	6
+
+# the containing value only reaches the OUTPUT - no expression reads it
+query I
+SELECT count(*) FROM (
+    SELECT o FROM (
+        SELECT o, unnest(o.items) AS l
+        FROM (SELECT unnest(orders) AS o FROM '__TEST_DIR__/prenest_deep_safety.parquet') os
+    ) WHERE l.qty < 3
+)
+----
+23
+
+# a list read with no UNNEST at all (the q22 shape)
+query I
+SELECT count(*) FROM '__TEST_DIR__/prenest_deep_safety.parquet' WHERE len(orders) = 0
+----
+0
+
+# ------------------------------------------------------------------------------------------------
+# the shapes that SHOULD be filtered - a sibling field of the enclosing element is a disjoint
+# path and must not block extraction
+# ------------------------------------------------------------------------------------------------
+
+query II
+SELECT p, count(*) FROM (
+    SELECT o.oid AS p, unnest(o.items) AS l
+    FROM (SELECT unnest(orders) AS o FROM '__TEST_DIR__/prenest_deep_safety.parquet') os
+) WHERE l.qty < 3 GROUP BY p ORDER BY ALL
+----
+0	3
+1	2
+10	2
+11	1
+20	1
+21	1
+30	1
+31	2
+40	2
+41	3
+50	3
+51	2
+
+query II
+SELECT count(*), sum(l.price) FROM (
+    SELECT unnest(o.items) AS l
+    FROM (SELECT unnest(orders) AS o FROM '__TEST_DIR__/prenest_deep_safety.parquet') os
+) WHERE l.qty < 3
+----
+23	2200
+
+endloop
+
+# The counter checks below must run without verification. The prenest counters are
+# process-global and only ever incremented on the pre-nest reader path, so the repeated runs
+# that enable_verification performs accumulate into them and the absolute count stops matching.
+statement ok
+PRAGMA disable_verification
+
+# the deep path really does reach the scan for the two-level case
+statement ok
+SET parquet_prenest_auto=true
+
+statement ok
+SELECT parquet_prenest_stat('reset')
+
+statement ok
+SELECT count(*) FROM (
+    SELECT unnest(o.items) AS l
+    FROM (SELECT unnest(orders) AS o FROM '__TEST_DIR__/prenest_deep_safety.parquet') os
+) WHERE l.qty < 3
+
+# 6 cids x 2 orders x 3 items = 36 elements, of which 23 satisfy qty < 3: the reader really
+# did drop elements before assembling the lists. (elements_decoded only counts the
+# non-carryover read path and stays 0 on a file this small, so elements_appended is the
+# signal that matters - which is also why 0 below means "refused", not "read nothing".)
+query I
+SELECT parquet_prenest_stat('elements_appended')
+----
+23
+
+# ... and is refused when the list is read elsewhere
+statement ok
+SELECT parquet_prenest_stat('reset')
+
+statement ok
+SELECT sum(len(o.items)) FROM (
+    SELECT o, unnest(o.items) AS l
+    FROM (SELECT unnest(orders) AS o FROM '__TEST_DIR__/prenest_deep_safety.parquet') os
+) WHERE l.qty < 3
+
+query I
+SELECT parquet_prenest_stat('elements_appended')
+----
+0

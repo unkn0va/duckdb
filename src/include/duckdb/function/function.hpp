@@ -20,6 +20,7 @@
 #include "duckdb/parser/qualified_name.hpp"
 
 namespace duckdb {
+struct PrenestFilterSpec;
 class CatalogEntry;
 class Catalog;
 class ClientContext;
@@ -70,6 +71,13 @@ public:
 	DUCKDB_API virtual bool Equals(const FunctionData &other) const = 0;
 	DUCKDB_API static bool Equals(const FunctionData *left, const FunctionData *right);
 	DUCKDB_API virtual bool SupportStatementCache() const;
+	//! PROBE: hand the element-level pre-nest predicates of one scan to this bind data,
+	//! at most one per LIST column. Returns false when the scan cannot make use of them,
+	//! which is the default.
+	DUCKDB_API virtual bool TrySetPrenestFilter(const vector<PrenestFilterSpec> &specs);
+	//! PROBE: the pre-nest predicates this bind data accepted, for plan display. Empty unless
+	//! the scan supports pre-nest filtering and the optimizer pushed something.
+	DUCKDB_API virtual vector<PrenestFilterSpec> GetPrenestFilters() const;
 
 	template <class TARGET>
 	TARGET &Cast() {

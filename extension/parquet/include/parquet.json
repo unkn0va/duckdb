@@ -79,6 +79,60 @@
     "pointer_type": "shared_ptr"
   },
   {
+    "class": "PrenestRawCondition",
+    "includes": [
+      "duckdb/planner/filter/prenest_filter_spec.hpp"
+    ],
+    "members": [
+      {
+        "id": 100,
+        "name": "field",
+        "type": "string"
+      },
+      {
+        "id": 101,
+        "name": "comparison",
+        "type": "ExpressionType"
+      },
+      {
+        "id": 102,
+        "name": "literal",
+        "type": "string"
+      }
+    ],
+    "pointer_type": "none"
+  },
+  {
+    "class": "PrenestFilterSpec",
+    "includes": [
+      "duckdb/planner/filter/prenest_filter_spec.hpp"
+    ],
+    "members": [
+      {
+        "id": 100,
+        "name": "list_path",
+        "type": "string"
+      },
+      {
+        "id": 101,
+        "name": "list_name",
+        "type": "string"
+      },
+      {
+        "id": 102,
+        "name": "conditions",
+        "type": "vector<PrenestRawCondition>"
+      },
+      {
+        "id": 103,
+        "name": "predicate",
+        "type": "shared_ptr<Expression>",
+        "default": "nullptr"
+      }
+    ],
+    "pointer_type": "none"
+  },
+  {
     "class": "ParquetOptionsSerialization",
     "includes": [
       "parquet_reader.hpp"
@@ -155,6 +209,12 @@
         "type": "ParquetInt96AsOption",
         "default": "ParquetInt96AsOption::TIMESTAMP",
         "property": "parquet_options.int96_as"
+      },
+      {
+        "id": 111,
+        "name": "prenest_filters",
+        "type": "vector<PrenestFilterSpec>",
+        "property": "parquet_options.prenest_filters"
       }
     ],
     "pointer_type": "none"

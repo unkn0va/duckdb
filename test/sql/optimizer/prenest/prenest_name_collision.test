@@ -1,0 +1,210 @@
+# name: test/sql/optimizer/prenest/prenest_name_collision.test
+# description: A spec is matched to a list by its full path, so a reused list name is not ambiguous
+# group: [prenest]
+
+# PrenestFilterSpec carries the list's full root-relative path in the optimizer's RenderPath
+# spelling ("orders[].items"), and ParquetReader rebuilds the same path while walking the file
+# schema. Before that, the spec carried only the last segment and the reader attached it to every
+# schema node with that name, so a file that reuses a list name at two depths had one spec applied
+# to two lists and dropped elements from a list no predicate named.
+#
+# Verification is off throughout: PRAGMA enable_verification re-runs the statement with the
+# optimizer disabled and reports that result, so with it on these assertions would pass without
+# the pre-nest path ever having run.
+
+require parquet
+
+statement ok
+PRAGMA disable_verification
+
+# `items` appears twice: once at the top level, once inside the `orders` element struct.
+statement ok
+COPY (
+    SELECT i AS cid,
+           [{'qty': (i + j) % 5} FOR j IN range(3)] AS items,
+           [{'oid': i * 10 + k,
+             'items': [{'qty': (i + k + j) % 5} FOR j IN range(3)]}
+            FOR k IN range(2)] AS orders
+    FROM range(6) t(i)
+) TO '__TEST_DIR__/prenest_name_collision.parquet' (FORMAT parquet)
+
+# ------------------------------------------------------------------------------------------------
+# the automatic path: two predicates at two UNNEST levels, on two lists both called `items`
+# ------------------------------------------------------------------------------------------------
+
+foreach auto false true
+
+statement ok
+SET parquet_prenest_auto=${auto}
+
+query II
+SELECT count(*), sum(b.qty) FROM (
+    SELECT unnest(o.items) AS b
+    FROM (
+        SELECT unnest(orders) AS o
+        FROM (SELECT orders, unnest(items) AS a FROM '__TEST_DIR__/prenest_name_collision.parquet') s
+        WHERE s.a.qty < 3
+    ) t
+) WHERE b.qty < 2
+----
+32	19
+
+query II
+SELECT sum(len(items)), sum(len(o.items))
+FROM (SELECT items, unnest(orders) AS o FROM '__TEST_DIR__/prenest_name_collision.parquet')
+----
+36	36
+
+endloop
+
+# ------------------------------------------------------------------------------------------------
+# the setting resolves a name against the file schema, and reaches exactly one list
+# ------------------------------------------------------------------------------------------------
+
+statement ok
+SET parquet_prenest_auto=false
+
+# `items` is itself the path of the top-level list, so it names that one and leaves the nested
+# list alone. Before path matching this truncated both (16 / 15).
+statement ok
+SET parquet_prenest_filter='items: qty < 2'
+
+query II
+SELECT sum(len(items)), sum(len(o.items))
+FROM (SELECT items, unnest(orders) AS o FROM '__TEST_DIR__/prenest_name_collision.parquet')
+----
+16	36
+
+# ... and the nested one is reached by spelling its path out
+statement ok
+SET parquet_prenest_filter='orders[].items: qty < 2'
+
+query II
+SELECT sum(len(items)), sum(len(o.items))
+FROM (SELECT items, unnest(orders) AS o FROM '__TEST_DIR__/prenest_name_collision.parquet')
+----
+36	15
+
+statement ok
+SET parquet_prenest_filter=''
+
+# ------------------------------------------------------------------------------------------------
+# a bare name that is not itself a path and reaches more than one list is refused, and the error
+# names the paths to choose from. Silently picking one is what used to produce wrong answers.
+# ------------------------------------------------------------------------------------------------
+
+statement ok
+COPY (SELECT [{'items': [{'qty': 1}, {'qty': 7}]}] AS a, [{'items': [{'qty': 2}, {'qty': 8}]}] AS b)
+TO '__TEST_DIR__/prenest_two_nested.parquet' (FORMAT parquet)
+
+statement ok
+SET parquet_prenest_filter='items: qty < 5'
+
+statement error
+SELECT sum(len(a[1].items)) FROM '__TEST_DIR__/prenest_two_nested.parquet'
+----
+is ambiguous - this file has 2 lists it could mean: a[].items, b[].items
+
+statement ok
+SET parquet_prenest_filter='a[].items: qty < 5'
+
+query II
+SELECT sum(len(a[1].items)), sum(len(b[1].items)) FROM '__TEST_DIR__/prenest_two_nested.parquet'
+----
+1	2
+
+# a name that matches no list of this file is not an error - the setting may be meant for another
+# file read in the same session
+statement ok
+SET parquet_prenest_filter='nosuchlist: qty < 5'
+
+query II
+SELECT sum(len(a[1].items)), sum(len(b[1].items)) FROM '__TEST_DIR__/prenest_two_nested.parquet'
+----
+2	2
+
+statement ok
+SET parquet_prenest_filter=''
+
+# ------------------------------------------------------------------------------------------------
+# the path rendering is not injective: a field name containing '.' or ending in "[]" produces a
+# path another node also produces. Those must fail to MATCH, not match the wrong list - so the
+# answer stays right and nothing is dropped (elements_appended = 0).
+# ------------------------------------------------------------------------------------------------
+
+statement ok
+SET parquet_prenest_auto=true
+
+# a column literally named "a.b" renders to the same path as field b of struct a
+statement ok
+COPY (SELECT [{'q':1},{'q':7}] AS "a.b", {'b': [{'q':2},{'q':8}]} AS a)
+TO '__TEST_DIR__/prenest_dot.parquet' (FORMAT parquet)
+
+statement ok
+SELECT parquet_prenest_stat('reset')
+
+query II
+SELECT count(*), sum(y.q) FROM (SELECT unnest(a.b) AS y FROM '__TEST_DIR__/prenest_dot.parquet') WHERE y.q < 5
+----
+1	2
+
+query I
+SELECT parquet_prenest_stat('elements_appended')
+----
+0
+
+# control: the same query on a file without the colliding column DOES push, so the 0 above is the
+# uniqueness check refusing and not the optimizer declining to build a spec
+statement ok
+COPY (SELECT {'b': [{'q':2},{'q':8}]} AS a) TO '__TEST_DIR__/prenest_dot_ctl.parquet' (FORMAT parquet)
+
+statement ok
+SELECT parquet_prenest_stat('reset')
+
+query II
+SELECT count(*), sum(y.q) FROM (SELECT unnest(a.b) AS y FROM '__TEST_DIR__/prenest_dot_ctl.parquet') WHERE y.q < 5
+----
+1	2
+
+query I
+SELECT parquet_prenest_stat('elements_appended')
+----
+1
+
+# a column literally named "a[]" renders its field b to the same path as list a's element field b
+statement ok
+COPY (SELECT {'b': [{'q':1},{'q':7}]} AS "a[]", [{'b': [{'q':2},{'q':8}]}] AS a)
+TO '__TEST_DIR__/prenest_brk.parquet' (FORMAT parquet)
+
+statement ok
+SELECT parquet_prenest_stat('reset')
+
+query II
+SELECT count(*), sum(z.q) FROM (
+    SELECT unnest(e.b) AS z FROM (SELECT unnest(a) AS e FROM '__TEST_DIR__/prenest_brk.parquet')
+) WHERE z.q < 5
+----
+1	2
+
+query I
+SELECT parquet_prenest_stat('elements_appended')
+----
+0
+
+statement ok
+COPY (SELECT [{'b': [{'q':2},{'q':8}]}] AS a) TO '__TEST_DIR__/prenest_brk_ctl.parquet' (FORMAT parquet)
+
+statement ok
+SELECT parquet_prenest_stat('reset')
+
+query II
+SELECT count(*), sum(z.q) FROM (
+    SELECT unnest(e.b) AS z FROM (SELECT unnest(a) AS e FROM '__TEST_DIR__/prenest_brk_ctl.parquet')
+) WHERE z.q < 5
+----
+1	2
+
+query I
+SELECT parquet_prenest_stat('elements_appended')
+----
+1

@@ -35,6 +35,7 @@
 #include "parquet_file_metadata_cache.hpp"
 #include "parquet_rle_bp_decoder.hpp"
 #include "parquet_types.h"
+#include "prenest_filter.hpp"
 #include "resizable_buffer.hpp"
 #include "duckdb/execution/adaptive_filter.hpp"
 #include "duckdb/common/column_index.hpp"
@@ -304,6 +305,11 @@ struct ParquetOptions {
 	StringColumnReader::Utf8ValidationOption utf8_validation_option =
 	    StringColumnReader::Utf8ValidationOption::STRICT_UTF8;
 	ParquetInt96AsOption int96_as = ParquetInt96AsOption::TIMESTAMP;
+	//! PROBE: element-level pre-nest predicates handed down from the bind phase, at most
+	//! one per LIST column of this scan. (see below) While empty the readers fall back to the
+	//! `parquet_prenest_filter` setting, i.e. behaviour is unchanged. Deliberately
+	//! not serialized (see parquet.json) - it never survives a plan round-trip.
+	vector<PrenestFilterSpec> prenest_filters;
 };
 
 struct ParquetOptionsSerialization {
@@ -469,7 +475,11 @@ private:
 	                                         idx_t &next_file_idx, ClientContext &context);
 
 	unique_ptr<ColumnReader> CreateReaderRecursive(ClientContext &context, const ColumnIndex &index,
-	                                               const ParquetColumnSchema &schema) const;
+	                                               const ParquetColumnSchema &schema, const string &path,
+	                                               const PrenestReaderPlan &prenest) const;
+	//! PROBE: resolve the pre-nest specs of this scan (or the parquet_prenest_filter setting)
+	//! against this file's schema, once per scan, before any reader is built.
+	PrenestReaderPlan BuildPrenestPlan(ClientContext &context) const;
 	const duckdb_parquet::RowGroup &GetGroup(ParquetReaderScanState &state);
 	uint64_t GetGroupCompressedSize(ParquetReaderScanState &state);
 	idx_t GetGroupOffset(ParquetReaderScanState &state);

@@ -106,6 +106,10 @@ void TableFunctionFileReader::BindFunction(ClientContext &context, const TableFu
 	names.clear();
 	types.clear();
 	bind_data = function.bind(context, bind_input, types, names);
+	if (bind_data && !options.prenest_filters.empty()) {
+		// PROBE: files bound after the optimizer handed the scan its pre-nest predicates
+		bind_data->TrySetPrenestFilter(options.prenest_filters);
+	}
 	// a function can describe what it bound in more detail than its names and types - e.g. with the field ids of its
 	// columns, and options that describe the file, which are exposed as the metadata of the reader of the file
 	optional<BindInfo> bind_info;
@@ -658,6 +662,44 @@ bool TableFunctionMultiFileWrapper::SupportsReadAhead(const MultiFileBindData &b
 		file_bind_data = bind_data.union_readers[0]->Cast<TableFunctionUnionData>().bind_data;
 	}
 	return settings.supports_read_ahead(file_bind_data.get());
+}
+
+bool TableFunctionMultiFileWrapper::TrySetPrenestFilter(MultiFileBindData &bind_data,
+                                                        const vector<PrenestFilterSpec> &specs) {
+	if (!bind_data.bind_data) {
+		return false;
+	}
+	// PROBE: the files bound while binding the scan predate the optimizer but are reused for scanning, so their bind
+	// data gets the predicates as well - and whether it takes them says whether the wrapped function supports them
+	vector<reference<FunctionData>> file_bind_data;
+	if (bind_data.initial_reader) {
+		auto &reader = bind_data.initial_reader->Cast<TableFunctionFileReader>();
+		if (reader.bind_data) {
+			file_bind_data.push_back(*reader.bind_data);
+		}
+	}
+	for (auto &union_data : bind_data.union_readers) {
+		if (union_data && union_data->Cast<TableFunctionUnionData>().bind_data) {
+			file_bind_data.push_back(*union_data->Cast<TableFunctionUnionData>().bind_data);
+		}
+	}
+	if (file_bind_data.empty()) {
+		return false;
+	}
+	for (auto &file_data : file_bind_data) {
+		if (!file_data.get().TrySetPrenestFilter(specs)) {
+			return false;
+		}
+	}
+	bind_data.bind_data->Cast<TableFunctionMultiFileData>().options.prenest_filters = specs;
+	return true;
+}
+
+vector<PrenestFilterSpec> TableFunctionMultiFileWrapper::GetPrenestFilters(const MultiFileBindData &bind_data) const {
+	if (!bind_data.bind_data) {
+		return vector<PrenestFilterSpec>();
+	}
+	return bind_data.bind_data->Cast<TableFunctionMultiFileData>().options.prenest_filters;
 }
 
 void TableFunctionMultiFileWrapper::FinishReading(ClientContext &context, GlobalTableFunctionState &,

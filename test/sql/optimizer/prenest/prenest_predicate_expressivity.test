@@ -1,0 +1,142 @@
+# name: test/sql/optimizer/prenest/prenest_predicate_expressivity.test
+# description: The reader evaluates the element predicate, so IN and field-to-field push down
+# group: [prenest]
+
+# The predicate used to be decomposed into {field, comparison, literal} terms and run as one
+# ConstantFilter each, which could express neither an IN list nor a comparison between two
+# fields. It is now evaluated with an ExpressionExecutor, exactly the way the Filter above the
+# UNNEST evaluates it, so anything the optimizer is willing to move can be run.
+#
+# What it is WILLING to move is narrower than what it can run: PrenestFilterPushdown's
+# IsPushablePredicate allows only comparison / conjunction / between / operator / constant /
+# reference. The pre-nest filter sees elements of rows a row-level filter would have removed
+# first, so a predicate that can throw must stay above the UNNEST. None of the allowed classes
+# throws on its own - see the CAST and function cases at the bottom, which are declined.
+#
+# Verification is off: PRAGMA enable_verification re-runs the statement with the optimizer
+# disabled and reports that result, so the assertions would pass without the pre-nest path
+# having run at all.
+
+require parquet
+
+statement ok
+PRAGMA disable_verification
+
+statement ok
+COPY (
+    SELECT i AS id,
+           [{'q': j, 'r': (i + j) % 4,
+             'm': (['AIR', 'SHIP', 'FOB', 'AIR REG'])[1 + (i + j) % 4],
+             's': CASE WHEN j = 3 THEN 'notanumber' ELSE (j * 2)::VARCHAR END}
+            FOR j IN range(5)] AS items
+    FROM range(4) t(i)
+) TO '__TEST_DIR__/prenest_expressivity.parquet' (FORMAT parquet)
+
+# ------------------------------------------------------------------------------------------------
+# results must not depend on parquet_prenest_auto
+# ------------------------------------------------------------------------------------------------
+
+foreach auto false true
+
+statement ok
+SET parquet_prenest_auto=${auto}
+
+# field to field - a ConstantFilter cannot express this at all
+query II
+SELECT count(*), sum(e.q) FROM (SELECT unnest(items) AS e FROM '__TEST_DIR__/prenest_expressivity.parquet') WHERE e.q > e.r
+----
+10	30
+
+# an IN list, which the binder lowers to a CONJUNCTION_OR of comparisons
+query I
+SELECT count(*) FROM (SELECT unnest(items) AS e FROM '__TEST_DIR__/prenest_expressivity.parquet') WHERE e.m IN ('AIR', 'AIR REG')
+----
+10
+
+# both at once
+query I
+SELECT count(*) FROM (SELECT unnest(items) AS e FROM '__TEST_DIR__/prenest_expressivity.parquet')
+WHERE e.q > e.r AND e.m IN ('AIR', 'AIR REG')
+----
+5
+
+# BETWEEN with a field bound
+query I
+SELECT count(*) FROM (SELECT unnest(items) AS e FROM '__TEST_DIR__/prenest_expressivity.parquet') WHERE e.q BETWEEN e.r AND 4
+----
+14
+
+endloop
+
+# ------------------------------------------------------------------------------------------------
+# ... and the counters show the reader really applied them
+# ------------------------------------------------------------------------------------------------
+
+statement ok
+SET parquet_prenest_auto=true
+
+statement ok
+SELECT parquet_prenest_stat('reset')
+
+statement ok
+SELECT count(*) FROM (SELECT unnest(items) AS e FROM '__TEST_DIR__/prenest_expressivity.parquet') WHERE e.q > e.r
+
+# 20 elements in, 10 kept - the field-to-field comparison ran during list assembly
+query II
+SELECT parquet_prenest_stat('predicate_elements'), parquet_prenest_stat('elements_appended')
+----
+20	10
+
+statement ok
+SELECT parquet_prenest_stat('reset')
+
+statement ok
+SELECT count(*) FROM (SELECT unnest(items) AS e FROM '__TEST_DIR__/prenest_expressivity.parquet') WHERE e.m IN ('AIR', 'AIR REG')
+
+query II
+SELECT parquet_prenest_stat('predicate_elements'), parquet_prenest_stat('elements_appended')
+----
+20	10
+
+# ------------------------------------------------------------------------------------------------
+# the allowlist: a predicate that could throw is not moved earlier. elements_appended = 0 is the
+# proof that it was declined - the answer is right either way, because the conjunct was never
+# removed from the Filter above the UNNEST.
+# ------------------------------------------------------------------------------------------------
+
+# a CAST that fails on one element. The query raises the same error with the pre-nest path on and
+# off, because the cast is evaluated in the same place in both - above the UNNEST.
+statement ok
+SELECT parquet_prenest_stat('reset')
+
+statement error
+SELECT count(*) FROM (SELECT unnest(items) AS e FROM '__TEST_DIR__/prenest_expressivity.parquet') WHERE CAST(e.s AS INTEGER) > 2
+----
+Could not convert string 'notanumber' to INT32
+
+query I
+SELECT parquet_prenest_stat('elements_appended')
+----
+0
+
+# a function (division) - also declined, and the answer matches the unfiltered read
+statement ok
+SELECT parquet_prenest_stat('reset')
+
+query I
+SELECT count(*) FROM (SELECT unnest(items) AS e FROM '__TEST_DIR__/prenest_expressivity.parquet') WHERE e.q / 2 > 1
+----
+8
+
+query I
+SELECT parquet_prenest_stat('elements_appended')
+----
+0
+
+statement ok
+SET parquet_prenest_auto=false
+
+query I
+SELECT count(*) FROM (SELECT unnest(items) AS e FROM '__TEST_DIR__/prenest_expressivity.parquet') WHERE e.q / 2 > 1
+----
+8

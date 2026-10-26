@@ -2301,19 +2301,20 @@ const StringUtil::EnumStringLiteral *GetExpressionClassValues() {
 		{ static_cast<uint32_t>(ExpressionClass::BOUND_UNNEST), "BOUND_UNNEST" },
 		{ static_cast<uint32_t>(ExpressionClass::BOUND_LAMBDA), "BOUND_LAMBDA" },
 		{ static_cast<uint32_t>(ExpressionClass::BOUND_LAMBDA_REF), "BOUND_LAMBDA_REF" },
-		{ static_cast<uint32_t>(ExpressionClass::BOUND_EXPANDED), "BOUND_EXPANDED" }
+		{ static_cast<uint32_t>(ExpressionClass::BOUND_EXPANDED), "BOUND_EXPANDED" },
+		{ static_cast<uint32_t>(ExpressionClass::BOUND_COMPREHENSION), "BOUND_COMPREHENSION" }
 	};
 	return values;
 }
 
 template<>
 const char* EnumUtil::ToChars<ExpressionClass>(ExpressionClass value) {
-	return StringUtil::EnumToString(GetExpressionClassValues(), 41, "ExpressionClass", static_cast<uint32_t>(value));
+	return StringUtil::EnumToString(GetExpressionClassValues(), 42, "ExpressionClass", static_cast<uint32_t>(value));
 }
 
 template<>
 ExpressionClass EnumUtil::FromString<ExpressionClass>(const char *value) {
-	return static_cast<ExpressionClass>(StringUtil::StringToEnum(GetExpressionClassValues(), 41, "ExpressionClass", value));
+	return static_cast<ExpressionClass>(StringUtil::StringToEnum(GetExpressionClassValues(), 42, "ExpressionClass", value));
 }
 
 const StringUtil::EnumStringLiteral *GetExpressionDepthKindValues() {
@@ -2434,19 +2435,20 @@ const StringUtil::EnumStringLiteral *GetExpressionTypeValues() {
 		{ static_cast<uint32_t>(ExpressionType::LAMBDA), "LAMBDA" },
 		{ static_cast<uint32_t>(ExpressionType::POSITIONAL_REFERENCE), "POSITIONAL_REFERENCE" },
 		{ static_cast<uint32_t>(ExpressionType::BOUND_LAMBDA_REF), "BOUND_LAMBDA_REF" },
-		{ static_cast<uint32_t>(ExpressionType::BOUND_EXPANDED), "BOUND_EXPANDED" }
+		{ static_cast<uint32_t>(ExpressionType::BOUND_EXPANDED), "BOUND_EXPANDED" },
+		{ static_cast<uint32_t>(ExpressionType::BOUND_COMPREHENSION), "BOUND_COMPREHENSION" }
 	};
 	return values;
 }
 
 template<>
 const char* EnumUtil::ToChars<ExpressionType>(ExpressionType value) {
-	return StringUtil::EnumToString(GetExpressionTypeValues(), 78, "ExpressionType", static_cast<uint32_t>(value));
+	return StringUtil::EnumToString(GetExpressionTypeValues(), 79, "ExpressionType", static_cast<uint32_t>(value));
 }
 
 template<>
 ExpressionType EnumUtil::FromString<ExpressionType>(const char *value) {
-	return static_cast<ExpressionType>(StringUtil::StringToEnum(GetExpressionTypeValues(), 78, "ExpressionType", value));
+	return static_cast<ExpressionType>(StringUtil::StringToEnum(GetExpressionTypeValues(), 79, "ExpressionType", value));
 }
 
 const StringUtil::EnumStringLiteral *GetExtensionABITypeValues() {
@@ -4574,19 +4576,20 @@ const StringUtil::EnumStringLiteral *GetOptimizerTypeValues() {
 		{ static_cast<uint32_t>(OptimizerType::DISTINCT_AGGREGATE_REWRITE), "DISTINCT_AGGREGATE_REWRITE" },
 		{ static_cast<uint32_t>(OptimizerType::AGGREGATE_REUSE), "AGGREGATE_REUSE" },
 		{ static_cast<uint32_t>(OptimizerType::PROJECTION_PLACEMENT), "PROJECTION_PLACEMENT" },
-		{ static_cast<uint32_t>(OptimizerType::REDUNDANT_ORDER_KEYS), "REDUNDANT_ORDER_KEYS" }
+		{ static_cast<uint32_t>(OptimizerType::REDUNDANT_ORDER_KEYS), "REDUNDANT_ORDER_KEYS" },
+		{ static_cast<uint32_t>(OptimizerType::PRENEST_FILTER_PUSHDOWN), "PRENEST_FILTER_PUSHDOWN" }
 	};
 	return values;
 }
 
 template<>
 const char* EnumUtil::ToChars<OptimizerType>(OptimizerType value) {
-	return StringUtil::EnumToString(GetOptimizerTypeValues(), 47, "OptimizerType", static_cast<uint32_t>(value));
+	return StringUtil::EnumToString(GetOptimizerTypeValues(), 48, "OptimizerType", static_cast<uint32_t>(value));
 }
 
 template<>
 OptimizerType EnumUtil::FromString<OptimizerType>(const char *value) {
-	return static_cast<OptimizerType>(StringUtil::StringToEnum(GetOptimizerTypeValues(), 47, "OptimizerType", value));
+	return static_cast<OptimizerType>(StringUtil::StringToEnum(GetOptimizerTypeValues(), 48, "OptimizerType", value));
 }
 
 const StringUtil::EnumStringLiteral *GetOrderByColumnTypeValues() {

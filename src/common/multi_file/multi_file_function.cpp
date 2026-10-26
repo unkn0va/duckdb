@@ -1,3 +1,4 @@
+#include "duckdb/planner/filter/prenest_filter_spec.hpp"
 #include "duckdb/common/multi_file/multi_file_function.hpp"
 #include "duckdb/common/multi_file/union_by_name.hpp"
 #include "duckdb/main/client_context.hpp"
@@ -81,6 +82,15 @@ unique_ptr<MultiFileReaderInterface> MultiFileReaderInterface::Copy() {
 
 FileGlobInput MultiFileReaderInterface::GetGlobInput() {
 	return FileGlobOptions::DISALLOW_EMPTY;
+}
+
+bool MultiFileReaderInterface::TrySetPrenestFilter(MultiFileBindData &, const vector<PrenestFilterSpec> &) {
+	// PROBE: only Parquet implements element-level pre-nest filtering
+	return false;
+}
+
+vector<PrenestFilterSpec> MultiFileReaderInterface::GetPrenestFilters(const MultiFileBindData &) const {
+	return vector<PrenestFilterSpec>();
 }
 
 } // namespace duckdb

@@ -1,4 +1,5 @@
 #include "parquet_extension.hpp"
+#include "duckdb/optimizer/prenest_filter_pushdown.hpp"
 
 #include <stdint.h>
 #include <string>
@@ -80,6 +81,8 @@
 #include "parquet_field_id.hpp"
 #include "parquet_types.h"
 #include "duckdb/common/types/variant/parquet_variant_iterator.hpp"
+
+#include "prenest_filter.hpp"
 
 namespace duckdb {
 class ClientContext;
@@ -1045,6 +1048,61 @@ static unique_ptr<FunctionData> ParquetCopyFromBind(ClientContext &context, Copy
 	                                                            ParquetScanFunction::GetMultiFileSettings());
 }
 
+//! PROBE: parquet_prenest_stat('<counter>') - read the pre-nest instrumentation.
+//! 'reset' zeroes every counter and returns 0. '<counter>:<list_name>' reads the per-list
+//! breakdown, which is what tells two pre-filtered lists of one scan apart - the bare
+//! counters are sums over all of them.
+static void ParquetPrenestStatFunction(DataChunk &args, ExpressionState &state, Vector &result) {
+	auto &stats = PrenestStats::Get();
+	UnaryExecutor::Execute<string_t, int64_t>(args.data[0], result, args.size(), [&](string_t name_s) -> int64_t {
+		auto name = name_s.GetString();
+		if (name == "reset") {
+			stats.Reset();
+			PrenestPushdownTotals::GetTotals().Reset();
+			return 0;
+		}
+		// 'opt:<name>' reads the OPTIMIZER's counters - how the pass classified and placed
+		// predicates - rather than the reader's. They accumulate, so reading them is safe.
+		if (StringUtil::StartsWith(name, "opt:")) {
+			return NumericCast<int64_t>(PrenestPushdownTotals::GetTotals().Get(name.substr(4)));
+		}
+		auto colon = name.find(':');
+		if (colon != string::npos) {
+			return NumericCast<int64_t>(
+			    stats.GetListCounter(name.substr(colon + 1), name.substr(0, colon)));
+		}
+		if (name == "elements_decoded") {
+			return NumericCast<int64_t>(stats.elements_decoded.load());
+		}
+		if (name == "elements_appended") {
+			return NumericCast<int64_t>(stats.elements_appended.load());
+		}
+		if (name == "inner_iterations") {
+			return NumericCast<int64_t>(stats.inner_iterations.load());
+		}
+		if (name == "carryovers") {
+			return NumericCast<int64_t>(stats.carryovers.load());
+		}
+		if (name == "carryover_flattens") {
+			return NumericCast<int64_t>(stats.carryover_flattens.load());
+		}
+		if (name == "predicate_elements") {
+			return NumericCast<int64_t>(stats.predicate_elements.load());
+		}
+		throw InvalidInputException("unknown parquet_prenest_stat counter \"%s\"", name);
+	});
+}
+
+//! PROBE: parquet_prenest_lists() - the list paths the reader was asked to filter since the
+//! last reset, sorted and comma-joined. A companion to parquet_prenest_stat, which returns a
+//! number and therefore cannot carry this; and the thing that separates "this list was asked
+//! for and refused" from "nobody ever asked for that name".
+static void ParquetPrenestListsFunction(DataChunk &args, ExpressionState &state, Vector &result) {
+	auto paths = PrenestStats::Get().GetPaths();
+	result.SetVectorType(VectorType::CONSTANT_VECTOR);
+	ConstantVector::GetData<string_t>(result)[0] = StringVector::AddString(result, paths);
+}
+
 static void LoadInternal(ExtensionLoader &loader) {
 	auto &db_instance = loader.GetDatabaseInstance();
 	auto &fs = db_instance.GetFileSystem();
@@ -1126,6 +1184,18 @@ static void LoadInternal(ExtensionLoader &loader) {
 	                                                      .AddPositionalOnly("key", LogicalType::VARCHAR));
 	loader.RegisterFunction(parquet_key_fun);
 
+	// PROBE: pre-nest filter plumbing
+	ScalarFunction prenest_stat_fun("parquet_prenest_stat", {LogicalType::VARCHAR}, LogicalType::BIGINT,
+	                                ParquetPrenestStatFunction);
+	prenest_stat_fun.SetStability(FunctionStability::VOLATILE);
+	prenest_stat_fun.SetFallible();
+	loader.RegisterFunction(prenest_stat_fun);
+
+	ScalarFunction prenest_lists_fun("parquet_prenest_lists", {}, LogicalType::VARCHAR,
+	                                 ParquetPrenestListsFunction);
+	prenest_lists_fun.SetStability(FunctionStability::VOLATILE);
+	loader.RegisterFunction(prenest_lists_fun);
+
 	auto &config = DBConfig::GetConfig(db_instance);
 	config.replacement_scans.emplace_back(ParquetScanReplacement);
 	config.AddExtensionOption("binary_as_string", "In Parquet files, interpret binary data as a string.",
@@ -1139,6 +1209,14 @@ static void LoadInternal(ExtensionLoader &loader) {
 	    "parquet_prefetch_column_gap",
 	    "Byte gap under which Parquet prefetch I/O ranges are coalesced (NULL lets the cost model adapt it)",
 	    LogicalType::UBIGINT, Value(LogicalType::UBIGINT));
+	config.AddExtensionOption("parquet_prenest_filter",
+	                          "PROBE: element-level predicate applied during list assembly, as "
+	                          "\"<list_name>: <field> <op> <value> AND ...\". Empty disables it.",
+	                          LogicalType::VARCHAR, Value(""));
+	config.AddExtensionOption("parquet_prenest_auto",
+	                          "PROBE: automatically extract element-level pre-nest predicates from the query "
+	                          "instead of taking them from parquet_prenest_filter.",
+	                          LogicalType::BOOLEAN, Value::BOOLEAN(false));
 	config.AddExtensionOption("parquet_metadata_cache",
 	                          "Cache Parquet metadata - useful when reading the same files multiple times",
 	                          LogicalType::BOOLEAN, Value(false));

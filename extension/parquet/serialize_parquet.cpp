@@ -7,6 +7,7 @@
 #include "duckdb/common/serializer/deserializer.hpp"
 #include "parquet_reader.hpp"
 #include "parquet_crypto.hpp"
+#include "duckdb/planner/filter/prenest_filter_spec.hpp"
 #include "parquet_field_id.hpp"
 #include "parquet_shredding.hpp"
 
@@ -90,6 +91,7 @@ void ParquetOptionsSerialization::Serialize(Serializer &serializer) const {
 	serializer.WritePropertyWithDefault<ParquetPrefetchStrategyOption>(108, "prefetch_strategy", parquet_options.prefetch_strategy, ParquetPrefetchStrategyOption::AUTO);
 	serializer.WritePropertyWithDefault<StringColumnReader::Utf8ValidationOption>(109, "utf8_validation", parquet_options.utf8_validation_option, StringColumnReader::Utf8ValidationOption::STRICT_UTF8);
 	serializer.WritePropertyWithDefault<ParquetInt96AsOption>(110, "int96_as", parquet_options.int96_as, ParquetInt96AsOption::TIMESTAMP);
+	serializer.WritePropertyWithDefault<vector<PrenestFilterSpec>>(111, "prenest_filters", parquet_options.prenest_filters);
 }
 
 ParquetOptionsSerialization ParquetOptionsSerialization::Deserialize(Deserializer &deserializer) {
@@ -105,6 +107,7 @@ ParquetOptionsSerialization ParquetOptionsSerialization::Deserialize(Deserialize
 	deserializer.ReadPropertyWithExplicitDefault<ParquetPrefetchStrategyOption>(108, "prefetch_strategy", result.parquet_options.prefetch_strategy, ParquetPrefetchStrategyOption::AUTO);
 	deserializer.ReadPropertyWithExplicitDefault<StringColumnReader::Utf8ValidationOption>(109, "utf8_validation", result.parquet_options.utf8_validation_option, StringColumnReader::Utf8ValidationOption::STRICT_UTF8);
 	deserializer.ReadPropertyWithExplicitDefault<ParquetInt96AsOption>(110, "int96_as", result.parquet_options.int96_as, ParquetInt96AsOption::TIMESTAMP);
+	deserializer.ReadPropertyWithDefault<vector<PrenestFilterSpec>>(111, "prenest_filters", result.parquet_options.prenest_filters);
 	return result;
 }
 
@@ -117,6 +120,36 @@ ParquetReaderProjectionExpression ParquetReaderProjectionExpression::Deserialize
 	ParquetReaderProjectionExpression result;
 	deserializer.ReadProperty<ParquetReaderProjectionExpressionType>(100, "type", result.type);
 	deserializer.ReadProperty<LogicalType>(101, "return_type", result.return_type);
+	return result;
+}
+
+void PrenestFilterSpec::Serialize(Serializer &serializer) const {
+	serializer.WritePropertyWithDefault<string>(100, "list_path", list_path);
+	serializer.WritePropertyWithDefault<string>(101, "list_name", list_name);
+	serializer.WritePropertyWithDefault<vector<PrenestRawCondition>>(102, "conditions", conditions);
+	serializer.WritePropertyWithDefault<shared_ptr<Expression>>(103, "predicate", predicate, nullptr);
+}
+
+PrenestFilterSpec PrenestFilterSpec::Deserialize(Deserializer &deserializer) {
+	PrenestFilterSpec result;
+	deserializer.ReadPropertyWithDefault<string>(100, "list_path", result.list_path);
+	deserializer.ReadPropertyWithDefault<string>(101, "list_name", result.list_name);
+	deserializer.ReadPropertyWithDefault<vector<PrenestRawCondition>>(102, "conditions", result.conditions);
+	deserializer.ReadPropertyWithExplicitDefault<shared_ptr<Expression>>(103, "predicate", result.predicate, nullptr);
+	return result;
+}
+
+void PrenestRawCondition::Serialize(Serializer &serializer) const {
+	serializer.WritePropertyWithDefault<string>(100, "field", field);
+	serializer.WriteProperty<ExpressionType>(101, "comparison", comparison);
+	serializer.WritePropertyWithDefault<string>(102, "literal", literal);
+}
+
+PrenestRawCondition PrenestRawCondition::Deserialize(Deserializer &deserializer) {
+	PrenestRawCondition result;
+	deserializer.ReadPropertyWithDefault<string>(100, "field", result.field);
+	deserializer.ReadProperty<ExpressionType>(101, "comparison", result.comparison);
+	deserializer.ReadPropertyWithDefault<string>(102, "literal", result.literal);
 	return result;
 }
 

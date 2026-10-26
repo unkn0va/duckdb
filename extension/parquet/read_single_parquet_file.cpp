@@ -49,6 +49,20 @@ struct ReadSingleParquetFileData : public TableFunctionData {
 	}
 	//! A reader over the metadata of the file, created on first use. The row groups it describes refer to the schema
 	//! it holds, so it is kept for as long as this bind data is
+	//! PROBE: the pre-nest predicates of the scan. The reader the bind opened predates the optimizer but is reused for
+	//! scanning, so it carries its own copy of the options - refresh that as well
+	bool TrySetPrenestFilter(const vector<PrenestFilterSpec> &specs) override {
+		options.prenest_filters = specs;
+		lock_guard<mutex> guard(bind_reader_lock);
+		if (bind_reader) {
+			bind_reader->parquet_options.prenest_filters = specs;
+		}
+		return true;
+	}
+	vector<PrenestFilterSpec> GetPrenestFilters() const override {
+		return options.prenest_filters;
+	}
+
 	ParquetReader &GetMetadataReader(ClientContext &context) const {
 		CallOnce(metadata_reader_initialized,
 		         [&] { metadata_reader = ParquetReader::CreateMetadataReader(context, options, metadata); });

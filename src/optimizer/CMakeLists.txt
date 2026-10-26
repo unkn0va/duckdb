@@ -37,6 +37,7 @@ add_library_unity(
   filter_pullup.cpp
   filter_pushdown.cpp
   grouping_sets_optimizer.cpp
+  prenest_filter_pushdown.cpp
   in_clause_rewriter.cpp
   join_filter_pushdown_optimizer.cpp
   runtime_filter_cast.cpp

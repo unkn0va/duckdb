@@ -1,3 +1,4 @@
+#include "duckdb/planner/filter/prenest_filter_spec.hpp"
 #include "duckdb/common/multi_file/multi_file_reader.hpp"
 #include "duckdb/function/partition_stats.hpp"
 #include "duckdb/storage/statistics/numeric_stats.hpp"
@@ -54,6 +55,20 @@ unique_ptr<MultiFileReader> MultiFileReader::Copy() const {
 }
 
 MultiFileBindData::~MultiFileBindData() {
+}
+
+bool MultiFileBindData::TrySetPrenestFilter(const vector<PrenestFilterSpec> &specs) {
+	if (!interface || !bind_data) {
+		return false;
+	}
+	return interface->TrySetPrenestFilter(*this, specs);
+}
+
+vector<PrenestFilterSpec> MultiFileBindData::GetPrenestFilters() const {
+	if (!interface || !bind_data) {
+		return vector<PrenestFilterSpec>();
+	}
+	return interface->GetPrenestFilters(*this);
 }
 
 unique_ptr<FunctionData> MultiFileBindData::Copy() const {

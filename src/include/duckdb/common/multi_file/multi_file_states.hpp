@@ -23,6 +23,7 @@
 namespace duckdb {
 struct MultiFileReader;
 struct MultiFileReaderInterface;
+struct PrenestFilterSpec;
 
 //! The bind data for the multi-file reader, obtained through MultiFileReader::BindReader
 struct MultiFileReaderBindData {
@@ -101,6 +102,10 @@ struct MultiFileBindData : public TableFunctionData {
 	bool SupportStatementCache() const override {
 		return false;
 	}
+	//! PROBE: forward the pre-nest predicates to the format-specific bind data
+	bool TrySetPrenestFilter(const vector<PrenestFilterSpec> &specs) override;
+	//! PROBE: read them back for plan display
+	vector<PrenestFilterSpec> GetPrenestFilters() const override;
 
 	unique_ptr<FunctionData> Copy() const override;
 

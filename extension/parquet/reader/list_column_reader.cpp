@@ -16,6 +16,7 @@
 #include "duckdb/common/vector/flat_vector.hpp"
 #include "duckdb/common/vector_size.hpp"
 #include "resizable_buffer.hpp"
+#include "duckdb/common/types/selection_vector.hpp"
 
 namespace duckdb {
 struct ParquetColumnSchema;
@@ -117,6 +118,16 @@ idx_t ListColumnReader::ReadInternal(ColumnReaderInput &input, optional_ptr<Vect
 
 			ColumnReaderInput child_input(child_req_num_values, child_defines_ptr, child_repeats_ptr);
 			child_actual_num_values = child_column_reader->Read(child_input, read_vector);
+			if (prenest_filter) {
+				// PROBE: on a pre-filtered list this is the SKIP path, and ApplyPendingSkips
+				// reaches it on every Read - it has no `pending_skips == 0` guard, so a
+				// zero-length skip still pulls a whole vector and parks it in the overflow,
+				// which ReadFilteredInternal then consumes through the carry-in branch that
+				// deliberately does not count. Counting here closes that gap: it was
+				// row_groups x STANDARD_VECTOR_SIZE per filtered list. Guarded on the filter
+				// so a plain read still counts nothing and auto=false stays the same baseline.
+				PrenestStats::Get().elements_decoded += child_actual_num_values;
+			}
 		} else {
 			// we do: use the overflow values
 			child_actual_num_values = overflow_child_count;
@@ -191,8 +202,164 @@ idx_t ListColumnReader::ReadInternal(ColumnReaderInput &input, optional_ptr<Vect
 	return result_offset;
 }
 
+
+//===--------------------------------------------------------------------===//
+// PROBE: filtered list assembly
+//===--------------------------------------------------------------------===//
+// Mirrors ReadInternal<TemplatedListReader>, except that only elements passing
+// the predicate are appended to the child vector. The stock loop writes a list's
+// offset as `child_idx + current_chunk_offset`, which presumes the whole prefix
+// [0, child_idx) is appended 1:1 and gap-free. Here the offset comes from a
+// running survivor count instead, and the append goes through a selection
+// vector. Everything else - the record-boundary logic, the def-level cases and
+// the carry-over at the end - is unchanged.
+idx_t ListColumnReader::ReadFilteredInternal(ColumnReaderInput &input, Vector &result_out) {
+	D_ASSERT(prenest_filter);
+	D_ASSERT(ListVector::GetListSize(result_out) == 0);
+
+	auto &num_values = input.num_values;
+	auto &define_out = input.define_out;
+	auto &repeat_out = input.repeat_out;
+
+	auto &stats = PrenestStats::Get();
+	auto result_ptr = FlatVector::GetDataMutable<list_entry_t>(result_out);
+	auto &result_mask = FlatVector::ValidityMutable(result_out);
+	auto keep = prenest_keep.get();
+
+	idx_t result_offset = 0;
+	bool finished = false;
+	while (!finished) {
+		idx_t child_actual_num_values = 0;
+
+		if (overflow_child_count == 0) {
+			child_defines.zero();
+			child_repeats.zero();
+			auto child_req_num_values =
+			    MinValue<idx_t>(STANDARD_VECTOR_SIZE, child_column_reader->GroupRowsAvailable());
+			read_vector.ResetFromCache(read_cache);
+
+			ColumnReaderInput child_input(child_req_num_values, child_defines_ptr, child_repeats_ptr);
+			child_actual_num_values = child_column_reader->Read(child_input, read_vector);
+			// counted here only, so carried-over values are not double counted
+			stats.elements_decoded += child_actual_num_values;
+		} else {
+			child_actual_num_values = overflow_child_count;
+			overflow_child_count = 0;
+		}
+
+		if (child_actual_num_values == 0) {
+			break;
+		}
+		read_vector.Verify();
+
+		// Defensive, and on the ordinary path a no-op. The carry-over below uses the
+		// start-offset Slice (vector.cpp:177), which for a FLAT struct rebuilds the vector by
+		// slicing every child to the same offset and stays flat - measured 756 carry-overs and
+		// 0 flattens on TPC-H SF1 q6. It is only when the input is NOT flat that Slice falls
+		// back to the selection-vector form (vector.cpp:183) and leaves a DICTIONARY, and
+		// StructVector::GetEntries looks straight past a dictionary's selection, so the
+		// predicate would read unsliced positions. Flattening first is what rules that out.
+		if (read_vector.GetVectorType() != VectorType::FLAT_VECTOR) {
+			read_vector.Flatten();
+			stats.carryover_flattens++;
+		}
+
+		SelectionVector filter_sel(prenest_sel_data.get(), STANDARD_VECTOR_SIZE);
+		SelectionVector append_sel(prenest_append_sel_data.get(), STANDARD_VECTOR_SIZE);
+		prenest_filter->Apply(read_vector, child_actual_num_values, filter_sel, keep);
+		stats.inner_iterations++;
+
+		idx_t current_chunk_offset = ListVector::GetListSize(result_out);
+		idx_t kept = 0;
+
+		idx_t child_idx;
+		for (child_idx = 0; child_idx < child_actual_num_values; child_idx++) {
+			if (child_repeats_ptr[child_idx] == MaxRepeat()) {
+				// continues the list opened by the previous output row
+				if (result_offset == 0) {
+					throw DataCorruptionException(
+					    "Corrupt Parquet file: a value in list column \"%s\" repeats a list before any list started",
+					    Schema().name);
+				}
+				if (keep[child_idx]) {
+					result_ptr[result_offset - 1].length++;
+					append_sel.set_index(kept++, child_idx);
+				}
+				continue;
+			}
+
+			if (result_offset >= num_values) {
+				// we ran out of output space
+				finished = true;
+				break;
+			}
+			if (child_defines_ptr[child_idx] >= MaxDefine()) {
+				// a present element - opens a new list, whether or not it survives.
+				// a row all of whose elements are dropped therefore becomes EMPTY,
+				// not NULL and not absent.
+				result_ptr[result_offset].offset = current_chunk_offset + kept;
+				if (keep[child_idx]) {
+					result_ptr[result_offset].length = 1;
+					append_sel.set_index(kept++, child_idx);
+				} else {
+					result_ptr[result_offset].length = 0;
+				}
+			} else if (child_defines_ptr[child_idx] == MaxDefine() - 1) {
+				// empty list - the placeholder value is never appended
+				result_ptr[result_offset].offset = current_chunk_offset + kept;
+				result_ptr[result_offset].length = 0;
+			} else {
+				// NULL somewhere up the stack
+				result_mask.SetInvalid(result_offset);
+				result_ptr[result_offset].offset = 0;
+				result_ptr[result_offset].length = 0;
+			}
+
+			if (repeat_out) {
+				repeat_out[result_offset] = child_repeats_ptr[child_idx];
+			}
+			if (define_out) {
+				define_out[result_offset] = child_defines_ptr[child_idx];
+			}
+
+			result_offset++;
+		}
+
+		if (kept > 0) {
+			ListVector::Append(result_out, read_vector, append_sel, kept);
+			stats.elements_appended += kept;
+			prenest_filter->ListStats().elements_appended += kept;
+		}
+
+		if (child_idx < child_actual_num_values && result_offset == num_values) {
+			stats.carryovers++;
+			read_vector.Slice(read_vector, child_idx, child_actual_num_values);
+			overflow_child_count = child_actual_num_values - child_idx;
+			read_vector.Verify();
+
+			for (idx_t repdef_idx = 0; repdef_idx < overflow_child_count; repdef_idx++) {
+				child_defines_ptr[repdef_idx] = child_defines_ptr[child_idx + repdef_idx];
+				child_repeats_ptr[repdef_idx] = child_repeats_ptr[child_idx + repdef_idx];
+			}
+		}
+	}
+	return result_offset;
+}
+
+void ListColumnReader::SetPrenestFilter(unique_ptr<PrenestFilter> filter) {
+	prenest_filter = std::move(filter);
+	if (prenest_filter && !prenest_keep) {
+		prenest_keep = make_unsafe_uniq_array<bool>(STANDARD_VECTOR_SIZE);
+		prenest_sel_data = make_unsafe_uniq_array<sel_t>(STANDARD_VECTOR_SIZE);
+		prenest_append_sel_data = make_unsafe_uniq_array<sel_t>(STANDARD_VECTOR_SIZE);
+	}
+}
+
 idx_t ListColumnReader::Read(ColumnReaderInput &input, Vector &result) {
 	ApplyPendingSkips(input.define_out, input.repeat_out);
+	if (prenest_filter) {
+		return ReadFilteredInternal(input, result);
+	}
 	return ReadInternal<TemplatedListReader>(input, result);
 }
 

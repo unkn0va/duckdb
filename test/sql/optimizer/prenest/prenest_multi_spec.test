@@ -1,0 +1,133 @@
+# name: test/sql/optimizer/prenest/prenest_multi_spec.test
+# description: One pre-nest spec per LIST column of a scan, each judged on its own
+# group: [prenest]
+
+# Before this, a scan carried a single PrenestFilterSpec, so a query with predicates on two
+# different lists pushed the deepest one and left the other above the UNNEST. Specs are now
+# grouped by the exact root-relative path of the list they name, and the containment check
+# runs per spec - so an unsafe or inexpressible list costs only itself.
+
+require parquet
+
+statement ok
+PRAGMA enable_verification
+
+statement ok
+COPY (
+    SELECT i AS cid,
+           [{'oid': i * 10 + k,
+             'items': [{'qty': (i + k + j) % 5, 'price': j * 100} FOR j IN range(3)]}
+            FOR k IN range(2)] AS orders
+    FROM range(6) t(i)
+) TO '__TEST_DIR__/prenest_multi_spec.parquet' (FORMAT parquet)
+
+# ------------------------------------------------------------------------------------------------
+# results must not depend on parquet_prenest_auto, whichever lists end up filtered
+# ------------------------------------------------------------------------------------------------
+
+foreach auto false true
+
+statement ok
+SET parquet_prenest_auto=${auto}
+
+# both levels carry a predicate: `orders` and `orders[].items` are separate specs
+query III
+SELECT count(*), sum(l.price), sum(l.qty) FROM (
+    SELECT unnest(o.items) AS l
+    FROM (SELECT unnest(orders) AS o FROM '__TEST_DIR__/prenest_multi_spec.parquet') os
+    WHERE o.oid < 35
+) WHERE l.qty < 3
+----
+13	1200	14
+
+# the inner list is read whole, so only the inner spec is unsafe - the outer one still goes
+query II
+SELECT count(*), sum(len(o.items)) FROM (
+    SELECT o, unnest(o.items) AS l
+    FROM (SELECT unnest(orders) AS o FROM '__TEST_DIR__/prenest_multi_spec.parquet') os
+    WHERE o.oid < 35
+) WHERE l.qty < 3
+----
+13	39
+
+# the outer list is read whole, which contains the inner one: neither may be truncated
+query II
+SELECT count(*), sum(len(orders)) FROM (
+    SELECT orders, unnest(orders) AS o FROM '__TEST_DIR__/prenest_multi_spec.parquet'
+) WHERE o.oid < 35
+----
+8	16
+
+endloop
+
+# ------------------------------------------------------------------------------------------------
+# ... and the counters show which spec actually fired. The prenest counters are process-global
+# and only incremented on the pre-nest reader path, so the repeated runs enable_verification
+# performs would accumulate into them.
+# ------------------------------------------------------------------------------------------------
+
+statement ok
+PRAGMA disable_verification
+
+statement ok
+SET parquet_prenest_auto=true
+
+statement ok
+SELECT parquet_prenest_stat('reset')
+
+statement ok
+SELECT count(*) FROM (
+    SELECT unnest(o.items) AS l
+    FROM (SELECT unnest(orders) AS o FROM '__TEST_DIR__/prenest_multi_spec.parquet') os
+    WHERE o.oid < 35
+) WHERE l.qty < 3
+
+# 12 orders of which 8 satisfy oid < 35, and 36 items of which 23 satisfy qty < 3. Both readers
+# dropped elements, in the same scan - the stacked filtered-list path really ran.
+query III
+SELECT parquet_prenest_stat('elements_appended:orders'),
+       parquet_prenest_stat('elements_appended:items'),
+       parquet_prenest_stat('elements_appended')
+----
+8	23	31
+
+# reading the inner list whole disables only the inner spec
+statement ok
+SELECT parquet_prenest_stat('reset')
+
+statement ok
+SELECT count(*), sum(len(o.items)) FROM (
+    SELECT o, unnest(o.items) AS l
+    FROM (SELECT unnest(orders) AS o FROM '__TEST_DIR__/prenest_multi_spec.parquet') os
+    WHERE o.oid < 35
+) WHERE l.qty < 3
+
+query II
+SELECT parquet_prenest_stat('elements_appended:orders'), parquet_prenest_stat('elements_appended:items')
+----
+8	0
+
+# reading the outer list whole disables both
+statement ok
+SELECT parquet_prenest_stat('reset')
+
+statement ok
+SELECT count(*), sum(len(orders)) FROM (
+    SELECT orders, unnest(orders) AS o FROM '__TEST_DIR__/prenest_multi_spec.parquet'
+) WHERE o.oid < 35
+
+query I
+SELECT parquet_prenest_stat('elements_appended')
+----
+0
+
+# a list that was never pre-filtered simply reads 0, it is not an error
+query I
+SELECT parquet_prenest_stat('elements_appended:no_such_list')
+----
+0
+
+statement error
+SELECT parquet_prenest_stat('carryovers:orders')
+----
+has no per-list breakdown

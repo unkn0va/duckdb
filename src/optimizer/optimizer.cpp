@@ -20,6 +20,7 @@
 #include "duckdb/optimizer/filter_pullup.hpp"
 #include "duckdb/optimizer/filter_pushdown.hpp"
 #include "duckdb/optimizer/grouping_sets_optimizer.hpp"
+#include "duckdb/optimizer/prenest_filter_pushdown.hpp"
 #include "duckdb/optimizer/in_clause_rewriter.hpp"
 #include "duckdb/optimizer/join_elimination.hpp"
 #include "duckdb/optimizer/join_filter_pushdown_optimizer.hpp"
@@ -551,6 +552,15 @@ void Optimizer::RunBuiltInOptimizers() {
 	RunOptimizer(OptimizerType::SCALAR_FN_PUSHDOWN, [&] {
 		ScalarFnPushdown fn_pushdown(context);
 		plan = fn_pushdown.Optimize(std::move(plan));
+	});
+
+	// PROBE: hand element-level predicates to the scans that can pre-filter list
+	// elements. Runs last so it reads the final plan shape. It does rewrite the
+	// plan: comprehensions are formed below each UNNEST, absorbed into the scan's
+	// bind data, and the leftover conjuncts are stripped.
+	RunOptimizer(OptimizerType::PRENEST_FILTER_PUSHDOWN, [&]() {
+		PrenestFilterPushdown prenest_filter_pushdown(context);
+		prenest_filter_pushdown.Optimize(plan);
 	});
 }
 

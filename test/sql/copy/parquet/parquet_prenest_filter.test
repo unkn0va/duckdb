@@ -1,0 +1,146 @@
+# name: test/sql/copy/parquet/parquet_prenest_filter.test
+# description: PROBE - element-level predicate applied during list assembly
+# group: [parquet]
+
+require parquet
+
+# ---------------------------------------------------------------------------
+# source data. id 0 - every element fails; 1 - NULL list; 2 - already empty;
+# 3 - mixed incl. a NULL element; 4 - a single list longer than a vector;
+# the remaining 3995 rows force the output-vector boundary repeatedly.
+# ---------------------------------------------------------------------------
+statement ok
+CREATE TABLE src AS
+SELECT id,
+  CASE
+    WHEN id = 0 THEN [{'v': 1, 'w': 1}, {'v': 2, 'w': 2}]
+    WHEN id = 1 THEN NULL
+    WHEN id = 2 THEN []::STRUCT(v INTEGER, w INTEGER)[]
+    WHEN id = 3 THEN [{'v': 5, 'w': 1}, {'v': 20, 'w': 2}, {'v': NULL, 'w': 3}, {'v': 30, 'w': 4}]
+    WHEN id = 4 THEN (SELECT list({'v': (i % 40)::INTEGER, 'w': i::INTEGER}) FROM range(5000) t(i))
+    ELSE (SELECT list({'v': ((i * 7 + id) % 40)::INTEGER, 'w': i::INTEGER}) FROM range(1 + (id % 6)) t(i))
+  END AS items
+FROM range(4000) tt(id);
+
+statement ok
+COPY src TO '__TEST_DIR__/prenest.parquet' (FORMAT parquet, ROW_GROUP_SIZE 100000);
+
+# ---------------------------------------------------------------------------
+# oracle: the stock reader plus list_filter in SQL
+# ---------------------------------------------------------------------------
+statement ok
+SET parquet_prenest_filter='';
+
+statement ok
+CREATE TABLE oracle AS
+SELECT id, list_filter(items, lambda x: x.v >= 10) AS items
+FROM read_parquet('__TEST_DIR__/prenest.parquet');
+
+statement ok
+CREATE TABLE unfiltered AS SELECT id, items FROM read_parquet('__TEST_DIR__/prenest.parquet');
+
+# ---------------------------------------------------------------------------
+# probe: the same predicate applied during list assembly
+# ---------------------------------------------------------------------------
+statement ok
+SET parquet_prenest_filter='items: v>=10';
+
+statement ok
+CREATE TABLE probe AS SELECT id, items FROM read_parquet('__TEST_DIR__/prenest.parquet');
+
+# identical to the oracle, both directions
+query I
+SELECT count(*) FROM (SELECT * FROM probe EXCEPT ALL SELECT * FROM oracle);
+----
+0
+
+query I
+SELECT count(*) FROM (SELECT * FROM oracle EXCEPT ALL SELECT * FROM probe);
+----
+0
+
+# top-level row count must be identical with and without the filter
+query II
+SELECT (SELECT count(*) FROM probe), (SELECT count(*) FROM unfiltered);
+----
+4000	4000
+
+# every element eliminated -> EMPTY list, row present, not NULL
+query III
+SELECT id, items IS NULL, len(items) FROM probe WHERE id = 0;
+----
+0	false	0
+
+# NULL list stays NULL
+query II
+SELECT id, items IS NULL FROM probe WHERE id = 1;
+----
+1	true
+
+# already-empty stays empty and stays distinguishable from NULL
+query III
+SELECT id, items IS NULL, len(items) FROM probe WHERE id = 2;
+----
+2	false	0
+
+# NULL element fails the predicate and is dropped without nulling its list
+query III
+SELECT id, len(items), list_transform(items, lambda x: x.v) FROM probe WHERE id = 3;
+----
+3	2	[20, 30]
+
+# a list longer than STANDARD_VECTOR_SIZE
+query III
+SELECT id, len(items), (SELECT count(*) FROM (SELECT unnest(items) e) WHERE e.v < 10) FROM probe WHERE id = 4;
+----
+4	3750	0
+
+# ---------------------------------------------------------------------------
+# a predicate that keeps everything must reproduce the unfiltered read exactly
+# ---------------------------------------------------------------------------
+statement ok
+SET parquet_prenest_filter='items: v>=0';
+
+statement ok
+CREATE TABLE keepall AS SELECT id, items FROM read_parquet('__TEST_DIR__/prenest.parquet');
+
+# NULL v fails >=0, so compare against the oracle for that predicate
+statement ok
+SET parquet_prenest_filter='';
+
+statement ok
+CREATE TABLE keepall_oracle AS
+SELECT id, list_filter(items, lambda x: x.v >= 0) AS items
+FROM read_parquet('__TEST_DIR__/prenest.parquet');
+
+query I
+SELECT count(*) FROM (SELECT * FROM keepall EXCEPT ALL SELECT * FROM keepall_oracle);
+----
+0
+
+query I
+SELECT count(*) FROM (SELECT * FROM keepall_oracle EXCEPT ALL SELECT * FROM keepall);
+----
+0
+
+# ---------------------------------------------------------------------------
+# the vector-boundary carry-over path must actually have been exercised above
+# ---------------------------------------------------------------------------
+query I
+SELECT parquet_prenest_stat('carryovers') > 0;
+----
+true
+
+# ---------------------------------------------------------------------------
+# a predicate naming a field that is not projected must not silently drop rows
+# ---------------------------------------------------------------------------
+statement ok
+SET parquet_prenest_filter='items: v>=10';
+
+statement error
+SELECT sum(x.w) FROM (SELECT unnest(items) x FROM read_parquet('__TEST_DIR__/prenest.parquet'));
+----
+does not project
+
+statement ok
+SET parquet_prenest_filter='';

@@ -9,6 +9,7 @@
 #pragma once
 
 #include "column_reader.hpp"
+#include "prenest_filter.hpp"
 #include "reader/templated_column_reader.hpp"
 
 namespace duckdb {
@@ -43,9 +44,16 @@ public:
 		child_column_reader->RegisterPrefetch(transport, allow_merge);
 	}
 
+	//! PROBE: attach an element-level predicate applied during list assembly.
+	//! When unset, Read() runs the unmodified stock path.
+	void SetPrenestFilter(unique_ptr<PrenestFilter> filter);
+
 protected:
 	template <class OP>
 	idx_t ReadInternal(ColumnReaderInput &input, optional_ptr<Vector> result_out);
+	//! PROBE: single-pass filtered assembly. Deliberately a separate method so the
+	//! stock loop above is byte-identical when no filter is attached.
+	idx_t ReadFilteredInternal(ColumnReaderInput &input, Vector &result_out);
 
 private:
 	unique_ptr<ColumnReader> child_column_reader;
@@ -58,6 +66,17 @@ private:
 	Vector read_vector;
 
 	idx_t overflow_child_count;
+
+	//! PROBE state
+	unique_ptr<PrenestFilter> prenest_filter;
+	unsafe_unique_array<bool> prenest_keep;
+	//! Backing storage for the two selection vectors. ColumnSegment::FilterSelection
+	//! may re-Initialize the SelectionVector it is handed (e.g. the CONJUNCTION_OR
+	//! path rebinds it to a freshly sized buffer), so a SelectionVector member
+	//! would silently shrink between iterations. Non-owning views over these
+	//! arrays are constructed per iteration instead.
+	unsafe_unique_array<sel_t> prenest_sel_data;
+	unsafe_unique_array<sel_t> prenest_append_sel_data;
 };
 
 } // namespace duckdb

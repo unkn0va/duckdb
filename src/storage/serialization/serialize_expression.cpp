@@ -40,6 +40,9 @@ unique_ptr<Expression> Expression::Deserialize(Deserializer &deserializer) {
 	case ExpressionClass::BOUND_COLUMN_REF:
 		result = BoundColumnRefExpression::Deserialize(deserializer);
 		break;
+	case ExpressionClass::BOUND_COMPREHENSION:
+		result = BoundComprehensionExpression::Deserialize(deserializer);
+		break;
 	case ExpressionClass::BOUND_CONJUNCTION:
 		result = BoundConjunctionExpression::Deserialize(deserializer);
 		break;
@@ -119,6 +122,21 @@ unique_ptr<Expression> BoundColumnRefExpression::Deserialize(Deserializer &deser
 	auto binding = deserializer.ReadProperty<ColumnBinding>(201, "binding");
 	auto depth = deserializer.ReadPropertyWithDefault<idx_t>(202, "depth");
 	auto result = duckdb::unique_ptr<BoundColumnRefExpression>(new BoundColumnRefExpression(std::move(return_type), binding, depth));
+	return std::move(result);
+}
+
+void BoundComprehensionExpression::Serialize(Serializer &serializer) const {
+	Expression::Serialize(serializer);
+	serializer.WritePropertyWithDefault<string>(200, "source", source);
+	serializer.WritePropertyWithDefault<unique_ptr<Expression>>(201, "predicate", predicate);
+	serializer.WritePropertyWithDefault<unique_ptr<Expression>>(202, "inner", inner, nullptr);
+}
+
+unique_ptr<Expression> BoundComprehensionExpression::Deserialize(Deserializer &deserializer) {
+	auto source = deserializer.ReadPropertyWithDefault<string>(200, "source");
+	auto predicate = deserializer.ReadPropertyWithDefault<unique_ptr<Expression>>(201, "predicate");
+	auto inner = deserializer.ReadPropertyWithExplicitDefault<unique_ptr<Expression>>(202, "inner", nullptr);
+	auto result = duckdb::unique_ptr<BoundComprehensionExpression>(new BoundComprehensionExpression(std::move(source), std::move(predicate), std::move(inner)));
 	return std::move(result);
 }
 

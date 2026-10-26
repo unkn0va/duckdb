@@ -200,6 +200,30 @@
     "constructor": ["value"]
   },
   {
+    "class": "BoundComprehensionExpression",
+    "base": "Expression",
+    "enum": "BOUND_COMPREHENSION",
+    "members": [
+      {
+        "id": 200,
+        "name": "source",
+        "type": "string"
+      },
+      {
+        "id": 201,
+        "name": "predicate",
+        "type": "Expression*"
+      },
+      {
+        "id": 202,
+        "name": "inner",
+        "type": "Expression*",
+        "default": "nullptr"
+      }
+    ],
+    "constructor": ["source", "predicate", "inner"]
+  },
+  {
     "class": "BoundDefaultExpression",
     "base": "Expression",
     "enum": "BOUND_DEFAULT",

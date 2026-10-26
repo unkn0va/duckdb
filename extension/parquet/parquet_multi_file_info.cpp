@@ -1,3 +1,4 @@
+#include "duckdb/planner/filter/prenest_filter_spec.hpp"
 #include "parquet_multi_file_info.hpp"
 #include "duckdb/common/multi_file/table_function_multi_file.hpp"
 #include "duckdb/main/client_context.hpp"
@@ -411,6 +412,38 @@ unique_ptr<TableFunctionData> ParquetMultiFileInfo::InitializeBindData(MultiFile
 		result->initial_file_cardinality = result->explicit_cardinality / (file_count ? file_count : 1);
 	}
 	return std::move(result);
+}
+
+bool ParquetMultiFileInfo::TrySetPrenestFilter(MultiFileBindData &multi_file_data,
+                                              const vector<PrenestFilterSpec> &specs) {
+	if (!multi_file_data.bind_data) {
+		return false;
+	}
+	auto &bind_data = multi_file_data.bind_data->Cast<ParquetReadBindData>();
+	bind_data.GetParquetOptions().prenest_filters = specs;
+	// Readers opened while binding predate the optimizer but are reused for scanning,
+	// so they carry their own stale copy of the options - refresh those as well.
+	if (multi_file_data.initial_reader) {
+		multi_file_data.initial_reader->Cast<ParquetReader>().parquet_options.prenest_filters = specs;
+	}
+	for (auto &union_data_p : multi_file_data.union_readers) {
+		if (!union_data_p) {
+			continue;
+		}
+		auto &union_data = union_data_p->Cast<ParquetUnionData>();
+		union_data.options.prenest_filters = specs;
+		if (union_data.reader) {
+			union_data.reader->Cast<ParquetReader>().parquet_options.prenest_filters = specs;
+		}
+	}
+	return true;
+}
+
+vector<PrenestFilterSpec> ParquetMultiFileInfo::GetPrenestFilters(const MultiFileBindData &multi_file_data) const {
+	if (!multi_file_data.bind_data) {
+		return vector<PrenestFilterSpec>();
+	}
+	return multi_file_data.bind_data->Cast<ParquetReadBindData>().GetParquetOptions().prenest_filters;
 }
 
 void ParquetMultiFileInfo::GetBindInfo(const TableFunctionData &bind_data_p, BindInfo &info) {

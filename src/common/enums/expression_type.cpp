@@ -161,6 +161,8 @@ string ExpressionTypeToString(ExpressionType type) {
 		return "TYPE";
 	case ExpressionType::BOUND_EXPANDED:
 		return "BOUND_EXPANDED";
+	case ExpressionType::BOUND_COMPREHENSION:
+		return "BOUND_COMPREHENSION";
 	case ExpressionType::INVALID:
 		break;
 	}
@@ -248,6 +250,8 @@ string ExpressionClassToString(ExpressionClass type) {
 		return "BOUND_LAMBDA";
 	case ExpressionClass::BOUND_EXPANDED:
 		return "BOUND_EXPANDED";
+	case ExpressionClass::BOUND_COMPREHENSION:
+		return "BOUND_COMPREHENSION";
 	default:
 		return "ExpressionClass::!!UNIMPLEMENTED_CASE!!";
 	}
