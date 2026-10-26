@@ -5,6 +5,10 @@ one by definition (e.g. XMark Q2, whose flat join has no rows for the auctions w
 the comparison per query in the <variant>_<label>_ok columns; this script collects them, and also reports queries that
 failed or timed out.
 
+A variant that equals its oracle but not the builtin result computes something else than the builtin query: the check
+passes, but a separate warning lists it, as its timings do not compare the same work (summarize.py leaves it out of
+the geometric means).
+
 Usage: check_results.py <results folder or CSV files...>
 Exit status: 0 if all results match, 1 if any differs or failed.
 """
@@ -26,13 +30,15 @@ def main():
     if not sys.argv[1:]:
         print(__doc__)
         return 2
-    problems, checks = [], 0
+    problems, warnings, checks = [], [], 0
     for path in csv_files(sys.argv[1:]):
         dataset = os.path.basename(path).removesuffix(".csv")
         with open(path) as f:
             rows = list(csv.DictReader(f))
         dataset_checks = 0
         for row in rows:
+            # the builtin result of the first binary: the reference of every variant without an oracle
+            builtin = next((v for k, v in row.items() if k.startswith("builtin") and k.endswith("_result")), None)
             for key, value in row.items():
                 if key.endswith("_ok") and value:
                     checks += 1
@@ -43,11 +49,21 @@ def main():
                         problems.append(
                             f"{dataset} {row['query']}: {variant} differs from {reference or 'the reference'}"
                         )
+                    elif not key.startswith("builtin") and row.get(key.removesuffix("_ok") + "_result") != builtin:
+                        variant = key.removesuffix("_ok")
+                        warnings.append(
+                            f"{dataset} {row['query']}: {variant} equals its oracle, not the builtin result"
+                        )
                 elif key.endswith("_error") and value:
                     problems.append(f"{dataset} {row['query']}: {key.removesuffix('_error')} failed: {value[:100]}")
         if dataset_checks == 0:
             problems.append(f"{dataset}: no result was compared (no variant besides builtin ran?)")
         print(f"{dataset}: {len(rows)} queries, {dataset_checks} comparisons")
+    if warnings:
+        print(f"\nWARNING: {len(warnings)} result(s) differ from the builtin query (they pass only against an oracle):")
+        for warning in warnings:
+            print("  " + warning)
+        print("Their timings do not compare the same work as the builtin query.")
     if problems:
         print("\n" + "!" * 78)
         print(f"!!! RESULT CHECK FAILED: {len(problems)} problem(s)")

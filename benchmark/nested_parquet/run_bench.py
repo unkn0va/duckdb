@@ -155,11 +155,13 @@ def run_timed(sql, binary, threads, config_setup=""):
 
 
 def result_hash(sql, binary=None, setup=""):
-    # order-insensitive fingerprint of the result, with numbers rounded to absorb float summation order
+    # order-insensitive fingerprint of the result, with numbers rounded to absorb float summation order: to 2 decimals,
+    # then to 12 significant digits (DuckDB versions round large averages differently in the last bit)
     inner = sql.strip().rstrip(";")
     query = (
         "SELECT count(*), hash(list(r ORDER BY r)) FROM (SELECT list_transform(list_value(COLUMNS(*)::VARCHAR), "
-        "lambda x: CASE WHEN TRY_CAST(x AS DOUBLE) IS NULL THEN x ELSE round(x::DOUBLE, 2)::VARCHAR END)::VARCHAR AS r "
+        "lambda x: CASE WHEN TRY_CAST(x AS DOUBLE) IS NULL THEN x "
+        "ELSE printf('%.11e', round(x::DOUBLE, 2)) END)::VARCHAR AS r "
         f"FROM ({inner}))"
     )
     binary = binary or DUCKDB

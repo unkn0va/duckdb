@@ -14,12 +14,23 @@ What this implementation and its measurements do differently from the paper; det
   `read_parquet_flat(file)`, which an optimizer rule (`pre_optimize_function`) replaces by the scans of the nodes of
   the used columns and the joins on their keys. The existing `read_parquet` scan is not changed.
 - Path syntax: Umbra's `Users.Posts.Comments`-style paths are written as quoted column names (`"Posts.Comments.Text"`) -
-  no change to DuckDB's binder. The joins between nodes are INNER joins: a parent without children has no row (XMark Q2
-  is compared with an oracle without the auctions without bidders).
+  no change to DuckDB's binder.
+- Join semantics: a parent without children has no row in the result (INNER join semantics). Sibling nodes give
+  every combination of their rows under their lowest common ancestor, which is the paper's "fully flattening"
+  (Section 7). The extension with an outer join that the paper calls possible concerns "semi-flattening", where every
+  tuple appears once; it is not implemented.
 - Element order: Umbra's surrogate key per node is exposed as `"<path>._sk"`; a position within the list (`_pos`) is
   not implemented.
 - Keys follow the paper (dense, placeholders of empty/NULL lists counted, row-group offsets from the metadata).
-  Placeholders are not returned by default; `include_empty := true` returns them as NULL rows.
+- **Empty lists (our choice, differs from the paper's Fig. 5)**: Fig. 5 shows the placeholders of empty lists as rows
+  of the node relations (Likes `sk` 0 and 1, Comments `sk` 1, Reactions `sk` 0); with them, a parent without children
+  joins its placeholder and appears once with NULL children. The paper does not say how queries treat these rows.
+  Here the placeholders are not returned by default (`include_empty := true` returns them as NULL rows), so a parent
+  without children has no row in a join - the semantics of DuckDB's `UNNEST`, which drops empty lists, so that the
+  flat queries return the results of the builtin queries. Only XMark Q2 differed: the authors' builtin query indexes
+  the list, so `bidder[1]` gives a NULL row for each of the 11,586 auctions without bidders (NULL lists in
+  `sf10.parquet`), which every other form joins away. The builtin query now keeps only the auctions with bidders
+  (`where len(a.bidder) > 0`), so all forms are compared with it directly (until 2026-10-26: with an oracle).
 
 **Parallel scan (paper: Listing 3)**
 - A row group is split only when there are fewer row groups than threads - and, when the keys need a count of its
@@ -43,6 +54,10 @@ What this implementation and its measurements do differently from the paper; det
 - Skipping with the filters that joins create while the query runs (sideways information passing, which the paper only
   names as future work in Section 6.5) is an addition beyond the paper's scope, off by default
   (`parquet_node_join_filter_pruning`).
+- In the selectivity experiment the flat (and node/split) queries also run with DuckDB's `join_filter_pushdown`
+  optimizer disabled, to leave out sideways information passing beyond the paper's scope: without it, `split` (plain
+  `read_parquet`) would skip row groups by the join's filters, and every join would spend time building filters that
+  the node scans do not use. The other datasets run with DuckDB's default optimizers.
 - As in the paper (Section 6.5, Listing 3), skipping parts of a child requires counting the repetition levels of its
   pages first: a structural cost of reading the nested file in situ that stored keys (`split`) avoid.
 
@@ -54,11 +69,15 @@ What this implementation and its measurements do differently from the paper; det
   fewer per cycle ("1-thread difference between the first and the final run").
 - Compared systems: the paper compares Umbra with other systems; here everything runs in DuckDB - `builtin` (DuckDB's
   nested types with UNNEST), `node`/`flat` (this implementation), `split` (the paper's pre-split files).
+- Baseline: on the server, `base` is a809d3cd51, the commit of DuckDB main that main_rey branches from (the merge base
+  of main_rey and DuckDB main, and the parent of main_rey's first commit 87b27256b9; no merges since). The builtin
+  queries therefore run on the same DuckDB that main_rey adds to.
 - Datasets: the paper's archive without the Twitter dataset. All files use data pages v1; only the parquet-mr files
   (TPC-H SF10) have a page index.
-- Queries: the authors' repository, with these changes - XMark Q2/Q4 compared with oracles where the semantics differ
-  (NULL rows, every pair of bids in Q4), q04p added (Q4 returns no rows), arrow lambdas rewritten (`lambda x: ...`),
-  XMark element order through `"<path>._sk"` in two forms (Umbra's correlated subqueries, and a min/max join).
+- Queries: the authors' repository, with these changes - XMark Q2's builtin query restricted to the auctions with
+  bidders (see "Empty lists"), XMark Q4 compared with oracles where the semantics differ (every pair of bids), q04p
+  added (Q4 returns no rows), arrow lambdas rewritten (`lambda x: ...`), XMark element order through `"<path>._sk"`
+  in two forms (Umbra's correlated subqueries, and a min/max join).
 - Selectivity experiment (Fig. 15): every variant computes `avg(greatest(a, b))` (the paper's builtin query computes
   `avg(b)`); `split` reads files cut from the paper's `l1.parquet`, as the paper's pre-split files hold other random
   values; experiment (B) with sorted data and a range predicate is an addition beyond the paper's scope. With 1
@@ -75,8 +94,12 @@ Variants per query (`queries/<dataset>/<query>.<variant>.sql`):
   with the min/max key per parent (`GROUP BY "open_auctions.open_auction._sk"`)
 - `split`: the repository's normalized query over the paper's pre-split files with stored keys
 
-A variant's result is compared with the builtin one by an order-insensitive hash (numbers rounded to 2 decimals), or
-with `<query>.<variant>.oracle` where the variant has a different result by definition (see XMark below).
+A variant's result is compared with the builtin one by an order-insensitive hash (numbers rounded to 2 decimals and then
+to 12 significant digits), or with `<query>.<variant>.oracle` where the variant has a different result by definition
+(see XMark below). The 12 digits absorb a last-bit difference between DuckDB versions: since commit 363a7253e8
+(2026-03-02), DuckDB's `aggregate_function_rewriter` turns an ungrouped `avg(x)` into `sum(x) / count(x)` in DOUBLE,
+which rounds twice and can be 1 ULP off the exact mean, whereas the older `avg` (prenest-3way) divides in long double
+(selectivity `avg(greatest(a, b))` over values near 2^63).
 **All variants return their expected result for all queries, with both binaries and both thread counts.**
 
 ## Running

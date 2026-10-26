@@ -572,7 +572,8 @@ builtin은 따로 봅니다.
 | final | main_rey (`duckdb_rey`) | flat (XMark: flat_minmax) |
 
 - prenest-3way는 UNNEST 쿼리 안의 리스트 원소 조건을 리스트를 조립하는 단계로 내려 보냅니다. 그래서 쿼리를 따로 만들지 않고 builtin 쿼리를 그대로 씁니다.
-- prenest-3way는 원래 DuckDB보다 오래된 커밋(`83ae79e5b7`, 2026-02)에서 갈라졌습니다. 그래서 base와의 차이에는 pre-nest 최적화 말고 DuckDB 자체의 변화도 섞입니다. `--prenest-off`를 붙이면 같은 바이너리를 최적화 없이 함께 재므로, `prenestoff / prenest`가 최적화만의 효과입니다.
+- prenest-3way는 원래 DuckDB보다 오래된 커밋(`83ae79e5b7`, 2026-02)에서 갈라졌습니다. 그래서 base와의 차이에는 pre-nest 최적화 말고 DuckDB 자체의 변화도 섞입니다. `--prenest-off`를 붙이면 같은 바이너리를 pre-nest 필터 없이 함께 재므로, `prenestoff / prenest`가 pre-nest 필터만의 효과입니다.
+- prenestoff는 원래 DuckDB가 아닙니다. prenest-3way에는 pre-nest 필터 전에 LIST<STRUCT> 필드 pruning(projection pushdown, `58a44bb203`)이 들어 있고, 이것은 설정과 상관없이 켜져 있습니다. 그래서 `base / prenestoff`는 "옛 DuckDB + pruning"과 원래 DuckDB의 차이입니다.
 - prenest의 결과도 base의 builtin 결과와 같은지 자동으로 확인합니다.
 
 **(1) prenest-3way 받기와 빌드** (처음 한 번)

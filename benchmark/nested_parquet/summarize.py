@@ -3,7 +3,9 @@
 builtin query of the original DuckDB ("builtin / flat" = builtin seconds / flat seconds; > 1: flat is faster), per
 dataset and thread count, and per query. XMark uses the flat_minmax form. With split results, "split / flat" as well.
 
-Times are the fastest of the runs (run_bench.py). A result that differs from its reference is marked with (!).
+Times are the fastest of the runs (run_bench.py). A query is left out of a geometric mean, marked with (!) and listed
+with the reason when its result check failed, or when its flat result differs from the builtin result (a variant that
+passed only against its .oracle computes something else than the builtin query).
 
 When the builtin queries also ran with prenest-3way (run_all.sh --prenest, labels prenest and prenestoff), a further
 section puts the three binaries side by side.
@@ -42,6 +44,33 @@ def number(row, key):
 def geometric_mean(values):
     values = [v for v in values if v]
     return math.exp(sum(math.log(v) for v in values) / len(values)) if values else None
+
+
+def flat_problem(row, base, final):
+    """Why the builtin / flat ratio of a query does not compare the same work, or None."""
+    variant = next((v for v in FLAT_VARIANTS if row.get(f"{v}_{final}_result")), None)
+    if variant is None:
+        return None
+    if row.get(f"{variant}_{final}_ok") != "True":
+        return f"{variant}: the result check failed"
+    if row[f"{variant}_{final}_result"] != row.get(f"builtin_{base}_result"):
+        return f"{variant}: the result differs from the builtin query (it passed only against its oracle)"
+    return None
+
+
+def builtin_problem(row, base, label):
+    """Why the builtin query of another binary (label) is not comparable with the one of base, or None."""
+    if row.get(f"builtin_{label}_result") is not None and row.get(f"builtin_{label}_ok") != "True":
+        return f"builtin of {label}: the result differs from the builtin query of {base}"
+    return None
+
+
+def print_excluded(excluded):
+    if not excluded:
+        return
+    print("\nLeft out of the geometric means above (all thread counts):\n")
+    for dataset, query, reason in excluded:
+        print(f"- {NAMES.get(dataset, dataset)} - {query_name(dataset, query)} (`{query}`): {reason}")
 
 
 def query_name(dataset, query):
@@ -84,9 +113,11 @@ def main():
     print("## Per dataset and thread count (geometric mean over the queries)\n")
     print("| dataset | " + " | ".join(f"threads={t}" for t in all_threads) + " |")
     print("|---|" + "---|" * len(all_threads))
-    per_query = {}
+    per_query, excluded = {}, []
     for dataset, (rows, threads) in tables.items():
         cells, per_query[dataset] = [], []
+        problems = {row["query"]: flat_problem(row, base, final) for row in rows}
+        excluded += [(dataset, query, reason) for query, reason in problems.items() if reason]
         for t in all_threads:
             ratios = []
             for row in rows:
@@ -94,14 +125,15 @@ def main():
                 builtin = number(row, f"builtin_{base}_t{t}_s")
                 flat = number(row, f"{variant}_{final}_t{t}_s") if variant else None
                 split = number(row, f"split_{final}_t{t}_s")
-                ok = row.get(f"{variant}_{final}_ok", "") if variant else ""
-                ratios.append(builtin / flat if builtin and flat else None)
+                ok = "False" if problems[row["query"]] else row.get(f"{variant}_{final}_ok", "") if variant else ""
+                ratios.append(builtin / flat if builtin and flat and not problems[row["query"]] else None)
                 per_query[dataset].append(
                     (row["query"], t, variant, builtin, flat, split, ok, row.get(f"split_{final}_ok", ""))
                 )
             mean = geometric_mean(ratios)
             cells.append(f"{mean:.2f}x" if mean else "-")
         print(f"| {NAMES.get(dataset, dataset)} | " + " | ".join(cells) + " |")
+    print_excluded(excluded)
 
     print("\n## Per query\n")
     print(
@@ -144,21 +176,26 @@ def main():
 
 def print_prenest(tables, all_threads, base, final, labels):
     def seconds(row, t):
+        # (seconds, why the column is not comparable with base or None) per column
         variant = next((v for v in FLAT_VARIANTS if row.get(f"{v}_{final}_t{t}_s")), None)
         flat = number(row, f"{variant}_{final}_t{t}_s") if variant else None
-        flat_ok = row.get(f"{variant}_{final}_ok", "") if variant else ""
-        values = [(number(row, f"builtin_{base}_t{t}_s"), "True")]
-        values += [(number(row, f"builtin_{label}_t{t}_s"), row.get(f"builtin_{label}_ok", "")) for label in labels]
-        return values + [(flat, flat_ok)]
+        values = [(number(row, f"builtin_{base}_t{t}_s"), None)]
+        values += [(number(row, f"builtin_{label}_t{t}_s"), builtin_problem(row, base, label)) for label in labels]
+        return values + [(flat, flat_problem(row, base, final))]
 
     names = [base] + list(labels) + [f"flat ({final})"]
     print("## Three binaries: original DuckDB, prenest-3way, main_rey\n")
     print(
         f"`{base}` = builtin query of the original DuckDB, `prenest` = the same builtin query with prenest-3way "
         "(parquet_prenest_auto = true)"
-        + (", `prenestoff` = prenest-3way with parquet_prenest_auto = false" if "prenestoff" in labels else "")
+        + (
+            ", `prenestoff` = prenest-3way with parquet_prenest_auto = false (still with its LIST<STRUCT> pruning)"
+            if "prenestoff" in labels
+            else ""
+        )
         + f", flat = `read_parquet_flat` of main_rey (`{final}`). Ratio = {base} seconds / seconds of the column "
-        "(> 1: faster than the original DuckDB); geometric mean over the queries.\n"
+        "(> 1: faster than the original DuckDB); geometric mean over the queries, without those listed below the "
+        "table.\n"
     )
     print("| dataset | threads | " + " | ".join(f"{base} / {name}" for name in names[1:]) + " |")
     print("|---|---|" + "---|" * (len(names) - 1))
@@ -169,10 +206,20 @@ def print_prenest(tables, all_threads, base, final, labels):
                 ratios = []
                 for row in rows:
                     values = seconds(row, t)
-                    ratios.append(values[0][0] / values[i][0] if values[0][0] and values[i][0] else None)
+                    comparable = values[0][0] and values[i][0] and not values[i][1]
+                    ratios.append(values[0][0] / values[i][0] if comparable else None)
                 mean = geometric_mean(ratios)
                 cells.append(f"{mean:.2f}x" if mean else "-")
             print(f"| {NAMES.get(dataset, dataset)} | {t} | " + " | ".join(cells) + " |")
+    print_excluded(
+        [
+            (dataset, row["query"], reason)
+            for dataset, (rows, threads) in tables.items()
+            for row in rows
+            for reason in [builtin_problem(row, base, label) for label in labels] + [flat_problem(row, base, final)]
+            if reason
+        ]
+    )
     print("\n### Per query (seconds)\n")
     print("| dataset | query | threads | " + " | ".join(names) + " |")
     print("|---|---|---|" + "---|" * len(names))
@@ -180,8 +227,8 @@ def print_prenest(tables, all_threads, base, final, labels):
         for row in rows:
             for t in threads:
                 cells = [
-                    ("-" if value is None else f"{value:.3f}") + ("" if ok == "True" or value is None else " (!)")
-                    for value, ok in seconds(row, t)
+                    ("-" if value is None else f"{value:.3f}") + (" (!)" if problem and value is not None else "")
+                    for value, problem in seconds(row, t)
                 ]
                 name = query_name(dataset, row["query"])
                 print(f"| {NAMES.get(dataset, dataset)} | {name} | {t} | " + " | ".join(cells) + " |")

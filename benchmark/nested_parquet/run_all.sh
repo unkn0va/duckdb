@@ -10,8 +10,8 @@
 #                   --threads "1 16 32 64" [--out <results folder>] [--runs 10] [--split] [--datasets "..."] [--force]
 #                   [--prenest <duckdb of prenest-3way> [--prenest-off]]
 #   --prenest   also run the builtin queries with prenest-3way, label "prenest"
-#   --prenest-off  and with the same binary with parquet_prenest_auto = false, label "prenestoff" (separates the
-#               pre-nest pass from the other differences between the prenest-3way and the original DuckDB)
+#   --prenest-off  and with the same binary with parquet_prenest_auto = false, label "prenestoff": the effect of
+#               the pre-nest pass alone (prenestoff still has prenest-3way's LIST<STRUCT> pruning and older DuckDB)
 #   --out       where the results go (default: results_<date>_<time> next to this script)
 #   --runs      runs per query and configuration; the fastest counts (default 10)
 #   --split     also run the paper's pre-split files (split variant) with main_rey
