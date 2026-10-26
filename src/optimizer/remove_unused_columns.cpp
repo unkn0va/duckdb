@@ -2,6 +2,7 @@
 
 #include "duckdb/common/assert.hpp"
 #include "duckdb/common/pair.hpp"
+#include "duckdb/common/unordered_map.hpp"
 #include "duckdb/function/aggregate/distributive_functions.hpp"
 #include "duckdb/function/function_binder.hpp"
 #include "duckdb/function/scalar/struct_functions.hpp"
@@ -14,6 +15,7 @@
 #include "duckdb/planner/expression/bound_constant_expression.hpp"
 #include "duckdb/planner/expression/bound_cast_expression.hpp"
 #include "duckdb/planner/expression/bound_function_expression.hpp"
+#include "duckdb/planner/expression/bound_unnest_expression.hpp"
 #include "duckdb/planner/filter/expression_filter.hpp"
 #include "duckdb/planner/operator/logical_aggregate.hpp"
 #include "duckdb/planner/operator/logical_column_data_get.hpp"
@@ -28,6 +30,7 @@
 #include "duckdb/planner/operator/logical_secure_view.hpp"
 #include "duckdb/planner/operator/logical_cte.hpp"
 #include "duckdb/planner/operator/logical_cteref.hpp"
+#include "duckdb/planner/operator/logical_unnest.hpp"
 #include "duckdb/planner/operator/logical_window.hpp"
 #include "duckdb/function/scalar/struct_utils.hpp"
 #include "duckdb/function/scalar/variant_utils.hpp"
@@ -748,7 +751,18 @@ void RemoveUnusedColumns::VisitOperator(unique_ptr<LogicalOperator> &op_ref) {
 			remove.VisitOperator(op.children[0]);
 			return;
 		}
+		// Nested projection pushdown through UNNEST: capture the nested sub-field requirements of each
+		// projection output BEFORE pruning mangles indices (keyed by expression pointer, stable across
+		// compaction). These are attached at the leaf of get_field extract paths below so deep
+		// requirements (e.g. comments.element.author) propagate through the projection down to the input.
+		unordered_map<Expression *, vector<ColumnIndex>> deep_output_reqs;
 		if (!everything_referenced) {
+			for (idx_t i = 0; i < proj.expressions.size(); i++) {
+				auto entry = column_references.find(ColumnBinding(proj.table_index, ProjectionIndex(i)));
+				if (entry != column_references.end() && !entry->second.child_columns.empty()) {
+					deep_output_reqs[proj.expressions[i].get()] = entry->second.child_columns;
+				}
+			}
 			CheckPushdownExtract(op);
 			auto old_expression_count = proj.expressions.size();
 			ClearUnusedExpressions(proj.expressions, proj.table_index);
@@ -766,7 +780,18 @@ void RemoveUnusedColumns::VisitOperator(unique_ptr<LogicalOperator> &op_ref) {
 		}
 		// then recurse into the children of this projection
 		RemoveUnusedColumns remove(*this, false);
-		remove.VisitOperatorExpressions(op);
+		for (auto &expr : proj.expressions) {
+			auto entry = deep_output_reqs.find(expr.get());
+			if (entry != deep_output_reqs.end()) {
+				if (remove.RecordExtractWithLeafReqs(&expr, entry->second)) {
+					continue;
+				}
+				if (remove.RecordPassthroughWithReqs(&expr, entry->second)) {
+					continue;
+				}
+			}
+			remove.VisitExpression(&expr);
+		}
 		remove.VisitOperator(op.children[0]);
 		return;
 	}
@@ -991,6 +1016,49 @@ void RemoveUnusedColumns::VisitOperator(unique_ptr<LogicalOperator> &op_ref) {
 	case LogicalOperatorType::LOGICAL_PIVOT: {
 		everything_referenced = true;
 		break;
+	}
+	case LogicalOperatorType::LOGICAL_UNNEST: {
+		if (everything_referenced) {
+			break;
+		}
+		auto &unnest = op.Cast<LogicalUnnest>();
+		// Nested projection pushdown through UNNEST.
+		// For each UNNEST expression that unnests a plain column reference, check whether the
+		// parent only accesses specific sub-fields of the unnested element. If so, remap those
+		// sub-field requirements onto the underlying list column - wrapping them under the
+		// list-element level (child index 0) - so the native column pruner pushes a nested
+		// ColumnIndex into the scan and the reader only reads the needed leaf fields.
+		// (This mirrors DataFusion's remap_through_unnest.)
+		for (idx_t i = 0; i < unnest.expressions.size(); i++) {
+			auto &expr = unnest.expressions[i];
+			bool remapped = false;
+			if (expr->GetExpressionClass() == ExpressionClass::BOUND_UNNEST) {
+				auto &bound_unnest = expr->Cast<BoundUnnestExpression>();
+				auto out_entry = column_references.find(ColumnBinding(unnest.unnest_index, ProjectionIndex(i)));
+				if (out_entry != column_references.end() && !out_entry->second.child_columns.empty()) {
+					// wrap the element's sub-field requirements under the list-element level (index 0)
+					ColumnIndex element_index(0, out_entry->second.child_columns);
+					if (bound_unnest.Child()->GetExpressionClass() == ExpressionClass::BOUND_COLUMN_REF) {
+						auto &child_ref = bound_unnest.Child()->Cast<BoundColumnRefExpression>();
+						AddBinding(child_ref, std::move(element_index));
+						remapped = true;
+					} else {
+						// the unnested list is itself a sub-field, e.g. UNNEST(struct_extract(o, 'o_lineitems')).
+						// record the extract path and attach the element's requirements at its leaf, so the
+						// requirements survive instead of degrading to a full read of the list
+						vector<ColumnIndex> leaf_reqs;
+						leaf_reqs.push_back(std::move(element_index));
+						remapped = RecordExtractWithLeafReqs(&bound_unnest.ChildMutable(), leaf_reqs);
+					}
+				}
+			}
+			if (!remapped) {
+				// whole element is needed (or not a plain column reference): reference it fully
+				VisitExpression(&expr);
+			}
+		}
+		LogicalOperatorVisitor::VisitOperatorChildren(op);
+		return;
 	}
 	default:
 		break;
@@ -1694,6 +1762,52 @@ bool BaseColumnPruner::HandleExtractExpression(unique_ptr<Expression> *expressio
 	return true;
 }
 
+bool BaseColumnPruner::RecordExtractWithLeafReqs(unique_ptr<Expression> *expression,
+                                                 const vector<ColumnIndex> &leaf_child_columns) {
+	optional_ptr<BoundColumnRefExpression> colref;
+	vector<ReferencedExtractComponent> expressions;
+	ColumnIndex path(0);
+	reference<ColumnIndex> path_ref(path);
+	if (!HandleExtractRecursive(*expression, colref, path_ref, expressions)) {
+		return false;
+	}
+	// attach the projection output's nested sub-field requirements at the leaf of the extract path,
+	// e.g. get_field(x, "comments") whose output needs {element->author} records x.comments.element.author
+	for (auto &req : leaf_child_columns) {
+		path_ref.get().AddChildIndex(req);
+	}
+	// record as a FULL_READ sub-field path: the 2-arg AddBinding does not record struct_extracts, so
+	// pushdown-extract stays disabled - safe for LIST-typed fields whose extract cannot be pushed down
+	AddBinding(*colref, path.GetChildIndex(0));
+	DisablePushdownExtract(colref->Binding());
+	return true;
+}
+
+bool BaseColumnPruner::RecordPassthroughWithReqs(unique_ptr<Expression> *expression,
+                                                 const vector<ColumnIndex> &reqs) {
+	auto &expr = **expression;
+	if (expr.GetExpressionClass() != ExpressionClass::BOUND_COLUMN_REF) {
+		return false;
+	}
+	// the expression just forwards a column, so the requirements on its output apply verbatim
+	// to the referenced column (mirrors DataFusion's add_passthrough)
+	auto &colref = expr.Cast<BoundColumnRefExpression>();
+	for (auto &req : reqs) {
+		AddBinding(colref, ColumnIndex(req));
+	}
+	DisablePushdownExtract(colref.Binding());
+	return true;
+}
+
+void BaseColumnPruner::DisablePushdownExtract(const ColumnBinding &binding) {
+	// the sub-field paths recorded above can be more than one level deep, which the
+	// pushdown-extract rewrite cannot express - keep it off for this column
+	auto entry = column_references.find(binding);
+	if (entry != column_references.end()) {
+		entry->second.supports_pushdown_extract = PushdownExtractSupport::DISABLED;
+	}
+}
+
 void BaseColumnPruner::MergeChildColumns(vector<ColumnIndex> &current_child_columns, ColumnIndex &new_child_column) {
 	if (current_child_columns.empty()) {
 		// there's already a reference to the full column - we can't extract only a subfield
@@ -1724,9 +1838,13 @@ void BaseColumnPruner::MergeChildColumns(vector<ColumnIndex> &current_child_colu
 			// new child is a reference to a full column - clear any existing bindings (if any)
 			nested_child_columns.clear();
 		} else {
-			// new child has a sub-reference - merge recursively
-			D_ASSERT(new_child_column.ChildIndexCount() == 1);
-			MergeChildColumns(nested_child_columns, new_child_column.GetChildIndex(0));
+			// new child has sub-references - merge recursively.
+			// NOTE: the nested UNNEST projection pruner can attach several sibling requirements
+			// under a single level at once (e.g. ColumnIndex(0, {b, c}) for a list element), so we
+			// must merge every child here - merging only child 0 would silently drop the rest.
+			for (auto &new_grandchild : new_child_column.GetChildIndexesMutable()) {
+				MergeChildColumns(nested_child_columns, new_grandchild);
+			}
 		}
 		return;
 	}

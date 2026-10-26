@@ -1,0 +1,57 @@
+select
+  c_custkey,
+  c_name,
+  sum(l.l_extendedprice * (1 - l.l_discount)) as revenue,
+  c_acctbal,
+  n.n_name,
+  c_address,
+  c_phone,
+  c_comment
+from
+  (
+    select 
+      c_custkey,
+      c_name,
+      c_acctbal,
+      c_address,
+      c_phone,
+      c_comment,
+      c_nationkey,
+      o.o_orderdate o_orderdate,
+      unnest(o.o_lineitems) as l
+    from (
+      select 
+        c_custkey,
+        c_name,
+        c_acctbal,
+        c_address,
+        c_phone,
+        c_comment,
+        c_nationkey,
+        unnest(c_orders) as o
+      from 
+        '/home/layun03/data/tpch-nested/1/customer.parquet'
+    ) os
+    where
+      o.o_orderdate >= '1993-10-01'
+      and o.o_orderdate < '1994-01-01'
+  ) ls,
+  (
+      select 
+          unnest(r_nations) as n
+      from '/home/layun03/data/tpch-nested/1/region.parquet'
+  ) ns
+where
+  c_nationkey = n.n_nationkey
+  and l.l_returnflag = 'R'
+group by
+  c_custkey,
+  c_name,
+  c_acctbal,
+  c_phone,
+  n.n_name,
+  c_address,
+  c_comment
+order by
+  revenue desc
+limit 20;
