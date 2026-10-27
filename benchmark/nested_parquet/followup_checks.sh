@@ -18,6 +18,9 @@
 #            of every flat query on the original file, rg1 and rg20, and the flat queries at 20 threads with fewer
 #            parts (parquet_node_task_slots x2, x4) and without splitting the scans that count levels
 #            (parquet_node_physical_cores = 1)
+#   cold     not in the default steps. All datasets with a cold page cache (run_cold.py): base / prenestoff /
+#            prenest / flat at 1 and 20 threads, one process per run, the query's files evicted before every run,
+#            COLD_RUNS runs (default 5), median and quartiles, MB read from disk
 #
 # Usage: followup_checks.sh [--steps "meta rewrite rg off counters explain"] [--out <folder>] [--runs 10]
 #        Paths default to SERVER.md's layout under ~/nested-bench; override with NB, BASE, FINAL, PRENEST, DATA, PY.
@@ -214,6 +217,36 @@ step_explain() {
 	cd - >/dev/null
 	grep -H "Total Time" "$d"/*.txt
 	echo "plans: $d"
+}
+
+step_cold() {
+	local d="$OUT/cold" dataset dir file binaries
+	mkdir -p "$d/logs"
+	{
+		df -hT "$DATA"
+		lsblk -d -o NAME,ROTA,MODEL,SIZE
+	} >"$d/disk.txt" 2>&1
+	cat "$d/disk.txt"
+	while read -r dataset dir file; do
+		if [ -f "$d/$dataset.csv" ]; then
+			echo "== $dataset: already done, skipped"
+			continue
+		fi
+		[ -f "$DATA/$dir/$file" ] || { echo "== $dataset: no $DATA/$dir/$file, skipped"; continue; }
+		binaries="base=$BASE,prenestoff=$PRENEST;SET parquet_prenest_auto = false"
+		binaries="$binaries,prenest=$PRENEST;SET parquet_prenest_auto = true,final=$FINAL"
+		[[ $dataset == selectivity_* ]] && binaries="$binaries;$QUERY_SETUP"
+		echo "== $dataset: started $(date +%H:%M)"
+		RUNS=${COLD_RUNS:-5} THREADS=1,20 \
+			VARIANTS="base=builtin prenestoff=builtin prenest=builtin final=flat,flat_minmax" \
+			python3 "$HERE/run_cold.py" "$binaries" "$HERE/queries/$dataset" "$DATA/$dir" "$d/$dataset.csv" \
+			</dev/null >"$d/logs/$dataset.log" 2>&1 || { echo "ERROR: see $d/logs/$dataset.log"; tail -5 "$d/logs/$dataset.log"; }
+		grep "^ERROR" "$d/logs/$dataset.log" | head -3
+	done <<<"$FILES"
+	python3 "$HERE/run_cold.py" --summary "$d"/*.csv >"$d/summary.md"
+	grep -A6 "^Geometric mean" "$d/summary.md"
+	grep "still cached" "$d/summary.md"
+	echo "summary: $d/summary.md"
 }
 
 step_split() {

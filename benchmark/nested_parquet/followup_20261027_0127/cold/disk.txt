@@ -1,0 +1,5 @@
+Filesystem                        Type  Size  Used Avail Use% Mounted on
+/dev/mapper/ubuntu--vg-ubuntu--lv ext4  466G   51G  396G  12% /
+NAME    ROTA MODEL                                   SIZE
+sda        0 Samsung SSD 860                       476.9G
+nvme0n1    0 Dell Ent NVMe P5800x SED WI U.2 400GB 372.6G

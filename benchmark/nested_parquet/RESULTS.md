@@ -224,8 +224,8 @@ All queries and thread counts: `server_20261026_3way_base/summary.md` and `three
 
 Four questions left by the 2026-10-26 run, and one that the answers raised (why flat is slower with 5 row groups),
 measured with the same three binaries on the same server, threads = 1/20 (20 = the physical cores), fastest of 10
-runs, `busy_cpu` = 0. `followup_checks.sh` runs every step; files: `followup_20261027_0127/` (`meta.tsv`,
-`rewrite.txt`, `off/`, `rg1/`, `rg20/`, `split/`, `q01_counters.txt`, `explain_selectivity_sorted/`). **All 303
+runs, `busy_cpu` = 0; then everything again with a cold page cache (last subsection: median of 5 runs). `followup_checks.sh` runs every step; files: `followup_20261027_0127/` (`meta.tsv`,
+`rewrite.txt`, `off/`, `rg1/`, `rg20/`, `split/`, `cold/`, `q01_counters.txt`, `explain_selectivity_sorted/`). **All 303
 results equal the builtin results of `base`** (off 99, rg1 72, rg20 60, split 72).
 
 ### How much of flat's multi-thread lead is parallelism?
@@ -320,18 +320,18 @@ whose cost was not measured separately). 1 thread, geometric mean (with 20 threa
 
 | dataset | base / prenest | pruning: base / prenestoff | filter: prenestoff / prenest |
 |---|---|---|---|
-| TPC-H SF1 | 5.50x | 1.73x | 3.18x |
+| TPC-H SF1 | 5.50x | 1.73x | 3.19x |
 | TPC-H SF10 | 5.25x | 2.14x | 2.45x |
 | XMark | 3.75x | 3.77x | 1.00x |
 | DBLP | 0.98x | 0.99x | 0.99x |
-| selectivity (A) / (B) | 0.98x / 1.00x | 0.97x / 1.06x | 1.01x / 0.94x |
+| selectivity (A) / (B) | 0.98x / 1.00x | 0.97x / 1.06x | 1.01x / 0.95x |
 
 XMark's gain is all pruning. On TPC-H the filter's share depends on the query: SF1 q06 3.482 s -> 0.637 s (5.5x),
 q01 3.879 s -> 3.820 s (1.02x).
 
 ### q01: pruning or filtering?
 
-q01's 1.70x with 1 thread (6.472 s -> 3.820 s) is 1.67x pruning (-> 3.879 s) and 1.02x filtering. Its predicate
+q01's 1.69x with 1 thread (6.472 s -> 3.820 s) is 1.67x pruning (-> 3.879 s) and 1.02x filtering. Its predicate
 `l_shipdate <= date '1998-12-01' - interval '90' day` keeps 5,916,591 of the 6,001,215 lineitems (98.59%), so the
 filter has almost nothing to drop. In the plan with `auto = true`, the scan shows the pushed predicate (`Pre-nest
 Filters`) and the UNNEST already emits 5,916,591 rows. The pruning shows as data read: 104.8 MB (the seven lineitem
@@ -358,6 +358,53 @@ reads all 10,000,000 elements for every N (130-190 ms of 0.20-0.29 s query time)
 ones. The query settings turn off join filter pushdown, the only way the parent's condition could reach the child
 scan. The builtin n3 is a single scan that returns 1,000 rows in 20 ms (0.098 s in total). CLI startup (0.06-0.07 s
 for `SELECT 1`) is in the wall-clock times of both and is not the floor.
+
+### Cold page cache
+
+All numbers above are warm: the fastest of 10 runs in one process, with the files in the OS page cache.
+`followup_checks.sh --steps cold` (`run_cold.py`, `followup_20261027_0127/cold/`) measures the same four configurations
+on the original files with a cold cache: before every run the query's Parquet files are evicted with
+`posix_fadvise(POSIX_FADV_DONTNEED)` (no root; other users' cache untouched) and every run is a new CLI process. The
+time is the CLI's own query time (no process startup); MB is what the process read from disk (`/usr/bin/time %I`). 5
+runs per configuration, interleaved, median. 1,320 runs, none failed, and `mincore` found 0.0% of any file still
+cached before any run. The files are on a SATA SSD (Samsung 860, ext4; a cold `cat` of SF1 reads 304 MB in 0.56 s,
+about 545 MB/s). The cold runs are steadier than the warm ones: the interquartile range is a median 1-7% of the
+median per dataset (at most 20%, selectivity). Results were not compared in this step (`run_bench.py` did that above).
+
+base / configuration, geometric mean, warm -> cold:
+
+| dataset | threads | prenestoff (pruning) | prenest | flat |
+|---|---|---|---|---|
+| TPC-H SF1 | 1 | 1.73x -> 1.73x | 5.50x -> 4.99x | 15.26x -> 13.51x |
+| TPC-H SF1 | 20 | 1.72x -> 1.73x | 5.43x -> 5.04x | 47.81x -> 26.76x |
+| TPC-H SF10 | 1 | 2.14x -> 2.23x | 5.25x -> 5.01x | 8.89x -> 7.99x |
+| TPC-H SF10 | 20 | 2.03x -> **3.68x** | 5.08x -> 5.67x | 8.50x -> 6.79x |
+| XMark | 1 | 3.77x -> 4.14x | 3.75x -> 4.15x | 6.90x -> 8.58x |
+| XMark | 20 | 3.79x -> 4.12x | 3.78x -> 4.10x | 6.08x -> 8.31x |
+| DBLP | 1 | 0.99x -> 0.99x | 0.98x -> 1.00x | 0.81x -> 0.90x |
+| DBLP | 20 | 1.01x -> 1.00x | 1.01x -> 1.00x | 2.03x -> 1.28x |
+| selectivity (A) | 1 | 0.97x -> 1.00x | 0.98x -> 1.01x | 0.71x -> 1.25x |
+| selectivity (A) | 20 | 1.05x -> 1.01x | 0.99x -> 1.02x | 3.03x -> 1.25x |
+| selectivity (B) | 1 | 1.06x -> 0.99x | 1.00x -> 0.99x | 0.44x -> 0.87x |
+| selectivity (B) | 20 | 0.99x -> 1.02x | 0.99x -> 1.01x | 1.30x -> 0.87x |
+
+- **The field pruning reads 4-14x less from disk.** base reads the whole file for every query (SF1 290 MB, SF10
+  2.5-2.6 GB, XMark 122 MB); prenestoff and prenest read only the projected columns (SF1 34-75 MB, SF10 318-599 MB,
+  XMark 9-11 MB), and flat about as much (SF1 35-81 MB, SF10 303-600 MB, XMark 4-7 MB). prenest reads exactly what
+  prenestoff reads: the pre-nest filter drops elements after they are decoded, so it saves CPU, not I/O.
+- **Where base is bound by the disk, the pruning gains.** SF10 at 20 threads: base takes 4.8 s longer cold (2.6 GB at
+  the SSD's speed), prenestoff 0.5 s, and the pruning's share grows from 2.0x to 3.7x. On XMark (122 MB vs 9-11 MB)
+  prenest gains from 3.8x to 4.1x and flat from 6.1-6.9x to 8.3-8.6x.
+- **flat's multi-thread lead shrinks where its warm time was close to the read time.** SF1 at 20 threads: flat reads
+  47-81 MB, 0.13 s more than warm, and the 48x becomes 27x. DBLP at 20 threads: 2.0x -> 1.3x.
+- **On the short queries all configurations add about the same read time**, so the ratios move towards 1: DBLP and
+  the selectivity data read the same 81-354 MB in every configuration (`LIST<BIGINT>` / predicates on the parent: no
+  pruning). prenest stays equal to base.
+- **With 1 thread, flat's time grows less than base's for the same bytes**: on the selectivity files +0.07-0.08 s
+  against +0.14-0.19 s for 81-85 MB, on DBLP +0.31 s against +0.52 s. So flat goes from 0.44-0.71x to 0.87-1.25x on
+  the selectivity data. Why (overlap of reads and decoding, prefetching) was not measured.
+- flat reads more with 20 threads than with 1 on some SF1 queries (q04 35 -> 47 MB, q10 62 -> 81 MB, q12 38 -> 52 MB);
+  the cause was not measured.
 
 ## XMark: element order
 
