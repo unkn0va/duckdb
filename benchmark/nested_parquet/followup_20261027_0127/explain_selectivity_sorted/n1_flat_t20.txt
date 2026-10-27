@@ -1,0 +1,69 @@
+SELECT avg(greatest(a, b)) FROM read_parquet_flat('l1.parquet') WHERE a < 100000;
+
+╭─ Projection ────────────────────────────────╮
+│ Projections:                                │
+│ "/"(CAST(#0 AS DOUBLE), CAST(#1 AS DOUBLE)) │
+│ ~1 row                                      │
+╰──────────────────────┬──────────────────────╯
+╭─ Ungrouped Aggregate ┴──────────────────────╮
+│ Aggregates: sum(#0), count(#1)              │
+│ ~1 row                                      │
+╰──────────────────────┬──────────────────────╯
+╭─ Projection ─────────┴──────────────────────╮
+│ Projections: #0, #0                         │
+│ ~2,000,000 rows                             │
+╰──────────────────────┬──────────────────────╯
+╭─ Projection ─────────┴──────────────────────╮
+│ Projections: greatest(a, b)                 │
+│ ~2,000,000 rows                             │
+╰──────────────────────┬──────────────────────╯
+╭─ Hash Join ──────────┴──────────────────────╮
+│ Join Type: INNER                            │
+│ Conditions: _ak0 = _sk                      │
+│ ~2,000,000 rows                             │
+╰──────────────────────┬──────────────────────╯
+                       ├────────────────────────────────────╮
+╭─ Read Parquet Node ──┴──────────────────────╮  ╭─ Read Parquet Node ─╮
+│ File: l1.parquet                            │  │ File: l1.parquet    │
+│ Node: b                                     │  │ Node: top level     │
+│ Projections: b, _ak0                        │  │ Projections: a, _sk │
+│ ~10,000,000 rows                            │  │ Filters: a < 100000 │
+╰─────────────────────────────────────────────╯  │ ~200,000 rows       │
+                                                 ╰─────────────────────╯
+╭─ Summary ───────────╮
+│ Total Time: 0.0588s │
+│ Data Read: 187.2 MB │
+╰─────────────────────╯
+╭─ Projection ────────────────────────────────╮
+│ Projections:                                │
+│ "/"(CAST(#0 AS DOUBLE), CAST(#1 AS DOUBLE)) │
+│ 1 row                                   0µs │
+╰──────────────────────┬──────────────────────╯
+╭─ Ungrouped Aggregate ┴──────────────────────╮
+│ Aggregates: sum(#0), count(#1)              │
+│ 1 row                                10.0ms │
+╰──────────────────────┬──────────────────────╯
+╭─ Projection ─────────┴──────────────────────╮
+│ Projections: #0, #0                         │
+│ 1,000,000 rows                          0µs │
+╰──────────────────────┬──────────────────────╯
+╭─ Projection ─────────┴──────────────────────╮
+│ Projections: greatest(a, b)                 │
+│ 1,000,000 rows                       10.0ms │
+╰──────────────────────┬──────────────────────╯
+╭─ Hash Join ──────────┴──────────────────────╮
+│ Join Type: INNER                            │
+│ Conditions: _ak0 = _sk                      │
+│ 1,000,000 rows                       60.0ms │
+╰──────────────────────┰┰─────────────────────╯
+                       ┃┠────────────────────────────────────╮
+╭─ Table Scan ─────────┚┖─────────────────────╮  ╭─ Table Scan ──────────╮
+│ File: l1.parquet                            │  │ File: l1.parquet      │
+│ Node: b                                     │  │ Node: top level       │
+│ Projections: b, _ak0                        │  │ Projections: a, _sk   │
+│ 10,000,000 rows                     380.0ms │  │ Filters: a < 100000   │
+╰─────────────────────────────────────────────╯  │ 100,000 rows   60.0ms │
+                                                 ╰───────────────────────╯
+## wall clock of the CLI process (startup + catalog + query)
+0.14 s
+0.07 s (SELECT 1 only)

@@ -1,0 +1,14 @@
+layout	dataset	file	row_groups	top_level_rows	max_rows_per_row_group	compression	created_by
+orig	tpch_sf1	nestedregion.parquet	1	5	5	SNAPPY	parquet-cpp-arrow version 13.0.0
+orig	tpch_sf10	nestedcustomer.parquet	22	1500000	69235	SNAPPY	parquet-mr version 1.13.1 (build db4183109d5b734ec5930d870cdae161e408ddba)
+orig	xmark	sf10.parquet	1	1	1	SNAPPY	parquet-cpp-arrow version 13.0.0
+orig	dblp	dblp.parquet	6	6150738	1048576	SNAPPY	parquet-cpp-arrow version 13.0.0
+orig	selectivity_random	l1.parquet	1	1000000	1000000	SNAPPY	parquet-cpp-arrow version 17.0.0
+orig	selectivity_sorted	l1.parquet	1	1000000	1000000	SNAPPY	parquet-cpp-arrow version 26.0.0
+rg1	tpch_sf1	nestedregion.parquet	1	5	5	SNAPPY	parquet-cpp-arrow version 26.0.0
+rg1	xmark	sf10.parquet	1	1	1	SNAPPY	parquet-cpp-arrow version 26.0.0
+rg1	selectivity_random	l1.parquet	1	1000000	1000000	SNAPPY	parquet-cpp-arrow version 26.0.0
+rg1	selectivity_sorted	l1.parquet	1	1000000	1000000	SNAPPY	parquet-cpp-arrow version 26.0.0
+rg20	tpch_sf1	nestedregion.parquet	5	5	1	SNAPPY	parquet-cpp-arrow version 26.0.0
+rg20	selectivity_random	l1.parquet	20	1000000	50000	SNAPPY	parquet-cpp-arrow version 26.0.0
+rg20	selectivity_sorted	l1.parquet	20	1000000	50000	SNAPPY	parquet-cpp-arrow version 26.0.0

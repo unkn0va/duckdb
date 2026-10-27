@@ -1,0 +1,40 @@
+[90mWARNING:
+[00m[90mThe logging settings have been changed so you may lose warnings printed in the CLI.
+To continue printing warnings to the console, set storage='shell_log_storage'.
+For more info see https://duckdb.org/docs/current/operations_manual/logging/overview.
+
+[00m2456423|406181.01480119483|1995-03-05 00:00:00|0
+3459808|405838.70465208543|1995-03-04 00:00:00|0
+492164|390324.0685982268|1995-02-19 00:00:00|0
+1188320|384537.93988908216|1995-03-09 00:00:00|0
+2435712|378673.058945412|1995-02-26 00:00:00|0
+4878020|378376.79507297877|1995-03-12 00:00:00|0
+5521732|375153.9188880889|1995-03-13 00:00:00|0
+2628192|373133.31079591304|1995-02-22 00:00:00|0
+993600|371407.4531467908|1995-03-05 00:00:00|0
+2300070|367371.14730106585|1995-03-13 00:00:00|0
+read_parquet_node: the filters of the query skip 0 of 5 tasks of node "r_nations.n_customers" of "nestedregion.parquet"
+read_parquet_node: "nestedregion.parquet" has 5 row groups, 20 threads run on 20 physical cores: the row groups are split
+read_parquet_node: counted the levels of 1 pages of column "o_orderdate" in row group 0 of "nestedregion.parquet"
+read_parquet_node: row group 0 of "nestedregion.parquet" is scanned in 2 parts, within the pages of column "o_orderdate" (pages: o_orderdate: 1, o_shippriority: 1), counting levels in column "o_orderdate" (1 pages)
+read_parquet_node: counted the levels of 1 pages of column "o_orderdate" in row group 1 of "nestedregion.parquet"
+read_parquet_node: row group 1 of "nestedregion.parquet" is scanned in 2 parts, within the pages of column "o_orderdate" (pages: o_orderdate: 1, o_shippriority: 1), counting levels in column "o_orderdate" (1 pages)
+read_parquet_node: counted the levels of 1 pages of column "o_orderdate" in row group 2 of "nestedregion.parquet"
+read_parquet_node: row group 2 of "nestedregion.parquet" is scanned in 2 parts, within the pages of column "o_orderdate" (pages: o_orderdate: 1, o_shippriority: 1), counting levels in column "o_orderdate" (1 pages)
+read_parquet_node: counted the levels of 1 pages of column "o_orderdate" in row group 3 of "nestedregion.parquet"
+read_parquet_node: row group 3 of "nestedregion.parquet" is scanned in 2 parts, within the pages of column "o_orderdate" (pages: o_orderdate: 1, o_shippriority: 1), counting levels in column "o_orderdate" (1 pages)
+read_parquet_node: counted the levels of 1 pages of column "o_orderdate" in row group 4 of "nestedregion.parquet"
+read_parquet_node: row group 4 of "nestedregion.parquet" is scanned in 2 parts, within the pages of column "o_orderdate" (pages: o_orderdate: 1, o_shippriority: 1), counting levels in column "o_orderdate" (1 pages)
+read_parquet_node: the filters of the query skip 0 of 10 tasks of node "r_nations.n_customers.c_orders" of "nestedregion.parquet"
+read_parquet_node: "nestedregion.parquet" has 5 row groups, 20 threads run on 20 physical cores: the row groups are split
+read_parquet_node: counted the levels of 1 pages of column "l_shipdate" in row group 0 of "nestedregion.parquet"
+read_parquet_node: row group 0 of "nestedregion.parquet" is scanned in 9 parts, within the pages of column "l_shipdate" (pages: l_shipdate: 1, l_discount: 1, l_extendedprice: 1, l_orderkey: 1), counting levels in column "l_shipdate" (1 pages)
+read_parquet_node: counted the levels of 1 pages of column "l_shipdate" in row group 1 of "nestedregion.parquet"
+read_parquet_node: row group 1 of "nestedregion.parquet" is scanned in 9 parts, within the pages of column "l_shipdate" (pages: l_shipdate: 1, l_discount: 1, l_extendedprice: 1, l_orderkey: 1), counting levels in column "l_shipdate" (1 pages)
+read_parquet_node: counted the levels of 1 pages of column "l_shipdate" in row group 2 of "nestedregion.parquet"
+read_parquet_node: row group 2 of "nestedregion.parquet" is scanned in 9 parts, within the pages of column "l_shipdate" (pages: l_shipdate: 1, l_discount: 1, l_extendedprice: 1, l_orderkey: 1), counting levels in column "l_shipdate" (1 pages)
+read_parquet_node: counted the levels of 1 pages of column "l_shipdate" in row group 3 of "nestedregion.parquet"
+read_parquet_node: row group 3 of "nestedregion.parquet" is scanned in 9 parts, within the pages of column "l_shipdate" (pages: l_shipdate: 1, l_discount: 1, l_extendedprice: 1, l_orderkey: 1), counting levels in column "l_shipdate" (1 pages)
+read_parquet_node: counted the levels of 1 pages of column "l_shipdate" in row group 4 of "nestedregion.parquet"
+read_parquet_node: row group 4 of "nestedregion.parquet" is scanned in 9 parts, within the pages of column "l_shipdate" (pages: l_shipdate: 1, l_discount: 1, l_extendedprice: 1, l_orderkey: 1), counting levels in column "l_shipdate" (1 pages)
+read_parquet_node: the filters of the query skip 0 of 45 tasks of node "r_nations.n_customers.c_orders.o_lineitems" of "nestedregion.parquet"

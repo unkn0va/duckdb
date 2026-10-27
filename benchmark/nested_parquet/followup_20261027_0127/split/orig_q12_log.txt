@@ -1,0 +1,12 @@
+[90mWARNING:
+[00m[90mThe logging settings have been changed so you may lose warnings printed in the CLI.
+To continue printing warnings to the console, set storage='shell_log_storage'.
+For more info see https://duckdb.org/docs/current/operations_manual/logging/overview.
+
+[00mMAIL|6202|9324
+SHIP|6200|9262
+read_parquet_node: "nestedregion.parquet" has 1 row groups, 20 threads run on 20 physical cores: the row groups are split
+read_parquet_node: counted the levels of 44 pages of column "l_orderkey" in row group 0 of "nestedregion.parquet"
+read_parquet_node: row group 0 of "nestedregion.parquet" is scanned in 20 parts, within the pages of column "l_commitdate" (pages: l_commitdate: 10, l_receiptdate: 10, l_shipdate: 10, l_shipmode: 3), counting levels in column "l_orderkey" (44 pages)
+read_parquet_node: the filters of the query skip 0 of 20 tasks of node "r_nations.n_customers.c_orders.o_lineitems" of "nestedregion.parquet"
+read_parquet_node: row group 0 of "nestedregion.parquet" is scanned in 12 parts, within the pages of column "o_orderpriority" (pages: o_orderpriority: 1)

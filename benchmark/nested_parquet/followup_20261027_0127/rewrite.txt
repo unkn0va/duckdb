@@ -1,0 +1,8 @@
+/home/layun03/nested-bench/data_rg1/nested-parquet-datasets/nested-tpch/nestedregion.parquet: 5 rows, 1 row groups, snappy
+/home/layun03/nested-bench/data_rg20/nested-parquet-datasets/nested-tpch/nestedregion.parquet: 5 rows, 5 row groups, snappy
+/home/layun03/nested-bench/data_rg1/nested-parquet-datasets/xmark/sf10.parquet: 1 rows, 1 row groups, snappy
+/home/layun03/nested-bench/data/nested-parquet-datasets/xmark/sf10.parquet: 1 top-level row, cannot be split into row groups - rg20 skipped
+/home/layun03/nested-bench/data_rg1/selectivity_random/l1.parquet: 1000000 rows, 1 row groups, snappy
+/home/layun03/nested-bench/data_rg20/selectivity_random/l1.parquet: 1000000 rows, 20 row groups, snappy
+/home/layun03/nested-bench/data_rg1/selectivity_sorted/l1.parquet: 1000000 rows, 1 row groups, snappy
+/home/layun03/nested-bench/data_rg20/selectivity_sorted/l1.parquet: 1000000 rows, 20 row groups, snappy

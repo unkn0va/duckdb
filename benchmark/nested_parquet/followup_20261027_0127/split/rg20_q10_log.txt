@@ -1,0 +1,50 @@
+[90mWARNING:
+[00m[90mThe logging settings have been changed so you may lose warnings printed in the CLI.
+To continue printing warnings to the console, set storage='shell_log_storage'.
+For more info see https://duckdb.org/docs/current/operations_manual/logging/overview.
+
+[00m57040|Customer#000057040|734235.2443430519|632.8699951171875|JAPAN|Eioyzjf4pp|22-895-641-3466|sits. slyly regular requests sleep alongside of the regular inst
+143347|Customer#000143347|721002.6964017418|2557.469970703125|EGYPT|1aReFYv,Kw4|14-742-935-3718|ggle carefully enticing requests. final deposits use bold, bold pinto beans. ironic, idle re
+60838|Customer#000060838|679127.3136918|2454.77001953125|BRAZIL|64EaJ5vMAHWJlBOxJklpNc2RJiWE|12-913-494-9813| need to boost against the slyly regular account
+101998|Customer#000101998|637029.5652635286|3790.889892578125|UNITED KINGDOM|01c9CILnNtfOQYmZj|33-593-865-6378|ress foxes wake slyly after the bold excuses. ironic platelets are furiously carefully bold theodolites
+125341|Customer#000125341|633508.0823112215|4983.509765625|GERMANY|S29ODD6bceU8QSuuEJznkNaK|17-582-695-5962|arefully even depths. blithely even excuses sleep furiously. foxes use except the dependencies. ca
+25501|Customer#000025501|620269.7788253003|7725.0400390625|ETHIOPIA|  W556MXuoiaYCCZamJI,Rn0B4ACUGdkQ8DZ|15-874-808-6793|he pending instructions wake carefully at the pinto beans. regular, final instructions along the slyly fina
+115831|Customer#000115831|596423.8651419979|5098.10009765625|FRANCE|rFeBbEEyk dl ne7zV5fDrmiq1oK09wV7pxqCgIc|16-715-386-3788|l somas sleep. furiously final deposits wake blithely regular pinto b
+84223|Customer#000084223|594998.025541841|528.6500244140625|UNITED KINGDOM|nAVZCs6BaWap rrM27N 2qBnzc5WBauxbA|33-442-824-8191| slyly final deposits haggle regular, pending dependencies. pending escapades wake 
+54289|Customer#000054289|585603.3972068299|5583.02001953125|IRAN|vXCxoCsU0Bad5JQI ,oobkZ|20-834-292-4707|ely special foxes are quickly finally ironic p
+39922|Customer#000039922|584878.1121918971|7321.10986328125|GERMANY|Zgy4s50l2GKN4pLDPBU8m342gIw6R|17-147-757-8036|y final requests. furiously final foxes cajole blithely special platelets. f
+6226|Customer#000006226|576783.7559860118|2230.090087890625|UNITED KINGDOM|8gPu8,NPGkfyQQ0hcIYUGPIBWc,ybP5g,|33-657-701-3391|ending platelets along the express deposits cajole carefully final 
+922|Customer#000000922|576767.5336071469|3869.25|GERMANY|Az9RFaut7NkPnc5zSD2PwHgVwr4jRzq|17-945-916-9648|luffily fluffy deposits. packages c
+147946|Customer#000147946|576455.1359474325|2030.1300048828125|ALGERIA|iANyZHjqhyy7Ajah0pTrYyhJ|10-886-956-3143|ithely ironic deposits haggle blithely ironic requests. quickly regu
+115640|Customer#000115640|569341.1959791607|6436.10009765625|ARGENTINA|Vtgfia9qI 7EpHgecU1X|11-411-543-4901|ost slyly along the patterns; pinto be
+73606|Customer#000073606|568656.8523865314|1785.6700439453125|JAPAN|xuR0Tro5yChDfOCrjkd2ol|22-437-653-6966|he furiously regular ideas. slowly
+110246|Customer#000110246|566842.9845622665|7763.35009765625|VIETNAM|7KzflgX MDOq7sOkI|31-943-426-9837|egular deposits serve blithely above the fl
+142549|Customer#000142549|563537.2392478943|5085.990234375|INDONESIA|ChqEoK43OysjdHbtKCp6dKqjNyvvi9|19-955-562-2398|sleep pending courts. ironic deposits against the carefully unusual platelets cajole carefully express accounts.
+146149|Customer#000146149|557254.9901706274|1791.550048828125|ROMANIA|s87fvzFQpU|29-744-164-6487| of the slyly silent accounts. quickly final accounts across the 
+52528|Customer#000052528|556397.3510270348|551.7899780273438|ARGENTINA|NFztyTOR10UOJ|11-208-192-3205| deposits hinder. blithely pending asymptotes breach slyly regular re
+23431|Customer#000023431|554269.5397281257|3381.860107421875|ROMANIA|HgiV0phqhaIa9aydNoIlb|29-915-458-2654|nusual, even instructions: furiously stealthy n
+read_parquet_node: "nestedregion.parquet" has 5 row groups, 20 threads run on 20 physical cores: the row groups are split
+read_parquet_node: counted the levels of 1 pages of column "o_orderdate" in row group 0 of "nestedregion.parquet"
+read_parquet_node: row group 0 of "nestedregion.parquet" is scanned in 2 parts, within the pages of column "o_orderdate" (pages: o_orderdate: 1), counting levels in column "o_orderdate" (1 pages)
+read_parquet_node: counted the levels of 1 pages of column "o_orderdate" in row group 1 of "nestedregion.parquet"
+read_parquet_node: row group 1 of "nestedregion.parquet" is scanned in 2 parts, within the pages of column "o_orderdate" (pages: o_orderdate: 1), counting levels in column "o_orderdate" (1 pages)
+read_parquet_node: counted the levels of 1 pages of column "o_orderdate" in row group 2 of "nestedregion.parquet"
+read_parquet_node: row group 2 of "nestedregion.parquet" is scanned in 2 parts, within the pages of column "o_orderdate" (pages: o_orderdate: 1), counting levels in column "o_orderdate" (1 pages)
+read_parquet_node: counted the levels of 1 pages of column "o_orderdate" in row group 3 of "nestedregion.parquet"
+read_parquet_node: row group 3 of "nestedregion.parquet" is scanned in 2 parts, within the pages of column "o_orderdate" (pages: o_orderdate: 1), counting levels in column "o_orderdate" (1 pages)
+read_parquet_node: counted the levels of 1 pages of column "o_orderdate" in row group 4 of "nestedregion.parquet"
+read_parquet_node: row group 4 of "nestedregion.parquet" is scanned in 2 parts, within the pages of column "o_orderdate" (pages: o_orderdate: 1), counting levels in column "o_orderdate" (1 pages)
+read_parquet_node: the filters of the query skip 0 of 10 tasks of node "r_nations.n_customers.c_orders" of "nestedregion.parquet"
+read_parquet_node: "nestedregion.parquet" has 5 row groups, 20 threads run on 20 physical cores: the row groups are split
+read_parquet_node: counted the levels of 1 pages of column "l_returnflag" in row group 0 of "nestedregion.parquet"
+read_parquet_node: row group 0 of "nestedregion.parquet" is scanned in 9 parts, within the pages of column "l_returnflag" (pages: l_returnflag: 1, l_discount: 1, l_extendedprice: 1), counting levels in column "l_returnflag" (1 pages)
+read_parquet_node: counted the levels of 1 pages of column "l_returnflag" in row group 1 of "nestedregion.parquet"
+read_parquet_node: row group 1 of "nestedregion.parquet" is scanned in 9 parts, within the pages of column "l_returnflag" (pages: l_returnflag: 1, l_discount: 1, l_extendedprice: 1), counting levels in column "l_returnflag" (1 pages)
+read_parquet_node: counted the levels of 1 pages of column "l_returnflag" in row group 2 of "nestedregion.parquet"
+read_parquet_node: row group 2 of "nestedregion.parquet" is scanned in 9 parts, within the pages of column "l_returnflag" (pages: l_returnflag: 1, l_discount: 1, l_extendedprice: 1), counting levels in column "l_returnflag" (1 pages)
+read_parquet_node: counted the levels of 1 pages of column "l_returnflag" in row group 3 of "nestedregion.parquet"
+read_parquet_node: row group 3 of "nestedregion.parquet" is scanned in 9 parts, within the pages of column "l_returnflag" (pages: l_returnflag: 1, l_discount: 1, l_extendedprice: 1), counting levels in column "l_returnflag" (1 pages)
+read_parquet_node: counted the levels of 1 pages of column "l_returnflag" in row group 4 of "nestedregion.parquet"
+read_parquet_node: row group 4 of "nestedregion.parquet" is scanned in 9 parts, within the pages of column "l_returnflag" (pages: l_returnflag: 1, l_discount: 1, l_extendedprice: 1), counting levels in column "l_returnflag" (1 pages)
+read_parquet_node: the filters of the query skip 0 of 45 tasks of node "r_nations.n_customers.c_orders.o_lineitems" of "nestedregion.parquet"
+read_parquet_node: "nestedregion.parquet" has 5 row groups, 20 threads run on 20 physical cores: the row groups are split

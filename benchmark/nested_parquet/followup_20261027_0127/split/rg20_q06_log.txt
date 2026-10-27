@@ -1,0 +1,12 @@
+[90mWARNING:
+[00m[90mThe logging settings have been changed so you may lose warnings printed in the CLI.
+To continue printing warnings to the console, set storage='shell_log_storage'.
+For more info see https://duckdb.org/docs/current/operations_manual/logging/overview.
+
+[00m75207767.7696104
+read_parquet_node: row group 0 of "nestedregion.parquet" is scanned in 9 parts, within the pages of column "l_discount" (pages: l_discount: 1, l_quantity: 1, l_shipdate: 1, l_extendedprice: 1)
+read_parquet_node: row group 1 of "nestedregion.parquet" is scanned in 9 parts, within the pages of column "l_discount" (pages: l_discount: 1, l_quantity: 1, l_shipdate: 1, l_extendedprice: 1)
+read_parquet_node: row group 2 of "nestedregion.parquet" is scanned in 9 parts, within the pages of column "l_discount" (pages: l_discount: 1, l_quantity: 1, l_shipdate: 1, l_extendedprice: 1)
+read_parquet_node: row group 3 of "nestedregion.parquet" is scanned in 9 parts, within the pages of column "l_discount" (pages: l_discount: 1, l_quantity: 1, l_shipdate: 1, l_extendedprice: 1)
+read_parquet_node: row group 4 of "nestedregion.parquet" is scanned in 9 parts, within the pages of column "l_discount" (pages: l_discount: 1, l_quantity: 1, l_shipdate: 1, l_extendedprice: 1)
+read_parquet_node: the filters of the query skip 0 of 45 tasks of node "r_nations.n_customers.c_orders.o_lineitems" of "nestedregion.parquet"

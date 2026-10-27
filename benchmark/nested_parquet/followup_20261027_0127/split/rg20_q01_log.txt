@@ -1,0 +1,15 @@
+[90mWARNING:
+[00m[90mThe logging settings have been changed so you may lose warnings printed in the CLI.
+To continue printing warnings to the console, set storage='shell_log_storage'.
+For more info see https://duckdb.org/docs/current/operations_manual/logging/overview.
+
+[00mA|F|37734107|56586554402.72095|53758257132.9252|55909065195.02431|25.522005853257337|38273.12973596828|0.049985295907060794|1478493
+N|F|991417|1487504710.6322021|1413082168.1780653|1469649222.6419396|25.516471920522985|38284.46776733932|0.050093426752791215|38854
+N|O|74476040|111701729705.04553|106118230307.18417|110367043820.99933|25.50222676958499|38249.11799140985|0.04999658612075087|2920374
+R|F|37719753|56568041383.98901|53741292683.546104|55889619092.95825|25.50579361269077|38250.85462818843|0.05000940589955741|1478870
+read_parquet_node: row group 0 of "nestedregion.parquet" is scanned in 9 parts, within the pages of column "l_shipdate" (pages: l_shipdate: 1, l_discount: 1, l_extendedprice: 1, l_linestatus: 1, l_quantity: 1, l_returnflag: 1, l_tax: 1)
+read_parquet_node: row group 1 of "nestedregion.parquet" is scanned in 9 parts, within the pages of column "l_shipdate" (pages: l_shipdate: 1, l_discount: 1, l_extendedprice: 1, l_linestatus: 1, l_quantity: 1, l_returnflag: 1, l_tax: 1)
+read_parquet_node: row group 2 of "nestedregion.parquet" is scanned in 9 parts, within the pages of column "l_shipdate" (pages: l_shipdate: 1, l_discount: 1, l_extendedprice: 1, l_linestatus: 1, l_quantity: 1, l_returnflag: 1, l_tax: 1)
+read_parquet_node: row group 3 of "nestedregion.parquet" is scanned in 9 parts, within the pages of column "l_shipdate" (pages: l_shipdate: 1, l_discount: 1, l_extendedprice: 1, l_linestatus: 1, l_quantity: 1, l_returnflag: 1, l_tax: 1)
+read_parquet_node: row group 4 of "nestedregion.parquet" is scanned in 9 parts, within the pages of column "l_shipdate" (pages: l_shipdate: 1, l_discount: 1, l_extendedprice: 1, l_linestatus: 1, l_quantity: 1, l_returnflag: 1, l_tax: 1)
+read_parquet_node: the filters of the query skip 0 of 45 tasks of node "r_nations.n_customers.c_orders.o_lineitems" of "nestedregion.parquet"

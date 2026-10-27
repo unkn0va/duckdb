@@ -1,0 +1,4 @@
+selectivity_random: 7 queries, 21 comparisons
+selectivity_sorted: 7 queries, 21 comparisons
+tpch_sf1: 6 queries, 18 comparisons
+OK: all 60 results equal the builtin results (or their oracles).

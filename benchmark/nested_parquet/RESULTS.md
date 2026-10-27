@@ -197,8 +197,8 @@ All queries and thread counts: `server_20261026_3way_base/summary.md` and `three
 - **prenest helps TPC-H (4.9-5.5x) and XMark (3.8x).**
   - On TPC-H, q03/q04/q06/q10/q12 have predicates on list elements that keep 0.5-20% of the elements read (SF1
     counters). q01's predicate keeps 98%.
-  - XMark's predicates are not on list elements, so its gain is likely the field pruning of the wide auction structs.
-    This was not measured separately.
+  - XMark's predicates are not on list elements, so its gain is the field pruning of the wide auction structs
+    (measured in the follow-up below: `prenestoff` = `prenest` on XMark).
 - **On DBLP and the selectivity data, prenest equals base** (geometric means 0.82-1.07). Single queries of 0.05-0.3 s
   vary by up to +-40% at 20-40 threads, in both directions. Their predicates are on the parent `a`, not on list
   elements, and selectivity's `b` is a `LIST<BIGINT>` with no fields to prune, so neither change applies.
@@ -219,6 +219,145 @@ All queries and thread counts: `server_20261026_3way_base/summary.md` and `three
   row group, which is split, and its bidders column has few pages (limitation above).
 - **Scaling above 10 threads is not linear.** Up to 10 threads run on one socket; beyond that the threads span both
   sockets (NUMA), and beyond 20 they share cores (hyper-threading).
+
+## Follow-up checks (2026-10-27)
+
+Four questions left by the 2026-10-26 run, and one that the answers raised (why flat is slower with 5 row groups),
+measured with the same three binaries on the same server, threads = 1/20 (20 = the physical cores), fastest of 10
+runs, `busy_cpu` = 0. `followup_checks.sh` runs every step; files: `followup_20261027_0127/` (`meta.tsv`,
+`rewrite.txt`, `off/`, `rg1/`, `rg20/`, `split/`, `q01_counters.txt`, `explain_selectivity_sorted/`). **All 303
+results equal the builtin results of `base`** (off 99, rg1 72, rg20 60, split 72).
+
+### How much of flat's multi-thread lead is parallelism?
+
+`parquet_metadata()` of the paper's files:
+
+| file | row groups | top-level rows | can be split |
+|---|---|---|---|
+| TPC-H SF1 `nestedregion.parquet` | 1 | 5 (regions) | into at most 5 |
+| XMark `sf10.parquet` | 1 | 1 | no |
+| selectivity (A), (B) `l1.parquet` | 1 | 1,000,000 | yes |
+| TPC-H SF10 / DBLP | 22 / 6 | | (already several) |
+
+A row group holds whole top-level rows, so SF1 can have 5 row groups at most and XMark only one. SF1 and the
+selectivity files were rewritten with pyarrow 26.0.0 (snappy, like the originals) twice: one row group (`rg1`, the
+control) and `ceil(rows / 20)` rows per row group (`rg20`: 5 row groups for SF1, 20 for the selectivity files).
+Compare `rg1` with `rg20`, not with the original files: the rewrite alone changed flat's 20-thread times (SF1 q03
+0.164 s -> 0.255 s, q10 0.264 s -> 0.391 s), because pyarrow 26 writes far fewer pages (next section).
+
+base / flat, geometric mean:
+
+| dataset | 1 thread rg1 | 1 thread rg20 | 20 threads rg1 | 20 threads rg20 |
+|---|---|---|---|---|
+| TPC-H SF1 | 15.20x | 12.40x | 34.08x | **6.47x** |
+| selectivity (A) | 0.74x | 0.61x | 3.23x | **0.69x** |
+| selectivity (B) | 0.41x | 0.12x | 1.28x | **0.36x** |
+
+- **Most of flat's multi-thread lead on single-row-group files is base not parallelizing.** With 5 row groups, base
+  runs SF1 at 20 threads in 1.47-1.66 s instead of 5.87-6.45 s (it can use 5 threads), flat stays at 0.10-0.39 s, and the
+  lead drops from 34x to 6.5x. The 1-thread ratio (15.3x on the original file, 12.4x on rg20) is the number without
+  parallelism. With 20 row groups, base beats flat on the selectivity data at 20 threads.
+- **On selectivity (B), base also skips row groups.** `a` is sorted, so `a < 10^6 / N` excludes 19 of the 20 row
+  groups by their min/max statistics: base with 1 thread goes from 0.058-0.073 s to 0.010-0.043 s for N >= 10. flat
+  does not get this (0.170-0.183 s -> 0.161-0.177 s), so (B) at rg20 is row group skipping as well as parallelism.
+- **flat is slower on some SF1 queries with 5 row groups at 20 threads**: q03 0.255 -> 0.370 s, q04 0.160 -> 0.308 s,
+  q12 0.138 -> 0.269 s. The cause is splitting row groups within their only page (next section).
+- base with 1 thread is 15-20% faster on rg20 than on rg1 for SF1 (5.9-6.5 s -> 4.9-5.3 s): smaller row groups, not
+  parallelism.
+- XMark cannot be split; its 1-thread ratio (6.9x) is the one to use.
+
+### Why flat is slower with 5 row groups: parts that start within a single page
+
+`followup_checks.sh --steps split` (`followup_20261027_0127/split/`): the `read_parquet_node` debug log of every SF1
+flat query at 20 threads, and the flat queries at 20 threads, fastest of 10 runs, with the default
+`parquet_node_task_slots` (122,880), x2, x4, and with `parquet_node_physical_cores = 1`, which leaves the scans that
+count levels unsplit. All 72 results equal the builtin results of `base`; `busy_cpu` = 0. Times in this run differ
+from the `rg` step by up to 25% (rg1 q01 0.185 s here, 0.147 s there), so compare within the run.
+
+Pages of the lineitem columns in the row group(s), from the log:
+
+| file | writer | l_shipdate | l_extendedprice | l_orderkey | lineitem scan |
+|---|---|---|---|---|---|
+| original | parquet-cpp-arrow 13.0.0 | 10 | 46 | 44 | q01/q03: 16 parts, at the pages of `l_extendedprice` |
+| rg1 | pyarrow 26.0.0 | 5 | 5 | 5 | 20 parts, within the pages |
+| rg20 | pyarrow 26.0.0 | 1 per row group | 1 | 1 | 5 x 9 parts, within the one page |
+
+flat at 20 threads, seconds (CPU seconds):
+
+| file | query | default | task slots x4 | no split when counting |
+|---|---|---|---|---|
+| rg20 | q03 | 0.361 (3.31) | 0.219 (1.22) | **0.180** (0.74) |
+| rg20 | q04 | 0.303 (2.31) | 0.197 (1.01) | **0.162** (0.82) |
+| rg20 | q10 | 0.386 (3.08) | 0.245 (1.37) | **0.217** (0.91) |
+| rg20 | q12 | 0.257 (2.19) | 0.202 (1.10) | **0.126** (0.61) |
+| rg20 | q01 | 0.158 (2.53) | 0.135 (1.09) | 0.147 (2.27) |
+| original | q03 | **0.160** (1.67) | 0.176 (1.36) | 0.413 (0.42) |
+| original | q12 | **0.102** (1.36) | 0.170 (1.28) | 0.341 (0.65) |
+
+- **When a row group has fewer pages than parts, every part starts within a page, and that page is decompressed by
+  every part that starts in it.** On rg20 the 9 parts of a row group all start in the single page of each column. The
+  scans of q03/q04/q10/q12 also need ancestor keys, so the rows before every part are counted in that page as well.
+  The CPU time at 20 threads is 2.2-3.3 s against 0.34-0.43 s with 1 thread.
+- **Not splitting is faster there.** With one task per row group (5 tasks, no counting), q03/q04/q10/q12 take 0.13-0.22 s
+  instead of 0.26-0.39 s. The split rule only compares the number of row groups with the threads and cores
+  (5 < min(20, 20)); it does not look at the pages.
+- On the single-row-group files, splitting is still right: unsplit, the one task takes 0.30-0.44 s.
+- q10 is affected as well. It did not look slower on rg20 in the `rg` step because it was already slow on rg1 (0.39-0.44
+  s), where its lineitems are also split within pages.
+- q01/q06 count no levels, so `no split when counting` does not change them; fewer parts (x2, x4) still help them
+  somewhat (q01 0.158 -> 0.114-0.135 s).
+- On the original file, the lineitem scans that read a column with many pages are split at page boundaries (q01/q03
+  at the 46 pages of `l_extendedprice`); q04 reads only `l_commitdate`/`l_receiptdate` (10 pages) and is split within
+  them. On the original file none of the tested settings is more than 7% faster than the default (q10 0.260 ->
+  0.243 s with x2), so the main table above stands.
+
+### Is prenest with `parquet_prenest_auto = false` equal to base?
+
+No, and it should not be: prenest-3way-base is base plus exactly two commits, 548a58078e (LIST<STRUCT> field pruning)
+and fabde05fe6 (pre-nest filter pushdown), and `auto = false` turns off only the second. So base / prenestoff is the
+pruning and prenestoff / prenest is the filter pushdown (strictly, prenestoff still carries the inactive filter code,
+whose cost was not measured separately). 1 thread, geometric mean (with 20 threads within 6% on TPC-H and XMark):
+
+| dataset | base / prenest | pruning: base / prenestoff | filter: prenestoff / prenest |
+|---|---|---|---|
+| TPC-H SF1 | 5.50x | 1.73x | 3.18x |
+| TPC-H SF10 | 5.25x | 2.14x | 2.45x |
+| XMark | 3.75x | 3.77x | 1.00x |
+| DBLP | 0.98x | 0.99x | 0.99x |
+| selectivity (A) / (B) | 0.98x / 1.00x | 0.97x / 1.06x | 1.01x / 0.94x |
+
+XMark's gain is all pruning. On TPC-H the filter's share depends on the query: SF1 q06 3.482 s -> 0.637 s (5.5x),
+q01 3.879 s -> 3.820 s (1.02x).
+
+### q01: pruning or filtering?
+
+q01's 1.70x with 1 thread (6.472 s -> 3.820 s) is 1.67x pruning (-> 3.879 s) and 1.02x filtering. Its predicate
+`l_shipdate <= date '1998-12-01' - interval '90' day` keeps 5,916,591 of the 6,001,215 lineitems (98.59%), so the
+filter has almost nothing to drop. In the plan with `auto = true`, the scan shows the pushed predicate (`Pre-nest
+Filters`) and the UNNEST already emits 5,916,591 rows. The pruning shows as data read: 104.8 MB (the seven lineitem
+columns) instead of 304.3 MB (all of `r_nations`).
+
+What the counters count (prenest-3way-base, fabde05fe6):
+
+- `elements_appended` (5,916,591): elements that passed and were appended to their list - equal to the count of
+  passing lineitems.
+- `elements_decoded` (6,051,219): values the list reader pulled from its child reader, i.e. the rep/def slots of the
+  leaf, which include one placeholder per empty or NULL list further up. 6,051,219 = 6,001,215 lineitems + 50,004
+  customers without orders (0 regions without nations, 0 nations without customers, 0 orders without lineitems). The
+  pass rate is therefore appended / lineitems, not appended / decoded.
+- `predicate_elements` (6,849,935): elements given to the predicate. When the output vector is full, the rest of the
+  child vector is carried into the next read and evaluated again, so carried values count twice: 6,849,935 - 6,051,219
+  = 798,716 values over 756 carry-overs (1,056 on average, about half a vector). The results are unaffected; it is 13%
+  more predicate evaluations than needed.
+
+### Selectivity (B): where flat's 0.17 s with 1 thread comes from
+
+EXPLAIN ANALYZE of the flat queries (main_rey, query settings) with 1 thread: the predicate `a < 10^6 / N` reaches the
+scan of the top-level node (`Filters: a < 1000`, 1,000 rows, 20 ms), but not the scan of the child node `b`, which
+reads all 10,000,000 elements for every N (130-190 ms of 0.20-0.29 s query time); the hash join then drops all but the matching
+ones. The query settings turn off join filter pushdown, the only way the parent's condition could reach the child
+scan. The builtin n3 is a single scan that returns 1,000 rows in 20 ms (0.098 s in total). CLI startup (0.06-0.07 s
+for `SELECT 1`) is in the wall-clock times of both and is not the floor.
 
 ## XMark: element order
 
