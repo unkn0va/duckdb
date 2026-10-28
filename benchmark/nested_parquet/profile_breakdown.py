@@ -8,14 +8,25 @@ samples of the second run count - the wall-clock time .timer reports for it, bac
 warms up the caches.
 
 Reported: CPU milliseconds per category, the hottest functions, and a timeline of the number of busy threads and what
-they do, in buckets of BUCKET_MS - phases in which few threads are busy limit the speedup of more threads.
+they do, in buckets of BUCKET_MS - phases in which few threads are busy limit the speedup of more threads. The scan
+splits into "list assembly" (the list and struct readers that build nested vectors from the levels), "pre-nest filter"
+(prenest-3way's element predicate, applied during the assembly) and the decoding of the values ("parquet decode",
+"parquet levels/skip", "scan filters / late decoding").
 
-Usage: [THREADS=n] [FREQ=hz] [BUCKET_MS=ms] profile_breakdown.py <duckdb binary> <data dir> <query file>
+PERF is the perf command, e.g. "sudo perf" where perf_event_paranoid keeps users from sampling; the perf.data of a
+sudo run is handed to the user (chown). SETUP is SQL run before the query (e.g. SET parquet_prenest_auto = true).
+CSV_OUT appends one row per category (label, wall ms, category, CPU ms); LABEL names the run in it. PERF_DATA keeps
+the perf.data at that path.
+
+Usage: [THREADS=n] [FREQ=hz] [BUCKET_MS=ms] [PERF=perf] [SETUP=sql] [CSV_OUT=csv LABEL=name] [PERF_DATA=path]
+       profile_breakdown.py <duckdb binary> <data dir> <query file>
 """
 import bisect
 import collections
 import os
 import re
+import shlex
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -24,9 +35,14 @@ DUCKDB, DATA_DIR, QUERY_FILE = sys.argv[1:4]
 THREADS = os.environ.get("THREADS", "16")
 FREQ = int(os.environ.get("FREQ", "4000"))
 BUCKET_MS = float(os.environ.get("BUCKET_MS", "10"))
+PERF = shlex.split(os.environ.get("PERF", "perf"))
+SETUP = os.environ.get("SETUP", "")
 
 # the first matching category of a function name wins
 CATEGORIES = [
+    ("pre-nest filter", ("PrenestFilter::Apply",)),
+    ("list assembly", ("ListColumnReader", "StructColumnReader")),
+    ("unnest", ("PhysicalUnnest", "UnnestOperator")),
     ("keys", ("ParquetNodeKeyGenerator",)),
     (
         "join filters",
@@ -168,11 +184,11 @@ def load_symbols(binary):
 
 def record():
     query = open(QUERY_FILE).read().strip().rstrip(";")
-    script = f"SET threads = {THREADS};\n{query};\n.timer on\n{query};\n"
+    script = f"SET threads = {THREADS};\n{SETUP}\n{query};\n.timer on\n{query};\n"
     with tempfile.TemporaryDirectory() as tmp:
         data = os.path.join(tmp, "perf.data")
         run = subprocess.run(
-            ["perf", "record", "-q", "-F", str(FREQ), "-o", data, "--", DUCKDB, "-no-agent"],
+            [*PERF, "record", "-q", "-F", str(FREQ), "-o", data, "--", DUCKDB, "-no-agent"],
             input=script,
             text=True,
             cwd=DATA_DIR,
@@ -180,12 +196,16 @@ def record():
             capture_output=True,
         )
         real = float(re.findall(r"Run Time \(s\): real ([0-9.]+)", run.stdout + run.stderr)[-1])
+        if PERF[0] == "sudo":
+            subprocess.run(["sudo", "chown", f"{os.getuid()}:{os.getgid()}", data], check=True)
         mmaps = subprocess.run(
             ["perf", "script", "-i", data, "--show-mmap-events"], capture_output=True, text=True
         ).stdout
         out = subprocess.run(
             ["perf", "script", "-i", data, "-F", "tid,time,ip,dso"], capture_output=True, text=True, check=True
         ).stdout
+        if os.environ.get("PERF_DATA"):
+            shutil.copy(data, os.environ["PERF_DATA"])
     binary = os.path.realpath(DUCKDB)
     base = None
     for line in mmaps.splitlines():
@@ -235,6 +255,10 @@ def main():
     )
     per_category = collections.Counter(s[2] for s in measured)
     print("  CPU ms per category:  " + ", ".join(f"{c} {n / FREQ * 1000:.0f}" for c, n in per_category.most_common()))
+    if os.environ.get("CSV_OUT"):
+        with open(os.environ["CSV_OUT"], "a") as f:
+            for c, n in per_category.most_common():
+                f.write(f"{os.environ.get('LABEL', QUERY_FILE)},{wall * 1000:.1f},{c},{n / FREQ * 1000:.1f}\n")
     top = collections.Counter(s[3] for s in measured).most_common(8)
     print("  hottest functions:")
     for function, n in top:
