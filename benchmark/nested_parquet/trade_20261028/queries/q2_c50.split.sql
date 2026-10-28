@@ -1,1 +1,1 @@
-SELECT sum(value) FROM 'pureflat/legs.parquet' WHERE currency = 'EUR' OR currency = 'USD';
+SELECT sum(value) FROM 'pureflat/legs.parquet' WHERE leg_id < 'leg270';

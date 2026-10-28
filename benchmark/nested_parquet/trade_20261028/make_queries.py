@@ -30,15 +30,12 @@ C9 = {"01": 10_050_000, "10": 100_050_000, "50": 500_050_000, "90": 900_050_000,
 VALUE = {"01": 12_500, "10": 103_200, "50": 507_400, "90": 911_200, "100": 2_000_000}
 # value % 100 < k: about k% of the elements, not tied to the row (legs.value itself follows the trade number, like c9)
 MOD = {"01": 1, "10": 10, "50": 50, "90": 90, "100": 100}
-# conditions pre-nest takes (comparisons, OR) on fields not tied to the row; share of the legs elements in the name
-CATEGORICAL = {
-    "01": "{leg_id} < 'leg103'",
-    "10": "{leg_id} < 'leg134'",
-    "25": "{currency} = 'EUR'",
-    "50": "{currency} = 'EUR' OR {currency} = 'USD'",
-    "75": "{currency} = 'EUR' OR {currency} = 'USD' OR {currency} = 'GBP'",
-    "100": "{currency} = 'EUR' OR {currency} = 'USD' OR {currency} = 'GBP' OR {currency} = 'AUD'",
-}
+# one comparison of the same shape that pre-nest takes, on a field not tied to the row (leg_id, in string order);
+# share of the legs elements in the name - 'leh' is above every leg id
+RANGE = {"01": "leg103", "10": "leg134", "25": "leg185", "50": "leg270", "75": "leg298", "100": "leh"}
+# 1 to 4 equalities ORed: compared with the q2_c point of the same share, the cost the OR terms add
+CURRENCIES = ["EUR", "USD", "GBP", "AUD"]
+OR_TERMS = {n: " OR ".join(f"{{currency}} = '{c}'" for c in CURRENCIES[:n]) for n in range(1, 5)}
 LEG_FIELDS = ["leg_id", "currency", "option_type", "value"]
 HALF = VALUE["50"]
 
@@ -75,9 +72,13 @@ for share, threshold in VALUE.items():
     legs_query(f"q2_s{share}", f"e.value < {threshold}", f'"legs.value" < {threshold}', f"value < {threshold}")
 for share, k in MOD.items():
     legs_query(f"q2_m{share}", f"e.value % 100 < {k}", f'"legs.value" % 100 < {k}', f"value % 100 < {k}")
-for share, condition in CATEGORICAL.items():
+for share, threshold in RANGE.items():
     legs_query(
-        f"q2_c{share}",
+        f"q2_c{share}", f"e.leg_id < '{threshold}'", f"\"legs.leg_id\" < '{threshold}'", f"leg_id < '{threshold}'"
+    )
+for terms, condition in OR_TERMS.items():
+    legs_query(
+        f"q2_or{terms}",
         condition.format(**{f: f"e.{f}" for f in LEG_FIELDS}),
         condition.format(**{f: f'"legs.{f}"' for f in LEG_FIELDS}),
         condition.format(**{f: f for f in LEG_FIELDS}),

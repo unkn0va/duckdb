@@ -1,1 +1,1 @@
-SELECT sum(e.value) FROM (SELECT unnest(legs) AS e FROM 'trade_B.parquet') WHERE e.currency = 'EUR' OR e.currency = 'USD' OR e.currency = 'GBP';
+SELECT sum(e.value) FROM (SELECT unnest(legs) AS e FROM 'trade_B.parquet') WHERE e.leg_id < 'leg298';

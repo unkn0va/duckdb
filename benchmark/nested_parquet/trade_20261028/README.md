@@ -119,10 +119,10 @@ cd ~/nested-bench/duckdb_rey/benchmark/nested_parquet/trade_20261028
 | 단계 | 결과 파일 | 내용 | 예상 시간 |
 |---|---|---|---|
 | info | `run_info.txt` | 호스트, CPU, 메모리, 바이너리 버전과 커밋 | 몇 초 |
-| check | `check_queries.md` | 다섯 구성의 결과 일치, prenest 카운터(평가/디코드, 추가/디코드 비율 포함), 실행 계획의 join | 약 30분 |
+| check | `check_queries.md` | 다섯 구성의 결과 일치, prenest 카운터(평가/디코드, 추가/디코드 비율 포함), 실행 계획의 join | 약 35분 |
 | selectivity | `selectivity.md` | 쿼리마다 통과 행 비율과 통과 원소 비율 | 약 5분 |
-| bench | `bench.csv`, `query_times.csv` | 36개 쿼리 × 5개 구성 × {1, 20}스레드, 10회 중 최소, CPU 시간 | 1스레드 약 5시간 + 20스레드 약 50분 |
-| explain | `operators_t1.csv` | 1스레드 EXPLAIN ANALYZE, 연산자 종류별 시간 | 약 30분 |
+| bench | `bench.csv`, `query_times.csv` | 40개 쿼리 × 5개 구성 × {1, 20}스레드, 10회 중 최소, CPU 시간 | 1스레드 약 5.5시간 + 20스레드 약 1시간 |
+| explain | `operators_t1.csv` | 1스레드 EXPLAIN ANALYZE, 연산자 종류별 시간 | 약 35분 |
 | profile (기본 단계 아님) | `profile/` | perf 샘플링, 1스레드, 6개 쿼리 × 5개 구성 | 약 30분 |
 | recheck (기본 단계 아님) | `recheck/summary.md` | 지난 측정의 쿼리 세트를 고친 결과 검사로 다시 확인, 시간 측정 없음 | 약 1시간 |
 
@@ -190,7 +190,8 @@ cat server_<폴더>/recheck/summary.md
 | q1_s{01,10,50,90,100} | 최상위 조건 선택도 | `c9 < 임계값`, legs.value 합계 |
 | q2_s{01,10,50,90,100} | 원소 조건 선택도, 행과 상관있음 | `legs.value < 임계값`, 합계. value는 trade 번호를 따라가므로(c9와 상관계수 0.99999) 사실상 행 조건 |
 | q2_m{01,10,50,90,100} | 원소 조건 선택도, 행과 상관없음 (prenest 미발동) | `legs.value % 100 < k`, 합계. 원소 1%일 때 통과 행 3.5%. base·flat 비교용 |
-| q2_c{01,10,25,50,75,100} | 원소 조건 선택도, 행과 상관없음 (prenest 발동) | prenest가 받는 비교·OR만 사용: `leg_id < 'leg103'`(0.9%), `leg_id < 'leg134'`(10.1%), `currency = 'EUR'`(24.6%), EUR OR USD(48.9%), EUR OR USD OR GBP(73.2%), 네 통화 OR(100%). 원소 1%일 때 통과 행 3.3% |
+| q2_c{01,10,25,50,75,100} | 원소 조건 선택도, 행과 상관없음 (prenest 발동) | 모든 점이 같은 모양의 비교 하나 `leg_id < '임계값'`(사전순): leg103 0.9%, leg134 10.1%, leg185 25.1%, leg270 49.9%, leg298 75.4%, leh 100%(모든 leg id가 통과). 원소 1%일 때 통과 행 3.3% |
+| q2_or{1,2,3,4} | OR 항 개수 | `currency = 'EUR'`(24.6%), EUR OR USD(48.9%), EUR OR USD OR GBP(73.2%), 네 통화 OR(100%). 같은 선택도의 q2_c 점(25/50/75/100)과 비교해 OR 항이 추가하는 비용을 본다 |
 | q2_cat_common / q2_cat_rare | 범주형 원소 조건 | `currency = 'AUD'`(26.8%) / `leg_id = 'leg39'`(0.023%, currency에는 드문 값이 없음) |
 | q3_{c13,c12,c11} | 리스트 길이 (legs는 q2_s50) | B 파일에서 펼침 + 원소 약 50% 조건 + 합계 |
 | q3w_{c13,c12,c11} | q3의 STRUCT 감싼 버전 | C 파일에서 같은 쿼리 (`e.v`) |
@@ -199,7 +200,7 @@ cat server_<폴더>/recheck/summary.md
 | q6_count / q6_group | 집계 종류 (SUM은 q2_s50) | q2_s50 조건으로 COUNT / c5별 GROUP BY |
 | q7_csa / q7_plots | 차원 테이블 조인 | csa_dictionary와 (c0, c1)로 / date_plots_flat과 c8로 |
 
-prenest가 발동하는 쿼리는 q2_s, q2_c, q2_cat, q3w, q5_or, q6입니다. 발동하지 않는 쿼리와 그 이유는 다음과 같습니다.
+prenest가 발동하는 쿼리는 q2_s, q2_c, q2_or, q2_cat, q3w, q5_or, q6입니다. 발동하지 않는 쿼리와 그 이유는 다음과 같습니다.
 - q1, q4, q7: 원소 조건이 없음
 - q3: 기본형 리스트라서 spec이 만들어지지 않음
 - q2_m: `%`는 함수라서 밀어 넣지 않음. prenest는 비교와 BETWEEN만 받음(실행 중 오류를 낼 수 있는 함수는 UNNEST 위에 남김)

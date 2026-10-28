@@ -13,7 +13,7 @@ import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from make_queries import C9, CATEGORICAL, HALF, MOD, VALUE  # noqa: E402
+from make_queries import C9, HALF, MOD, OR_TERMS, RANGE, VALUE  # noqa: E402
 
 duckdb, source = sys.argv[1], sys.argv[2]
 csa = (
@@ -53,8 +53,11 @@ for share, threshold in VALUE.items():
 for share, k in MOD.items():
     condition = "{value} % 100 < " + str(k)
     parts.append(row(f"q2_m{share}", f"{legs(condition)} > 0", legs(condition), "len(c18)"))
-for share, condition in CATEGORICAL.items():
+for share, threshold in RANGE.items():
+    condition = "{leg_id} < '" + threshold + "'"
     parts.append(row(f"q2_c{share}", f"{legs(condition)} > 0", legs(condition), "len(c18)"))
+for terms, condition in OR_TERMS.items():
+    parts.append(row(f"q2_or{terms}", f"{legs(condition)} > 0", legs(condition), "len(c18)"))
 for name, condition in (
     ("q2_cat_common", "{currency} = 'AUD'"),
     ("q2_cat_rare", "{leg_id} = 'leg39'"),
