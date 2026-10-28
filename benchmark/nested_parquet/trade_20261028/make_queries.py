@@ -30,6 +30,16 @@ C9 = {"01": 10_050_000, "10": 100_050_000, "50": 500_050_000, "90": 900_050_000,
 VALUE = {"01": 12_500, "10": 103_200, "50": 507_400, "90": 911_200, "100": 2_000_000}
 # value % 100 < k: about k% of the elements, not tied to the row (legs.value itself follows the trade number, like c9)
 MOD = {"01": 1, "10": 10, "50": 50, "90": 90, "100": 100}
+# conditions pre-nest takes (comparisons, OR) on fields not tied to the row; share of the legs elements in the name
+CATEGORICAL = {
+    "01": "{leg_id} < 'leg103'",
+    "10": "{leg_id} < 'leg134'",
+    "25": "{currency} = 'EUR'",
+    "50": "{currency} = 'EUR' OR {currency} = 'USD'",
+    "75": "{currency} = 'EUR' OR {currency} = 'USD' OR {currency} = 'GBP'",
+    "100": "{currency} = 'EUR' OR {currency} = 'USD' OR {currency} = 'GBP' OR {currency} = 'AUD'",
+}
+LEG_FIELDS = ["leg_id", "currency", "option_type", "value"]
 HALF = VALUE["50"]
 
 QUERIES = {}
@@ -65,6 +75,13 @@ for share, threshold in VALUE.items():
     legs_query(f"q2_s{share}", f"e.value < {threshold}", f'"legs.value" < {threshold}', f"value < {threshold}")
 for share, k in MOD.items():
     legs_query(f"q2_m{share}", f"e.value % 100 < {k}", f'"legs.value" % 100 < {k}', f"value % 100 < {k}")
+for share, condition in CATEGORICAL.items():
+    legs_query(
+        f"q2_c{share}",
+        condition.format(**{f: f"e.{f}" for f in LEG_FIELDS}),
+        condition.format(**{f: f'"legs.{f}"' for f in LEG_FIELDS}),
+        condition.format(**{f: f for f in LEG_FIELDS}),
+    )
 legs_query("q2_cat_common", "e.currency = 'AUD'", "\"legs.currency\" = 'AUD'", "currency = 'AUD'")
 legs_query("q2_cat_rare", "e.leg_id = 'leg39'", "\"legs.leg_id\" = 'leg39'", "leg_id = 'leg39'")
 
