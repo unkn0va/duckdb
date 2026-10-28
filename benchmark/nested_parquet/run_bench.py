@@ -156,13 +156,14 @@ def run_timed(sql, binary, threads, config_setup=""):
 
 def result_hash(sql, binary=None, setup=""):
     # order-insensitive fingerprint of the result, with numbers rounded to absorb float summation order: to 2 decimals,
-    # then to 12 significant digits (DuckDB versions round large averages differently in the last bit)
+    # then to 12 significant digits (DuckDB versions round large averages differently in the last bit). Every column is
+    # in the list (*COLUMNS unpacks them into one call), which also keeps read_parquet_flat from dropping unused nodes.
     inner = sql.strip().rstrip(";")
     query = (
-        "SELECT count(*), hash(list(r ORDER BY r)) FROM (SELECT list_transform(list_value(COLUMNS(*)::VARCHAR), "
+        "SELECT count(*), hash(list(r ORDER BY r)) FROM (SELECT list_transform(v, "
         "lambda x: CASE WHEN TRY_CAST(x AS DOUBLE) IS NULL THEN x "
         "ELSE printf('%.11e', round(x::DOUBLE, 2)) END)::VARCHAR AS r "
-        f"FROM ({inner}))"
+        f"FROM (SELECT list_value(*COLUMNS(*)) AS v FROM (SELECT COLUMNS(*)::VARCHAR FROM ({inner}))))"
     )
     binary = binary or DUCKDB
     try:
