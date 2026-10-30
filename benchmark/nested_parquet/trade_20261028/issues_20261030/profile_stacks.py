@@ -31,7 +31,7 @@ import sys
 import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from categories import CATEGORIES, classify, function_name  # noqa: E402
+from categories import CATEGORIES, classify_samples, function_name, truncated  # noqa: E402
 
 DUCKDB, DATA_DIR, QUERY_FILE, OUT = sys.argv[1:5]
 THREADS = os.environ.get("THREADS", "1")
@@ -122,10 +122,11 @@ def main():
     per_sub = collections.Counter()
     hottest = collections.defaultdict(collections.Counter)
     callers = collections.defaultdict(collections.Counter)
-    for stack in samples:
-        category, sub = classify(stack)
-        per_sub[(category, sub)] += 1
-        hottest[category][stack[0][0]] += 1
+    for stack, shares in zip(samples, classify_samples([(stack, 1) for stack in samples])):
+        for (category, sub), share in shares.items():
+            per_sub[(category, sub)] += share
+            hottest[category][stack[0][0]] += share
+        category, sub = max(shares, key=shares.get)
         for i, (frame, _) in enumerate(stack):
             hit = next((w for w in WATCH if frame.endswith(w)), None)
             if hit:
@@ -143,6 +144,8 @@ def main():
         # a median of 1-2 frames means perf could not unwind the stacks (no dwarf support): categories by leaf only
         f"stack depth: median {depths[len(depths) // 2]} frames, {100 * sum(d < 3 for d in depths) / len(depths):.0f}% "
         f"of the samples with fewer than 3",
+        # categories.classify_samples: a cut stack without a strong frame takes those of its leaf's complete stacks
+        f"truncated stacks: {100 * sum(map(truncated, samples)) / max(len(samples), 1):.1f}% of the samples",
     ]
     lines.append("CPU ms per category (sub-categories in brackets):")
     for category in CATEGORIES:

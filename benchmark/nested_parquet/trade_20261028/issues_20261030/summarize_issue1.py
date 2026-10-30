@@ -25,7 +25,7 @@ import sys
 from contextlib import redirect_stdout
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from categories import CATEGORIES, OLD_COLUMNS, classify, old_classify, read_folded  # noqa: E402
+from categories import CATEGORIES, OLD_COLUMNS, classify_samples, old_classify, read_folded, truncated  # noqa: E402
 from categories import table as category_table  # noqa: E402
 
 OUT = sys.argv[1] if __name__ == "__main__" else ""
@@ -36,33 +36,32 @@ SHORT = {"값 디코드": "디코드", "리스트 조립": "조립", "UNNEST": "
 
 
 def load_profile(folder):
-    """{(query, config): {"wall": s, "cpu": s, category: s, (category, sub): s}}"""
-    path = os.path.join(OUT, "profile", folder, "profile.csv")
+    """{(query, config): {"wall": s, "cpu": s, category: s, (category, sub): s, ("old", column): s, "moves": ...}}
+    from the recorded stacks (profile/<folder>/*.folded.gz), classified by categories.py now - both bases over the
+    same samples. "moves": (old column, new category, sub) -> s; "truncated": the share of cut stacks."""
     runs = collections.defaultdict(lambda: collections.defaultdict(float))
-    if not os.path.exists(path):
-        return runs
-    with open(path) as f:
-        rows = list(csv.reader(f))[1:]
-    for query, config, wall, cpu, category, sub, ms in rows:
-        run = runs[(query, config)]
-        run["wall"], run["cpu"] = float(wall) / 1000, float(cpu) / 1000
-        run[category] += float(ms) / 1000
-        run[(category, sub)] += float(ms) / 1000
-    # the old categories and the (old column, new category, sub-category) of every sample, from the stacks
-    for path in glob.glob(os.path.join(OUT, "profile", folder, "*.folded.gz")):
+    for path in sorted(glob.glob(os.path.join(OUT, "profile", folder, "*.folded.gz"))):
         header, stacks = read_folded(path)
         freq = int(header.get("freq", 1000))
         label = header.get("label", "")
         key = tuple(label.split(",", 1)) if "," in label else tuple(os.path.basename(path).split(".")[:2])
         run = runs[key]
+        run["wall"] = float(header.get("wall_ms", 0)) / 1000
         moves = run["moves"] = collections.Counter()
         leaves = run["vector_leaves"] = collections.Counter()
-        for stack, n, symbol in stacks:
-            old, new = old_classify(symbol, stack[0][1]), classify(stack)
+        samples = sum(n for _, n, _ in stacks)
+        run["cpu"] = samples / freq
+        run["truncated"] = sum(n for stack, n, _ in stacks if truncated(stack)) / max(samples, 1)
+        for (stack, n, symbol), shares in zip(stacks, classify_samples(stacks)):
+            old = old_classify(symbol, stack[0][1])
             run[("old", old)] += n / freq
-            moves[(old, *new)] += n / freq
-            if old == "식·벡터":
-                leaves[(*new, stack[0][0].replace("duckdb::", ""))] += n / freq
+            for (category, sub), share in shares.items():
+                seconds = n * share / freq
+                run[category] += seconds
+                run[(category, sub)] += seconds
+                moves[(old, category, sub)] += seconds
+                if old == "식·벡터":
+                    leaves[(category, sub, stack[0][0].replace("duckdb::", ""))] += seconds
     return runs
 
 
@@ -324,6 +323,21 @@ def categories_section():
     with redirect_stdout(buffer):
         category_table()
     print(buffer.getvalue())
+    print("### 잘린 스택\n")
+    print("perf가 스레드 시작까지 풀지 못한 스택(맨 위 프레임이 `[heap]`·`[stack]`·`[unknown]` 주소)입니다. 잘린 아래쪽에서 확정 규칙을 만나면 그 범주를 쓰고,")
+    print("못 만나면 같은 실행에서 같은 잎 함수를 가진 온전한 샘플들의 범주 비율로 나눕니다(그런 샘플이 없으면 기타/잘린 스택).\n")
+    shares = []
+    for folder in ("stage", "params", "tpch_sf1", "tpch_sf10"):
+        for (q, config), run in load_profile(folder).items():
+            shares.append((run["truncated"], folder, q, config))
+    if shares:
+        values = sorted(v for v, *_ in shares)
+        print(f"실행 {len(values)}개: 중앙값 {100 * statistics.median(values):.1f}%, 최댓값 {100 * values[-1]:.1f}%."
+              " 5%를 넘는 실행:\n")
+        for v, folder, q, config in sorted(shares, reverse=True):
+            if v > 0.05:
+                print(f"- {folder} {q} {config}: {100 * v:.1f}%")
+        print()
     found = other_review()
     print("### '기타'가 10%를 넘는 실행\n")
     if not found:

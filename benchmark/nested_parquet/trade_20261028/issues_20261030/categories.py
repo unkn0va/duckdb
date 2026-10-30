@@ -8,6 +8,8 @@ A sample is classified by walking its stack from the sampled function (the leaf)
   - every other frame is transparent: memcpy/malloc, the kernel, vector and validity helpers, hashing, tuple data,
     string operations take the category of the code that called them.
 Without a strong frame the first weak one decides; without either the sample is "기타" with the kind of its leaf.
+A stack perf could not unwind to the thread's start (truncated) and without a strong frame takes the categories of
+the complete stacks of the same leaf function in that run (classify_samples).
 The rules match the qualified function name without its arguments (in "f(duckdb::ColumnReader &)" the argument type
 does not count), first rule first within a frame.
 
@@ -136,21 +138,57 @@ def leaf_kind(frame, dso):
     return "duckdb 미분류"
 
 
-def classify(stack):
-    """(category, sub-category) of a sample; stack = [(function name, dso), ...] from the leaf to the root."""
+def decide(stack):
+    """(category, sub-category, decided by a strong frame) of a sample; stack = [(function name, dso), ...] from the
+    leaf to the root."""
     weak = None
     for frame, _ in stack:
         for category, sub, strength, pattern in COMPILED:
             if pattern.search(frame):
                 if strength == "strong":
-                    return category, sub
+                    return category, sub, True
                 if weak is None:
                     weak = (category, sub)
                 break
     if weak:
-        return weak
+        return (*weak, False)
     frame, dso = stack[0] if stack else ("", "")
-    return "기타", leaf_kind(frame, dso)
+    return "기타", leaf_kind(frame, dso), False
+
+
+def classify(stack):
+    """(category, sub-category) of a sample from its own stack."""
+    return decide(stack)[:2]
+
+
+def truncated(stack):
+    """Whether perf could not unwind the stack up to the start of the thread: its outermost frame is no function
+    (an address in the heap, on the stack or unknown)."""
+    frame, dso = stack[-1] if stack else ("[unknown]", "")
+    return frame == "[unknown]" or dso in ("[heap]", "[stack]", "[unknown]", "")
+
+
+def classify_samples(stacks):
+    """[{(category, sub-category): share}] for the [(stack, count, ...)] of one run. A sample whose stack is cut off
+    and has no strong frame below the cut takes the categories of the run's complete samples with the same leaf
+    function, in their proportions; without any it is 기타 / 잘린 스택."""
+    by_leaf = collections.defaultdict(collections.Counter)
+    decided = []
+    for stack, n, *_ in stacks:
+        category, sub, strong = decide(stack)
+        cut = truncated(stack)
+        decided.append((category, sub, strong, cut))
+        if not cut:
+            by_leaf[stack[0][0]][(category, sub)] += n
+    result = []
+    for (stack, *_), (category, sub, strong, cut) in zip(stacks, decided):
+        if strong or not cut:
+            result.append({(category, sub): 1.0})
+            continue
+        known = by_leaf.get(stack[0][0])
+        total = sum(known.values()) if known else 0
+        result.append({k: v / total for k, v in known.items()} if total else {("기타", "잘린 스택"): 1.0})
+    return result
 
 
 def _old_rules():
@@ -236,9 +274,9 @@ def main():
         freq = int(header.get("freq", 1000))
         label = header.get("label") or re.sub(r"\.folded\.gz$", "", os.path.basename(path))
         counts = collections.Counter()
-        for stack, n, symbol in stacks:
-            key = classify(stack)
-            counts[(old_classify(symbol, stack[0][1]), *key) if compare else key] += n
+        for (stack, n, symbol), shares in zip(stacks, classify_samples(stacks)):
+            for key, share in shares.items():
+                counts[(old_classify(symbol, stack[0][1]), *key) if compare else key] += n * share
         for key, n in sorted(counts.items(), key=lambda kv: -kv[1]):
             print(f"{label},{','.join(key)},{n * 1000 / freq:.1f}")
 
