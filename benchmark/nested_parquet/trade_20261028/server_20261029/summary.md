@@ -32,6 +32,7 @@
 - 결과 일치: `query_times.csv` 80행 모두 `yes`, `check_queries.md`에 불일치 없음, `bench.log`에 WARNING 없음.
 - recheck: 231개 검사 중 2개 실패(orig, rg1의 TPC-H SF1 q01 flat). sum_disc_price와 sum_charge가 상대 2~4e-14 다르고,
   결과 해시의 반올림(소수 둘째 자리 → 유효숫자 12자리) 경계에 걸린 경우입니다. 개수와 그룹은 같습니다.
+  결과 검사를 실수만 상대 1e-9로 비교하게 고친 뒤(4b5b4c37892) 2026-10-30에 다시 돌렸습니다. 그 결과 231개 검사 중 0개 실패였습니다(서버 `server_recheck_tol/`).
 
 ## 결과 요약 (1스레드, base 시간 / 각 구성 시간, > 1이면 base보다 빠름)
 

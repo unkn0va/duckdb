@@ -158,11 +158,8 @@
 - base → prenestoff 1.3~1.6배를 "쓰지 않는 legs 필드의 디코드와 복사가 줄어든 효과"로 본 것은 perf에서 추정한 것입니다.
 - q7_plots의 순서 고정·집계 이동 시간은 2백만 행 샘플에서만 쟀습니다. 1억 행 서버에서는 재지 않았습니다(`analysis_20261030/q7_variants.sh <data/full>`로 가능).
 - 20스레드 결과는 표에만 있고 분석하지 않았습니다.
-- **서버 recheck 재실행이 남았습니다.** 실수 오차 비교로 고친 뒤 q01 두 건은 서버 값으로만(이 PC에서) 통과를 확인했습니다. 기대 결과는 `231 checks, 0 failed`입니다.
-  ```bash
-  cd ~/nested-bench/duckdb_rey && git pull origin main_rey && cd benchmark/nested_parquet/trade_20261028
-  ALLOW_BUSY=1 ./run_trade.sh --steps recheck --out server_recheck_tol 2>&1 | tail -3
-  ```
+- (끝남) 실수 오차 비교로 고친 뒤 서버 recheck를 다시 돌렸습니다. 2026-10-30 `231 checks, 0 failed`가 나왔고, q01 두 건도 통과했습니다.
+  결과는 서버의 `trade_20261028/server_recheck_tol/`에만 있습니다.
 
 ## 7. 서버(apache10) 실행 규칙
 
