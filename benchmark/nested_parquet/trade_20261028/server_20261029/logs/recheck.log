@@ -1,0 +1,39 @@
+[08:36:56] step recheck
+[08:36:56] recheck orig tpch_sf1
+[08:39:51] recheck orig tpch_sf10
+[08:45:30] recheck orig xmark
+[08:45:50] recheck orig dblp
+[08:47:35] recheck orig selectivity_random
+[08:48:00] recheck orig selectivity_sorted
+[08:48:21] recheck rg1 tpch_sf1
+[08:51:15] recheck rg1 tpch_sf10: no /home/layun03/nested-bench/data_rg1/nested-parquet-datasets/nested-tpch-sf10/nestedcustomer.parquet, skipped
+[08:51:15] recheck rg1 xmark
+[08:51:37] recheck rg1 dblp: no /home/layun03/nested-bench/data_rg1/nested-parquet-datasets/dblp/dblp.parquet, skipped
+[08:51:37] recheck rg1 selectivity_random
+[08:51:41]   run_bench.py failed, see /home/layun03/nested-bench/duckdb_rey/benchmark/nested_parquet/trade_20261028/server_trade/recheck/rg1/selectivity_random.log
+[08:51:41] recheck rg1 selectivity_sorted
+[08:51:44]   run_bench.py failed, see /home/layun03/nested-bench/duckdb_rey/benchmark/nested_parquet/trade_20261028/server_trade/recheck/rg1/selectivity_sorted.log
+[08:51:44] recheck rg20 tpch_sf1
+[08:51:48]   run_bench.py failed, see /home/layun03/nested-bench/duckdb_rey/benchmark/nested_parquet/trade_20261028/server_trade/recheck/rg20/tpch_sf1.log
+[08:51:48] recheck rg20 tpch_sf10: no /home/layun03/nested-bench/data_rg20/nested-parquet-datasets/nested-tpch-sf10/nestedcustomer.parquet, skipped
+[08:51:48] recheck rg20 xmark: no /home/layun03/nested-bench/data_rg20/nested-parquet-datasets/xmark/sf10.parquet, skipped
+[08:51:48] recheck rg20 dblp: no /home/layun03/nested-bench/data_rg20/nested-parquet-datasets/dblp/dblp.parquet, skipped
+[08:51:48] recheck rg20 selectivity_random
+[08:51:51]   run_bench.py failed, see /home/layun03/nested-bench/duckdb_rey/benchmark/nested_parquet/trade_20261028/server_trade/recheck/rg20/selectivity_random.log
+[08:51:51] recheck rg20 selectivity_sorted
+[08:51:55]   run_bench.py failed, see /home/layun03/nested-bench/duckdb_rey/benchmark/nested_parquet/trade_20261028/server_trade/recheck/rg20/selectivity_sorted.log
+| layout | dataset | queries | checks | failed |
+|---|---|---|---|---|
+| orig | dblp | 4 | 12 | 0 |
+| orig | selectivity_random | 7 | 21 | 0 |
+| orig | selectivity_sorted | 7 | 21 | 0 |
+| orig | tpch_sf1 | 6 | 18 | 1 |
+| orig | tpch_sf10 | 5 | 15 | 0 |
+| orig | xmark | 4 | 12 | 0 |
+| rg1 | tpch_sf1 | 6 | 18 | 1 |
+| rg1 | xmark | 4 | 12 | 0 |
+
+129 checks, 2 failed
+- orig tpch_sf1 q01: flat_final_ok = False (reference: builtin of base)
+- rg1 tpch_sf1 q01: flat_final_ok = False (reference: builtin of base)
+[08:51:55] done: /home/layun03/nested-bench/duckdb_rey/benchmark/nested_parquet/trade_20261028/server_trade

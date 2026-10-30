@@ -1,0 +1,409 @@
+label,wall_ms,category,cpu_ms
+q1_s50,base,19240.0,expressions,7950.0
+q1_s50,base,19240.0,parquet decode,3379.8
+q1_s50,base,19240.0,list assembly,2050.8
+q1_s50,base,19240.0,other duckdb,2021.3
+q1_s50,base,19240.0,libc (memcpy/malloc/...),1497.5
+q1_s50,base,19240.0,unnest,1302.5
+q1_s50,base,19240.0,kernel,650.5
+q1_s50,base,19240.0,vectors,266.2
+q1_s50,base,19240.0,aggregate,225.0
+q1_s50,base,19240.0,scheduler,72.5
+q1_s50,base,19240.0,other,55.2
+q1_s50,base,19240.0,scan filters / late decoding,25.5
+q1_s50,base,19240.0,parquet levels/skip,1.8
+q1_s50,prenestoff,13403.0,expressions,3477.0
+q1_s50,prenestoff,13403.0,vectors,2556.8
+q1_s50,prenestoff,13403.0,list assembly,1830.0
+q1_s50,prenestoff,13403.0,parquet decode,1286.2
+q1_s50,prenestoff,13403.0,unnest,1259.2
+q1_s50,prenestoff,13403.0,libc (memcpy/malloc/...),1153.0
+q1_s50,prenestoff,13403.0,other duckdb,1050.8
+q1_s50,prenestoff,13403.0,kernel,613.5
+q1_s50,prenestoff,13403.0,aggregate,218.5
+q1_s50,prenestoff,13403.0,scheduler,72.8
+q1_s50,prenestoff,13403.0,other,52.2
+q1_s50,prenestoff,13403.0,scan filters / late decoding,25.5
+q1_s50,prenestoff,13403.0,parquet levels/skip,0.5
+q1_s50,prenest,13145.0,expressions,3461.5
+q1_s50,prenest,13145.0,vectors,2471.2
+q1_s50,prenest,13145.0,list assembly,1807.8
+q1_s50,prenest,13145.0,unnest,1344.2
+q1_s50,prenest,13145.0,parquet decode,1256.0
+q1_s50,prenest,13145.0,libc (memcpy/malloc/...),1090.0
+q1_s50,prenest,13145.0,other duckdb,1053.8
+q1_s50,prenest,13145.0,kernel,538.0
+q1_s50,prenest,13145.0,aggregate,221.5
+q1_s50,prenest,13145.0,scheduler,63.8
+q1_s50,prenest,13145.0,other,47.5
+q1_s50,prenest,13145.0,scan filters / late decoding,23.0
+q1_s50,prenest,13145.0,parquet levels/skip,0.5
+q1_s50,flat,21534.0,hash join,8941.8
+q1_s50,flat,21534.0,keys,4439.8
+q1_s50,flat,21534.0,aggregate,1908.2
+q1_s50,flat,21534.0,parquet decode,1354.8
+q1_s50,flat,21534.0,kernel,1233.0
+q1_s50,flat,21534.0,expressions,1220.0
+q1_s50,flat,21534.0,other duckdb,806.8
+q1_s50,flat,21534.0,vectors,545.8
+q1_s50,flat,21534.0,libc (memcpy/malloc/...),360.2
+q1_s50,flat,21534.0,hashing,318.0
+q1_s50,flat,21534.0,join filters,263.0
+q1_s50,flat,21534.0,scan filters / late decoding,169.0
+q1_s50,flat,21534.0,scheduler,16.0
+q1_s50,flat,21534.0,other,2.5
+q1_s50,flat,21534.0,parquet levels/skip,0.8
+q1_s50,pureflat,21386.0,hash join,8450.5
+q1_s50,pureflat,21386.0,parquet decode,3926.2
+q1_s50,pureflat,21386.0,kernel,2256.5
+q1_s50,pureflat,21386.0,expressions,2152.2
+q1_s50,pureflat,21386.0,aggregate,1634.0
+q1_s50,pureflat,21386.0,other duckdb,1308.2
+q1_s50,pureflat,21386.0,libc (memcpy/malloc/...),1017.5
+q1_s50,pureflat,21386.0,join filters,506.8
+q1_s50,pureflat,21386.0,vectors,498.5
+q1_s50,pureflat,21386.0,hashing,295.2
+q1_s50,pureflat,21386.0,scheduler,189.2
+q1_s50,pureflat,21386.0,other,156.2
+q1_s50,pureflat,21386.0,scan filters / late decoding,40.5
+q1_s50,pureflat,21386.0,parquet levels/skip,2.0
+q2_m50,base,23701.0,expressions,8249.2
+q2_m50,base,23701.0,vectors,3477.2
+q2_m50,base,23701.0,parquet decode,3053.0
+q2_m50,base,23701.0,unnest,2581.8
+q2_m50,base,23701.0,other duckdb,2112.5
+q2_m50,base,23701.0,list assembly,2012.0
+q2_m50,base,23701.0,libc (memcpy/malloc/...),1433.5
+q2_m50,base,23701.0,kernel,582.8
+q2_m50,base,23701.0,aggregate,225.0
+q2_m50,base,23701.0,scheduler,18.2
+q2_m50,base,23701.0,scan filters / late decoding,2.0
+q2_m50,base,23701.0,parquet levels/skip,2.0
+q2_m50,base,23701.0,other,1.8
+q2_m50,prenestoff,17519.0,vectors,5706.5
+q2_m50,prenestoff,17519.0,expressions,3665.0
+q2_m50,prenestoff,17519.0,unnest,2550.5
+q2_m50,prenestoff,17519.0,list assembly,1783.0
+q2_m50,prenestoff,17519.0,other duckdb,1141.0
+q2_m50,prenestoff,17519.0,libc (memcpy/malloc/...),1040.0
+q2_m50,prenestoff,17519.0,parquet decode,996.2
+q2_m50,prenestoff,17519.0,kernel,453.5
+q2_m50,prenestoff,17519.0,aggregate,208.0
+q2_m50,prenestoff,17519.0,scheduler,15.8
+q2_m50,prenestoff,17519.0,other,2.2
+q2_m50,prenestoff,17519.0,scan filters / late decoding,1.0
+q2_m50,prenestoff,17519.0,parquet levels/skip,1.0
+q2_m50,prenest,17486.0,vectors,5671.8
+q2_m50,prenest,17486.0,expressions,3621.2
+q2_m50,prenest,17486.0,unnest,2560.2
+q2_m50,prenest,17486.0,list assembly,1792.2
+q2_m50,prenest,17486.0,other duckdb,1106.5
+q2_m50,prenest,17486.0,libc (memcpy/malloc/...),1097.2
+q2_m50,prenest,17486.0,parquet decode,1015.7
+q2_m50,prenest,17486.0,kernel,453.0
+q2_m50,prenest,17486.0,aggregate,226.2
+q2_m50,prenest,17486.0,scheduler,13.8
+q2_m50,prenest,17486.0,other,2.8
+q2_m50,prenest,17486.0,scan filters / late decoding,0.8
+q2_m50,prenest,17486.0,parquet levels/skip,0.8
+q2_m50,flat,10740.0,vectors,4829.8
+q2_m50,flat,10740.0,keys,3451.5
+q2_m50,flat,10740.0,parquet decode,1068.2
+q2_m50,flat,10740.0,expressions,440.8
+q2_m50,flat,10740.0,other duckdb,357.2
+q2_m50,flat,10740.0,aggregate,272.5
+q2_m50,flat,10740.0,kernel,171.8
+q2_m50,flat,10740.0,libc (memcpy/malloc/...),138.8
+q2_m50,flat,10740.0,scheduler,7.5
+q2_m50,flat,10740.0,other,1.0
+q2_m50,flat,10740.0,scan filters / late decoding,0.5
+q2_m50,flat,10740.0,parquet levels/skip,0.5
+q2_m50,pureflat,8111.0,vectors,5008.5
+q2_m50,pureflat,8111.0,parquet decode,1020.3
+q2_m50,pureflat,8111.0,expressions,545.0
+q2_m50,pureflat,8111.0,kernel,535.0
+q2_m50,pureflat,8111.0,other duckdb,482.8
+q2_m50,pureflat,8111.0,libc (memcpy/malloc/...),296.8
+q2_m50,pureflat,8111.0,aggregate,292.8
+q2_m50,pureflat,8111.0,scheduler,92.8
+q2_m50,pureflat,8111.0,other,75.8
+q2_m50,pureflat,8111.0,scan filters / late decoding,10.0
+q2_m50,pureflat,8111.0,parquet levels/skip,0.5
+q2_s50,base,21395.0,expressions,8667.5
+q2_s50,base,21395.0,parquet decode,3106.5
+q2_s50,base,21395.0,unnest,2596.2
+q2_s50,base,21395.0,other duckdb,2256.8
+q2_s50,base,21395.0,list assembly,2038.0
+q2_s50,base,21395.0,libc (memcpy/malloc/...),1491.0
+q2_s50,base,21395.0,kernel,544.5
+q2_s50,base,21395.0,vectors,491.0
+q2_s50,base,21395.0,aggregate,228.8
+q2_s50,base,21395.0,scheduler,14.0
+q2_s50,base,21395.0,scan filters / late decoding,2.2
+q2_s50,base,21395.0,parquet levels/skip,2.0
+q2_s50,base,21395.0,other,1.2
+q2_s50,prenestoff,15330.0,expressions,4199.0
+q2_s50,prenestoff,15330.0,vectors,2672.2
+q2_s50,prenestoff,15330.0,unnest,2550.5
+q2_s50,prenestoff,15330.0,list assembly,1802.2
+q2_s50,prenestoff,15330.0,other duckdb,1277.5
+q2_s50,prenestoff,15330.0,libc (memcpy/malloc/...),1147.5
+q2_s50,prenestoff,15330.0,parquet decode,1059.0
+q2_s50,prenestoff,15330.0,kernel,376.2
+q2_s50,prenestoff,15330.0,aggregate,228.8
+q2_s50,prenestoff,15330.0,scheduler,9.8
+q2_s50,prenestoff,15330.0,parquet levels/skip,1.2
+q2_s50,prenestoff,15330.0,scan filters / late decoding,1.2
+q2_s50,prenestoff,15330.0,other,1.0
+q2_s50,prenest,12353.0,expressions,2773.0
+q2_s50,prenest,12353.0,unnest,2592.8
+q2_s50,prenest,12353.0,list assembly,2140.2
+q2_s50,prenest,12353.0,vectors,1592.5
+q2_s50,prenest,12353.0,parquet decode,1062.5
+q2_s50,prenest,12353.0,other duckdb,1018.3
+q2_s50,prenest,12353.0,libc (memcpy/malloc/...),588.0
+q2_s50,prenest,12353.0,kernel,287.2
+q2_s50,prenest,12353.0,aggregate,210.5
+q2_s50,prenest,12353.0,pre-nest filter,84.5
+q2_s50,prenest,12353.0,scheduler,12.2
+q2_s50,prenest,12353.0,scan filters / late decoding,0.5
+q2_s50,prenest,12353.0,other,0.5
+q2_s50,flat,6243.0,keys,3432.0
+q2_s50,flat,6243.0,parquet decode,1037.0
+q2_s50,flat,6243.0,scan filters / late decoding,535.5
+q2_s50,flat,6243.0,other duckdb,297.2
+q2_s50,flat,6243.0,aggregate,282.8
+q2_s50,flat,6243.0,vectors,193.8
+q2_s50,flat,6243.0,expressions,180.2
+q2_s50,flat,6243.0,kernel,158.2
+q2_s50,flat,6243.0,libc (memcpy/malloc/...),122.0
+q2_s50,flat,6243.0,scheduler,3.8
+q2_s50,flat,6243.0,other,0.5
+q2_s50,pureflat,3505.0,parquet decode,1336.0
+q2_s50,pureflat,3505.0,kernel,563.5
+q2_s50,pureflat,3505.0,expressions,457.5
+q2_s50,pureflat,3505.0,other duckdb,426.8
+q2_s50,pureflat,3505.0,aggregate,323.0
+q2_s50,pureflat,3505.0,libc (memcpy/malloc/...),310.0
+q2_s50,pureflat,3505.0,scan filters / late decoding,185.5
+q2_s50,pureflat,3505.0,vectors,124.0
+q2_s50,pureflat,3505.0,scheduler,85.8
+q2_s50,pureflat,3505.0,other,76.5
+q2_s50,pureflat,3505.0,join filters,0.8
+q2_s50,pureflat,3505.0,parquet levels/skip,0.5
+q3_c11,base,13933.0,expressions,3382.5
+q3_c11,base,13933.0,unnest,2966.8
+q3_c11,base,13933.0,parquet decode,2951.5
+q3_c11,base,13933.0,list assembly,2316.5
+q3_c11,base,13933.0,other duckdb,783.0
+q3_c11,base,13933.0,libc (memcpy/malloc/...),529.8
+q3_c11,base,13933.0,aggregate,419.8
+q3_c11,base,13933.0,vectors,298.8
+q3_c11,base,13933.0,kernel,288.8
+q3_c11,base,13933.0,scheduler,17.0
+q3_c11,base,13933.0,parquet levels/skip,1.5
+q3_c11,base,13933.0,other,1.5
+q3_c11,base,13933.0,scan filters / late decoding,0.8
+q3_c11,prenestoff,13865.0,expressions,3184.2
+q3_c11,prenestoff,13865.0,parquet decode,2978.0
+q3_c11,prenestoff,13865.0,unnest,2923.0
+q3_c11,prenestoff,13865.0,list assembly,2355.2
+q3_c11,prenestoff,13865.0,other duckdb,828.5
+q3_c11,prenestoff,13865.0,libc (memcpy/malloc/...),548.0
+q3_c11,prenestoff,13865.0,aggregate,420.2
+q3_c11,prenestoff,13865.0,vectors,311.0
+q3_c11,prenestoff,13865.0,kernel,298.0
+q3_c11,prenestoff,13865.0,scheduler,15.2
+q3_c11,prenestoff,13865.0,parquet levels/skip,1.0
+q3_c11,prenestoff,13865.0,other,0.5
+q3_c11,prenestoff,13865.0,scan filters / late decoding,0.5
+q3_c11,prenest,13840.0,expressions,3146.5
+q3_c11,prenest,13840.0,parquet decode,3104.0
+q3_c11,prenest,13840.0,unnest,2931.2
+q3_c11,prenest,13840.0,list assembly,2316.0
+q3_c11,prenest,13840.0,other duckdb,802.8
+q3_c11,prenest,13840.0,libc (memcpy/malloc/...),523.8
+q3_c11,prenest,13840.0,aggregate,427.2
+q3_c11,prenest,13840.0,kernel,332.0
+q3_c11,prenest,13840.0,vectors,300.8
+q3_c11,prenest,13840.0,scheduler,14.2
+q3_c11,prenest,13840.0,other,1.2
+q3_c11,prenest,13840.0,scan filters / late decoding,1.0
+q3_c11,flat,12068.0,keys,6026.5
+q3_c11,flat,12068.0,parquet decode,3053.0
+q3_c11,flat,12068.0,scan filters / late decoding,992.5
+q3_c11,flat,12068.0,aggregate,523.8
+q3_c11,flat,12068.0,other duckdb,409.0
+q3_c11,flat,12068.0,vectors,383.0
+q3_c11,flat,12068.0,expressions,287.2
+q3_c11,flat,12068.0,kernel,205.0
+q3_c11,flat,12068.0,libc (memcpy/malloc/...),192.8
+q3_c11,flat,12068.0,scheduler,6.2
+q3_c11,flat,12068.0,other,1.8
+q3_c11,flat,12068.0,parquet levels/skip,1.0
+q3_c11,pureflat,5918.0,parquet decode,2736.0
+q3_c11,pureflat,5918.0,expressions,689.5
+q3_c11,pureflat,5918.0,other duckdb,657.5
+q3_c11,pureflat,5918.0,kernel,611.8
+q3_c11,pureflat,5918.0,aggregate,575.0
+q3_c11,pureflat,5918.0,libc (memcpy/malloc/...),461.5
+q3_c11,pureflat,5918.0,vectors,214.2
+q3_c11,pureflat,5918.0,scan filters / late decoding,213.8
+q3_c11,pureflat,5918.0,scheduler,161.5
+q3_c11,pureflat,5918.0,other,92.2
+q3_c11,pureflat,5918.0,parquet levels/skip,2.0
+q3_c11,pureflat,5918.0,join filters,1.8
+q4_two,base,112642.0,hash join,29389.8
+q4_two,base,112642.0,vectors,14218.8
+q4_two,base,112642.0,kernel,13648.8
+q4_two,base,112642.0,aggregate,13530.2
+q4_two,base,112642.0,other duckdb,11381.5
+q4_two,base,112642.0,expressions,10059.2
+q4_two,base,112642.0,unnest,5891.2
+q4_two,base,112642.0,parquet decode,4281.0
+q4_two,base,112642.0,list assembly,4138.2
+q4_two,base,112642.0,libc (memcpy/malloc/...),3165.2
+q4_two,base,112642.0,join filters,2093.5
+q4_two,base,112642.0,hashing,759.8
+q4_two,base,112642.0,scan filters / late decoding,60.8
+q4_two,base,112642.0,scheduler,59.8
+q4_two,base,112642.0,parquet levels/skip,4.0
+q4_two,base,112642.0,other,3.2
+q4_two,prenestoff,112402.0,hash join,30005.2
+q4_two,prenestoff,112402.0,kernel,14834.0
+q4_two,prenestoff,112402.0,vectors,14136.8
+q4_two,prenestoff,112402.0,aggregate,13311.0
+q4_two,prenestoff,112402.0,other duckdb,11569.8
+q4_two,prenestoff,112402.0,expressions,9794.0
+q4_two,prenestoff,112402.0,unnest,5833.8
+q4_two,prenestoff,112402.0,parquet decode,4290.0
+q4_two,prenestoff,112402.0,list assembly,4085.8
+q4_two,prenestoff,112402.0,join filters,1985.5
+q4_two,prenestoff,112402.0,libc (memcpy/malloc/...),1737.5
+q4_two,prenestoff,112402.0,hashing,745.8
+q4_two,prenestoff,112402.0,scan filters / late decoding,59.8
+q4_two,prenestoff,112402.0,scheduler,57.5
+q4_two,prenestoff,112402.0,other,5.5
+q4_two,prenestoff,112402.0,parquet levels/skip,4.0
+q4_two,prenest,113616.0,hash join,29781.8
+q4_two,prenest,113616.0,kernel,14524.8
+q4_two,prenest,113616.0,vectors,14035.0
+q4_two,prenest,113616.0,aggregate,13487.0
+q4_two,prenest,113616.0,other duckdb,11555.0
+q4_two,prenest,113616.0,expressions,9836.5
+q4_two,prenest,113616.0,unnest,5821.5
+q4_two,prenest,113616.0,parquet decode,4304.5
+q4_two,prenest,113616.0,list assembly,3997.0
+q4_two,prenest,113616.0,libc (memcpy/malloc/...),3195.5
+q4_two,prenest,113616.0,join filters,2275.2
+q4_two,prenest,113616.0,hashing,732.2
+q4_two,prenest,113616.0,scheduler,59.0
+q4_two,prenest,113616.0,scan filters / late decoding,58.2
+q4_two,prenest,113616.0,other,3.0
+q4_two,prenest,113616.0,parquet levels/skip,1.5
+q4_two,flat,80245.0,hash join,22939.2
+q4_two,flat,80245.0,aggregate,11942.5
+q4_two,flat,80245.0,vectors,9484.8
+q4_two,flat,80245.0,keys,9477.0
+q4_two,flat,80245.0,other duckdb,8215.2
+q4_two,flat,80245.0,kernel,6539.8
+q4_two,flat,80245.0,expressions,5190.2
+q4_two,flat,80245.0,parquet decode,3776.8
+q4_two,flat,80245.0,join filters,1041.2
+q4_two,flat,80245.0,libc (memcpy/malloc/...),908.8
+q4_two,flat,80245.0,hashing,707.8
+q4_two,flat,80245.0,scheduler,50.0
+q4_two,flat,80245.0,other,7.2
+q4_two,flat,80245.0,scan filters / late decoding,1.8
+q4_two,flat,80245.0,parquet levels/skip,0.5
+q4_two,pureflat,79310.0,hash join,23697.0
+q4_two,pureflat,79310.0,aggregate,12008.5
+q4_two,pureflat,79310.0,vectors,9785.2
+q4_two,pureflat,79310.0,other duckdb,8823.0
+q4_two,pureflat,79310.0,kernel,8454.8
+q4_two,pureflat,79310.0,parquet decode,6982.2
+q4_two,pureflat,79310.0,expressions,6397.8
+q4_two,pureflat,79310.0,libc (memcpy/malloc/...),1969.0
+q4_two,pureflat,79310.0,join filters,963.0
+q4_two,pureflat,79310.0,hashing,743.0
+q4_two,pureflat,79310.0,scheduler,463.8
+q4_two,pureflat,79310.0,other,344.8
+q4_two,pureflat,79310.0,scan filters / late decoding,37.5
+q4_two,pureflat,79310.0,parquet levels/skip,4.0
+q7_plots,base,40807.0,expressions,10358.8
+q7_plots,base,40807.0,other duckdb,7206.2
+q7_plots,base,40807.0,hash join,6505.2
+q7_plots,base,40807.0,aggregate,3487.5
+q7_plots,base,40807.0,parquet decode,3335.0
+q7_plots,base,40807.0,unnest,2587.8
+q7_plots,base,40807.0,list assembly,2030.2
+q7_plots,base,40807.0,hashing,1996.8
+q7_plots,base,40807.0,libc (memcpy/malloc/...),1787.0
+q7_plots,base,40807.0,vectors,870.0
+q7_plots,base,40807.0,kernel,707.5
+q7_plots,base,40807.0,scheduler,96.8
+q7_plots,base,40807.0,other,43.8
+q7_plots,base,40807.0,join filters,38.2
+q7_plots,base,40807.0,scan filters / late decoding,9.5
+q7_plots,base,40807.0,parquet levels/skip,2.5
+q7_plots,prenestoff,34096.0,hash join,6346.0
+q7_plots,prenestoff,34096.0,expressions,5810.2
+q7_plots,prenestoff,34096.0,other duckdb,5777.8
+q7_plots,prenestoff,34096.0,aggregate,3537.8
+q7_plots,prenestoff,34096.0,vectors,3039.2
+q7_plots,prenestoff,34096.0,unnest,2553.2
+q7_plots,prenestoff,34096.0,hashing,2006.0
+q7_plots,prenestoff,34096.0,list assembly,1795.8
+q7_plots,prenestoff,34096.0,libc (memcpy/malloc/...),1493.5
+q7_plots,prenestoff,34096.0,parquet decode,1198.5
+q7_plots,prenestoff,34096.0,kernel,644.8
+q7_plots,prenestoff,34096.0,scheduler,81.8
+q7_plots,prenestoff,34096.0,other,37.2
+q7_plots,prenestoff,34096.0,join filters,24.2
+q7_plots,prenestoff,34096.0,scan filters / late decoding,5.5
+q7_plots,prenestoff,34096.0,parquet levels/skip,1.8
+q7_plots,prenest,34132.0,hash join,6356.8
+q7_plots,prenest,34132.0,expressions,5894.8
+q7_plots,prenest,34132.0,other duckdb,5792.5
+q7_plots,prenest,34132.0,aggregate,3515.2
+q7_plots,prenest,34132.0,vectors,3021.0
+q7_plots,prenest,34132.0,unnest,2587.8
+q7_plots,prenest,34132.0,hashing,1999.2
+q7_plots,prenest,34132.0,list assembly,1774.8
+q7_plots,prenest,34132.0,libc (memcpy/malloc/...),1468.2
+q7_plots,prenest,34132.0,parquet decode,1194.2
+q7_plots,prenest,34132.0,kernel,591.0
+q7_plots,prenest,34132.0,scheduler,92.2
+q7_plots,prenest,34132.0,other,40.8
+q7_plots,prenest,34132.0,join filters,28.5
+q7_plots,prenest,34132.0,scan filters / late decoding,8.0
+q7_plots,prenest,34132.0,parquet levels/skip,2.2
+q7_plots,flat,93942.0,hash join,24621.0
+q7_plots,flat,93942.0,aggregate,18493.5
+q7_plots,flat,93942.0,hashing,16821.5
+q7_plots,flat,93942.0,kernel,10897.5
+q7_plots,flat,93942.0,other duckdb,6871.0
+q7_plots,flat,93942.0,expressions,4882.5
+q7_plots,flat,93942.0,keys,4398.5
+q7_plots,flat,93942.0,vectors,2616.5
+q7_plots,flat,93942.0,join filters,1702.5
+q7_plots,flat,93942.0,libc (memcpy/malloc/...),1430.2
+q7_plots,flat,93942.0,parquet decode,1210.5
+q7_plots,flat,93942.0,scheduler,40.5
+q7_plots,flat,93942.0,other,5.8
+q7_plots,flat,93942.0,parquet levels/skip,1.8
+q7_plots,flat,93942.0,scan filters / late decoding,1.5
+q7_plots,pureflat,97926.0,hash join,24419.2
+q7_plots,pureflat,97926.0,aggregate,19097.0
+q7_plots,pureflat,97926.0,hashing,17129.8
+q7_plots,pureflat,97926.0,kernel,13532.2
+q7_plots,pureflat,97926.0,other duckdb,7793.2
+q7_plots,pureflat,97926.0,expressions,5966.5
+q7_plots,pureflat,97926.0,parquet decode,3886.8
+q7_plots,pureflat,97926.0,vectors,2623.2
+q7_plots,pureflat,97926.0,libc (memcpy/malloc/...),2585.8
+q7_plots,pureflat,97926.0,join filters,1747.2
+q7_plots,pureflat,97926.0,scheduler,546.2
+q7_plots,pureflat,97926.0,other,347.2
+q7_plots,pureflat,97926.0,scan filters / late decoding,41.2
+q7_plots,pureflat,97926.0,parquet levels/skip,4.8

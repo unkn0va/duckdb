@@ -1,0 +1,17 @@
+threads=1  wall 41 ms, CPU 41 ms, average busy threads 1.0
+  CPU ms per category:  expressions 11, vectors 6, other duckdb 5, libc (memcpy/malloc/...) 4, unnest 4, parquet decode 4, list assembly 4, kernel 2, aggregate 1
+  hottest functions:
+         5 ms  duckdb::TemplatedValidityMask<unsigned long>::SetInvalid(unsigned long)
+         4 ms  libc.so.6
+         4 ms  duckdb::VectorStringBuffer::CopyInternal(duckdb::Vector const&, duckdb::SelectionVector const&, unsigned long,
+         4 ms  duckdb::PhysicalUnnest::ExecuteInternal(duckdb::ExecutionContext&, duckdb::DataChunk&, duckdb::DataChunk&, duc
+         3 ms  unsigned long duckdb::ListColumnReader::ReadInternal<duckdb::TemplatedListReader>(duckdb::ColumnReaderInput&, 
+         2 ms  [kernel.kallsyms]
+         2 ms  duckdb::ValidityMask::CopySel(duckdb::ValidityMask const&, duckdb::SelectionVector const&, unsigned long, unsi
+         2 ms  duckdb::VectorBuffer::Copy(duckdb::Vector const&, duckdb::SelectionVector const&, unsigned long, unsigned long
+  timeline (10 ms): busy threads | main categories
+        0   1.0 | libc (memcpy/malloc/...) 22%, expressions 20%, other duckdb 15%
+       10   1.0 | expressions 23%, vectors 15%, list assembly 12%
+       20   1.0 | expressions 30%, other duckdb 22%, parquet decode 12%
+       30   1.0 | expressions 36%, vectors 17%, unnest 12%
+       40   0.1 | parquet decode 25%, vectors 25%, other duckdb 25%

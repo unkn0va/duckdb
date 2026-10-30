@@ -1,0 +1,363 @@
+threads=1  wall 3505 ms, CPU 3890 ms, average busy threads 1.1
+  CPU ms per category:  parquet decode 1336, kernel 564, expressions 458, other duckdb 427, aggregate 323, libc (memcpy/malloc/...) 310, scan filters / late decoding 186, vectors 124, scheduler 86, other 76, join filters 1, parquet levels/skip 0
+  hottest functions:
+       758 ms  void duckdb_snappy::SnappyDecompressor::DecompressAllTags<duckdb_snappy::SnappyArrayWriter>(duckdb_snappy::Sna
+       564 ms  [kernel.kallsyms]
+       288 ms  bool duckdb::AggregateExecutor::UpdateUnaryClusteredOpt<true, duckdb::SumState<duckdb::hugeint_t>, long, duckd
+       288 ms  libc.so.6
+       276 ms  void duckdb::RleBpDecoder::GetBatch<unsigned int>(unsigned char*, unsigned int)
+       220 ms  duckdb::DictionaryDecoder::Filter(unsigned char*, unsigned long, duckdb::Vector&, duckdb::SelectionVector&, un
+       159 ms  unsigned long duckdb::ScalarExecutor::SelectOutputDispatch<duckdb::BinaryExecutor::SelectPolicy, duckdb::Binar
+       123 ms  duckdb::ExecuteExpressionFilterSelection(duckdb::SelectionVector&, duckdb::Vector&, duckdb::ExpressionFilterSt
+  timeline (10 ms): busy threads | main categories
+        0   1.0 | parquet decode 65%, libc (memcpy/malloc/...) 17%, other duckdb 15%
+       10   1.0 | parquet decode 65%, other duckdb 25%, libc (memcpy/malloc/...) 10%
+       20   1.0 | other duckdb 53%, parquet decode 19%, kernel 12%
+       30   1.1 | parquet decode 40%, kernel 11%, expressions 11%
+       40   1.1 | parquet decode 36%, kernel 13%, other duckdb 13%
+       50   1.1 | parquet decode 38%, kernel 20%, expressions 15%
+       60   1.1 | parquet decode 36%, kernel 15%, expressions 13%
+       70   1.1 | parquet decode 31%, other duckdb 20%, expressions 13%
+       80   1.1 | parquet decode 37%, expressions 17%, kernel 13%
+       90   1.1 | parquet decode 38%, aggregate 15%, kernel 13%
+      100   1.1 | parquet decode 26%, kernel 17%, aggregate 15%
+      110   1.1 | parquet decode 31%, aggregate 18%, expressions 15%
+      120   1.1 | parquet decode 42%, other duckdb 13%, kernel 11%
+      130   1.1 | parquet decode 27%, kernel 15%, aggregate 13%
+      140   1.1 | parquet decode 31%, other duckdb 17%, expressions 15%
+      150   1.1 | parquet decode 32%, expressions 18%, kernel 16%
+      160   1.1 | parquet decode 39%, expressions 13%, aggregate 10%
+      170   1.1 | parquet decode 37%, expressions 16%, aggregate 11%
+      180   1.1 | parquet decode 35%, kernel 24%, expressions 13%
+      190   1.1 | parquet decode 37%, kernel 17%, other duckdb 13%
+      200   1.1 | parquet decode 39%, aggregate 16%, other duckdb 11%
+      210   1.1 | parquet decode 26%, other duckdb 24%, kernel 15%
+      220   1.1 | parquet decode 39%, kernel 16%, expressions 13%
+      230   1.1 | parquet decode 39%, expressions 16%, libc (memcpy/malloc/...) 9%
+      240   1.1 | parquet decode 31%, expressions 27%, kernel 13%
+      250   1.2 | parquet decode 34%, expressions 10%, aggregate 10%
+      260   1.1 | parquet decode 37%, expressions 25%, libc (memcpy/malloc/...) 9%
+      270   1.1 | parquet decode 36%, other duckdb 15%, expressions 13%
+      280   1.1 | parquet decode 32%, kernel 17%, expressions 13%
+      290   1.1 | parquet decode 20%, expressions 15%, kernel 15%
+      300   1.1 | parquet decode 26%, libc (memcpy/malloc/...) 16%, kernel 16%
+      310   1.0 | parquet decode 39%, other duckdb 14%, kernel 12%
+      320   1.1 | parquet decode 34%, expressions 18%, kernel 11%
+      330   1.1 | parquet decode 31%, expressions 24%, kernel 13%
+      340   1.1 | parquet decode 30%, aggregate 15%, kernel 10%
+      350   1.1 | parquet decode 42%, expressions 16%, other duckdb 14%
+      360   1.1 | parquet decode 40%, kernel 15%, aggregate 13%
+      370   1.1 | parquet decode 34%, expressions 15%, kernel 13%
+      380   1.1 | parquet decode 26%, expressions 17%, other duckdb 17%
+      390   1.1 | parquet decode 33%, other duckdb 17%, kernel 15%
+      400   1.1 | parquet decode 24%, kernel 13%, aggregate 13%
+      410   1.1 | parquet decode 34%, other duckdb 20%, expressions 11%
+      420   1.1 | parquet decode 44%, kernel 17%, expressions 13%
+      430   1.1 | parquet decode 34%, libc (memcpy/malloc/...) 9%, aggregate 9%
+      440   1.1 | parquet decode 34%, kernel 15%, other duckdb 11%
+      450   1.1 | parquet decode 28%, kernel 15%, other duckdb 13%
+      460   1.1 | parquet decode 32%, other duckdb 19%, expressions 13%
+      470   1.1 | parquet decode 39%, kernel 13%, expressions 11%
+      480   1.1 | parquet decode 34%, kernel 15%, other duckdb 13%
+      490   1.1 | parquet decode 31%, kernel 17%, expressions 17%
+      500   1.1 | parquet decode 40%, kernel 14%, aggregate 9%
+      510   1.1 | parquet decode 33%, kernel 15%, expressions 13%
+      520   1.1 | parquet decode 32%, expressions 16%, other duckdb 13%
+      530   1.1 | parquet decode 35%, kernel 17%, expressions 13%
+      540   1.1 | parquet decode 30%, kernel 15%, expressions 15%
+      550   1.1 | parquet decode 33%, other duckdb 17%, kernel 15%
+      560   1.1 | parquet decode 30%, kernel 13%, other duckdb 10%
+      570   1.1 | parquet decode 37%, other duckdb 13%, kernel 11%
+      580   1.0 | parquet decode 43%, kernel 12%, expressions 9%
+      590   1.1 | parquet decode 43%, other duckdb 15%, kernel 11%
+      600   1.1 | parquet decode 31%, kernel 13%, other duckdb 13%
+      610   1.1 | parquet decode 28%, other duckdb 19%, kernel 15%
+      620   1.1 | parquet decode 27%, kernel 18%, aggregate 18%
+      630   1.1 | parquet decode 28%, kernel 17%, expressions 15%
+      640   1.1 | parquet decode 36%, kernel 15%, aggregate 13%
+      650   1.1 | parquet decode 28%, other duckdb 19%, libc (memcpy/malloc/...) 11%
+      660   1.1 | parquet decode 28%, other duckdb 16%, expressions 14%
+      670   1.1 | parquet decode 30%, other duckdb 19%, kernel 17%
+      680   1.1 | parquet decode 45%, kernel 14%, libc (memcpy/malloc/...) 11%
+      690   1.1 | parquet decode 37%, aggregate 17%, expressions 13%
+      700   1.1 | parquet decode 31%, kernel 20%, aggregate 15%
+      710   1.1 | parquet decode 33%, expressions 15%, scan filters / late decoding 11%
+      720   1.1 | parquet decode 31%, other duckdb 17%, expressions 15%
+      730   1.1 | parquet decode 32%, expressions 17%, kernel 17%
+      740   1.0 | parquet decode 39%, other duckdb 17%, expressions 14%
+      750   1.1 | parquet decode 35%, kernel 15%, libc (memcpy/malloc/...) 11%
+      760   1.1 | parquet decode 40%, kernel 17%, expressions 8%
+      770   1.1 | parquet decode 37%, kernel 20%, expressions 13%
+      780   1.1 | parquet decode 27%, other duckdb 20%, aggregate 15%
+      790   1.1 | parquet decode 30%, libc (memcpy/malloc/...) 16%, expressions 13%
+      800   1.1 | parquet decode 41%, expressions 18%, kernel 13%
+      810   1.1 | parquet decode 31%, expressions 15%, kernel 13%
+      820   1.1 | parquet decode 30%, kernel 16%, other duckdb 13%
+      830   1.1 | parquet decode 39%, kernel 16%, expressions 16%
+      840   1.1 | parquet decode 31%, aggregate 15%, scan filters / late decoding 11%
+      850   1.1 | parquet decode 36%, aggregate 13%, kernel 13%
+      860   1.1 | parquet decode 30%, kernel 23%, aggregate 11%
+      870   1.1 | parquet decode 39%, expressions 16%, aggregate 11%
+      880   1.1 | parquet decode 27%, expressions 18%, other duckdb 13%
+      890   1.1 | parquet decode 39%, kernel 16%, expressions 13%
+      900   1.1 | parquet decode 40%, other duckdb 15%, expressions 9%
+      910   1.1 | parquet decode 31%, kernel 11%, expressions 11%
+      920   1.1 | parquet decode 34%, kernel 20%, expressions 16%
+      930   1.1 | parquet decode 28%, kernel 17%, other duckdb 15%
+      940   1.0 | parquet decode 36%, expressions 19%, kernel 14%
+      950   1.1 | parquet decode 41%, expressions 11%, kernel 9%
+      960   1.1 | parquet decode 32%, other duckdb 13%, aggregate 11%
+      970   1.1 | parquet decode 32%, other duckdb 18%, expressions 16%
+      980   1.1 | parquet decode 32%, kernel 18%, libc (memcpy/malloc/...) 13%
+      990   1.1 | parquet decode 32%, kernel 18%, expressions 13%
+     1000   1.1 | parquet decode 34%, other duckdb 15%, kernel 13%
+     1010   1.1 | parquet decode 34%, aggregate 20%, kernel 11%
+     1020   1.1 | parquet decode 27%, libc (memcpy/malloc/...) 20%, aggregate 13%
+     1030   1.1 | parquet decode 34%, kernel 16%, aggregate 11%
+     1040   1.1 | parquet decode 39%, expressions 13%, kernel 11%
+     1050   1.1 | parquet decode 32%, kernel 16%, other duckdb 13%
+     1060   1.1 | parquet decode 36%, kernel 18%, other duckdb 9%
+     1070   1.1 | parquet decode 39%, expressions 13%, kernel 13%
+     1080   1.1 | parquet decode 46%, kernel 16%, other duckdb 11%
+     1090   1.1 | parquet decode 31%, other duckdb 13%, libc (memcpy/malloc/...) 8%
+     1100   1.1 | parquet decode 34%, libc (memcpy/malloc/...) 15%, other duckdb 13%
+     1110   1.1 | parquet decode 34%, aggregate 13%, kernel 13%
+     1120   1.1 | parquet decode 34%, kernel 20%, expressions 15%
+     1130   1.1 | parquet decode 48%, kernel 11%, other duckdb 11%
+     1140   1.1 | parquet decode 35%, expressions 23%, aggregate 9%
+     1150   1.1 | parquet decode 34%, kernel 18%, other duckdb 15%
+     1160   1.1 | parquet decode 37%, kernel 20%, expressions 11%
+     1170   1.1 | parquet decode 30%, other duckdb 16%, scan filters / late decoding 11%
+     1180   1.1 | parquet decode 40%, kernel 20%, expressions 13%
+     1190   1.1 | parquet decode 35%, other duckdb 14%, kernel 11%
+     1200   1.1 | parquet decode 36%, kernel 15%, expressions 15%
+     1210   1.1 | parquet decode 32%, other duckdb 11%, libc (memcpy/malloc/...) 11%
+     1220   1.1 | parquet decode 31%, expressions 18%, kernel 13%
+     1230   1.1 | parquet decode 41%, kernel 11%, libc (memcpy/malloc/...) 9%
+     1240   1.1 | parquet decode 37%, expressions 18%, kernel 13%
+     1250   1.0 | parquet decode 38%, expressions 20%, kernel 10%
+     1260   1.1 | parquet decode 40%, expressions 17%, libc (memcpy/malloc/...) 15%
+     1270   1.1 | parquet decode 45%, other duckdb 11%, scan filters / late decoding 9%
+     1280   1.1 | parquet decode 36%, libc (memcpy/malloc/...) 18%, expressions 18%
+     1290   1.1 | parquet decode 31%, kernel 15%, other duckdb 11%
+     1300   1.1 | parquet decode 29%, kernel 18%, aggregate 13%
+     1310   1.1 | parquet decode 34%, kernel 13%, libc (memcpy/malloc/...) 11%
+     1320   1.0 | parquet decode 31%, other duckdb 17%, expressions 14%
+     1330   1.1 | parquet decode 32%, aggregate 13%, kernel 11%
+     1340   1.1 | parquet decode 29%, expressions 20%, aggregate 15%
+     1350   1.1 | parquet decode 44%, kernel 16%, expressions 11%
+     1360   1.1 | parquet decode 26%, kernel 17%, other duckdb 15%
+     1370   1.1 | parquet decode 40%, expressions 11%, kernel 11%
+     1380   1.1 | parquet decode 33%, libc (memcpy/malloc/...) 11%, kernel 9%
+     1390   1.1 | parquet decode 40%, other duckdb 15%, aggregate 11%
+     1400   1.1 | parquet decode 33%, libc (memcpy/malloc/...) 16%, other duckdb 11%
+     1410   1.1 | parquet decode 36%, other duckdb 17%, expressions 15%
+     1420   1.1 | parquet decode 34%, expressions 18%, aggregate 11%
+     1430   1.0 | parquet decode 26%, libc (memcpy/malloc/...) 12%, vectors 12%
+     1440   1.1 | parquet decode 43%, other duckdb 13%, kernel 13%
+     1450   1.1 | parquet decode 30%, other duckdb 17%, expressions 13%
+     1460   1.1 | parquet decode 32%, kernel 18%, other duckdb 13%
+     1470   1.1 | parquet decode 44%, other duckdb 13%, kernel 13%
+     1480   1.1 | parquet decode 39%, expressions 18%, scheduler 11%
+     1490   1.1 | parquet decode 34%, kernel 18%, expressions 15%
+     1500   1.1 | parquet decode 38%, kernel 14%, other duckdb 14%
+     1510   1.1 | parquet decode 31%, expressions 18%, kernel 15%
+     1520   1.1 | parquet decode 39%, vectors 13%, other duckdb 11%
+     1530   1.1 | parquet decode 31%, kernel 17%, scan filters / late decoding 11%
+     1540   1.0 | parquet decode 34%, other duckdb 14%, expressions 12%
+     1550   1.1 | parquet decode 35%, kernel 15%, libc (memcpy/malloc/...) 13%
+     1560   1.1 | parquet decode 34%, kernel 22%, other duckdb 11%
+     1570   1.1 | parquet decode 40%, libc (memcpy/malloc/...) 14%, other duckdb 14%
+     1580   1.1 | parquet decode 31%, other duckdb 15%, expressions 13%
+     1590   1.1 | parquet decode 39%, kernel 15%, expressions 13%
+     1600   1.1 | parquet decode 28%, kernel 17%, expressions 13%
+     1610   1.1 | parquet decode 22%, aggregate 15%, kernel 13%
+     1620   1.1 | parquet decode 32%, expressions 16%, libc (memcpy/malloc/...) 13%
+     1630   1.1 | parquet decode 28%, expressions 13%, kernel 10%
+     1640   1.1 | parquet decode 30%, kernel 14%, expressions 14%
+     1650   1.1 | parquet decode 40%, aggregate 11%, expressions 11%
+     1660   1.1 | parquet decode 33%, expressions 16%, kernel 14%
+     1670   1.1 | parquet decode 36%, kernel 13%, expressions 11%
+     1680   1.1 | parquet decode 34%, expressions 11%, other duckdb 11%
+     1690   1.1 | parquet decode 30%, expressions 14%, vectors 11%
+     1700   1.1 | parquet decode 35%, kernel 13%, expressions 11%
+     1710   1.1 | parquet decode 38%, expressions 13%, aggregate 11%
+     1720   1.1 | parquet decode 34%, other duckdb 19%, kernel 13%
+     1730   1.1 | parquet decode 37%, other duckdb 17%, kernel 11%
+     1740   1.1 | parquet decode 27%, libc (memcpy/malloc/...) 18%, expressions 11%
+     1750   1.1 | parquet decode 34%, other duckdb 23%, aggregate 11%
+     1760   1.1 | parquet decode 34%, aggregate 13%, other duckdb 11%
+     1770   1.1 | parquet decode 39%, kernel 19%, other duckdb 15%
+     1780   1.0 | parquet decode 41%, kernel 12%, expressions 12%
+     1790   1.0 | parquet decode 43%, expressions 12%, kernel 12%
+     1800   1.1 | parquet decode 37%, kernel 17%, expressions 13%
+     1810   1.1 | parquet decode 40%, expressions 13%, libc (memcpy/malloc/...) 13%
+     1820   1.1 | parquet decode 27%, other duckdb 18%, kernel 13%
+     1830   1.1 | parquet decode 43%, aggregate 13%, kernel 13%
+     1840   1.1 | parquet decode 42%, libc (memcpy/malloc/...) 22%, kernel 13%
+     1850   1.1 | parquet decode 31%, kernel 20%, other duckdb 13%
+     1860   1.1 | parquet decode 25%, kernel 20%, other duckdb 15%
+     1870   1.1 | parquet decode 30%, aggregate 18%, other duckdb 13%
+     1880   1.1 | parquet decode 32%, expressions 16%, other duckdb 13%
+     1890   1.1 | parquet decode 36%, expressions 18%, kernel 13%
+     1900   1.1 | parquet decode 38%, expressions 13%, vectors 11%
+     1910   1.1 | parquet decode 31%, expressions 15%, scheduler 8%
+     1920   1.1 | parquet decode 38%, kernel 15%, expressions 13%
+     1930   1.1 | parquet decode 32%, aggregate 13%, libc (memcpy/malloc/...) 13%
+     1940   1.1 | parquet decode 32%, aggregate 18%, expressions 9%
+     1950   1.1 | parquet decode 38%, kernel 15%, aggregate 9%
+     1960   1.1 | parquet decode 37%, kernel 11%, other duckdb 11%
+     1970   1.1 | parquet decode 38%, expressions 11%, kernel 11%
+     1980   1.1 | parquet decode 25%, other duckdb 20%, aggregate 13%
+     1990   1.1 | parquet decode 38%, expressions 19%, kernel 16%
+     2000   1.1 | parquet decode 35%, kernel 15%, libc (memcpy/malloc/...) 13%
+     2010   1.1 | parquet decode 30%, expressions 16%, libc (memcpy/malloc/...) 13%
+     2020   1.1 | parquet decode 40%, other duckdb 22%, kernel 11%
+     2030   1.1 | parquet decode 27%, aggregate 20%, expressions 13%
+     2040   1.1 | parquet decode 31%, kernel 13%, aggregate 13%
+     2050   1.1 | parquet decode 30%, scan filters / late decoding 16%, kernel 16%
+     2060   1.1 | parquet decode 34%, kernel 18%, other duckdb 11%
+     2070   1.1 | parquet decode 43%, kernel 20%, other duckdb 15%
+     2080   1.1 | parquet decode 43%, other duckdb 13%, kernel 13%
+     2090   1.1 | parquet decode 37%, other duckdb 15%, libc (memcpy/malloc/...) 8%
+     2100   1.1 | parquet decode 27%, aggregate 18%, kernel 13%
+     2110   1.1 | parquet decode 37%, aggregate 13%, kernel 11%
+     2120   1.0 | parquet decode 34%, other duckdb 17%, expressions 9%
+     2130   1.1 | parquet decode 37%, expressions 20%, kernel 13%
+     2140   1.1 | parquet decode 38%, other duckdb 20%, expressions 15%
+     2150   1.1 | parquet decode 29%, kernel 18%, other duckdb 15%
+     2160   1.1 | parquet decode 42%, kernel 13%, other duckdb 13%
+     2170   1.1 | parquet decode 38%, libc (memcpy/malloc/...) 14%, expressions 14%
+     2180   1.1 | parquet decode 34%, other duckdb 17%, expressions 15%
+     2190   1.1 | parquet decode 29%, kernel 18%, aggregate 15%
+     2200   1.2 | parquet decode 31%, kernel 17%, libc (memcpy/malloc/...) 17%
+     2210   1.1 | parquet decode 43%, expressions 13%, kernel 11%
+     2220   1.1 | parquet decode 27%, libc (memcpy/malloc/...) 13%, expressions 13%
+     2230   1.1 | parquet decode 28%, kernel 20%, other duckdb 15%
+     2240   1.1 | parquet decode 46%, kernel 18%, other duckdb 11%
+     2250   1.1 | parquet decode 27%, kernel 15%, other duckdb 13%
+     2260   1.1 | parquet decode 35%, expressions 15%, kernel 13%
+     2270   1.1 | parquet decode 37%, kernel 15%, libc (memcpy/malloc/...) 8%
+     2280   1.1 | parquet decode 39%, other duckdb 13%, expressions 9%
+     2290   1.1 | parquet decode 39%, kernel 16%, expressions 11%
+     2300   1.1 | parquet decode 46%, expressions 13%, aggregate 11%
+     2310   1.1 | parquet decode 31%, kernel 18%, other duckdb 15%
+     2320   1.0 | parquet decode 34%, expressions 14%, aggregate 14%
+     2330   1.1 | parquet decode 31%, libc (memcpy/malloc/...) 18%, other duckdb 18%
+     2340   1.1 | parquet decode 40%, expressions 23%, kernel 9%
+     2350   1.1 | parquet decode 40%, expressions 13%, libc (memcpy/malloc/...) 11%
+     2360   1.1 | parquet decode 35%, other duckdb 11%, kernel 11%
+     2370   1.1 | parquet decode 33%, kernel 17%, libc (memcpy/malloc/...) 8%
+     2380   1.1 | parquet decode 31%, kernel 18%, other duckdb 18%
+     2390   1.1 | parquet decode 31%, kernel 15%, aggregate 13%
+     2400   1.1 | parquet decode 34%, other duckdb 13%, kernel 10%
+     2410   1.1 | parquet decode 28%, other duckdb 13%, aggregate 11%
+     2420   1.1 | parquet decode 34%, kernel 10%, aggregate 10%
+     2430   1.1 | parquet decode 31%, expressions 15%, kernel 13%
+     2440   1.1 | parquet decode 34%, kernel 16%, aggregate 13%
+     2450   1.1 | parquet decode 42%, expressions 14%, kernel 11%
+     2460   1.1 | parquet decode 34%, other duckdb 13%, expressions 13%
+     2470   1.1 | parquet decode 37%, kernel 16%, expressions 11%
+     2480   1.1 | parquet decode 40%, libc (memcpy/malloc/...) 13%, kernel 13%
+     2490   1.1 | parquet decode 28%, expressions 17%, kernel 17%
+     2500   1.1 | parquet decode 34%, kernel 15%, expressions 13%
+     2510   1.1 | parquet decode 37%, aggregate 11%, other duckdb 11%
+     2520   1.1 | parquet decode 34%, kernel 16%, other duckdb 13%
+     2530   1.1 | parquet decode 41%, kernel 16%, expressions 13%
+     2540   1.1 | parquet decode 31%, kernel 11%, scheduler 9%
+     2550   1.1 | parquet decode 40%, expressions 15%, kernel 13%
+     2560   1.1 | parquet decode 32%, kernel 16%, other duckdb 11%
+     2570   1.1 | parquet decode 30%, libc (memcpy/malloc/...) 16%, kernel 11%
+     2580   1.1 | parquet decode 29%, libc (memcpy/malloc/...) 15%, kernel 13%
+     2590   1.1 | parquet decode 30%, other duckdb 13%, kernel 9%
+     2600   1.1 | parquet decode 37%, libc (memcpy/malloc/...) 13%, expressions 13%
+     2610   1.1 | parquet decode 31%, aggregate 20%, expressions 11%
+     2620   1.0 | parquet decode 33%, other duckdb 20%, expressions 12%
+     2630   1.1 | parquet decode 37%, kernel 16%, other duckdb 13%
+     2640   1.1 | parquet decode 31%, kernel 15%, libc (memcpy/malloc/...) 15%
+     2650   1.1 | parquet decode 35%, expressions 19%, aggregate 9%
+     2660   1.1 | parquet decode 35%, other duckdb 17%, kernel 11%
+     2670   1.1 | parquet decode 38%, expressions 14%, aggregate 11%
+     2680   1.1 | parquet decode 30%, other duckdb 11%, libc (memcpy/malloc/...) 11%
+     2690   1.1 | parquet decode 40%, expressions 15%, kernel 13%
+     2700   1.1 | parquet decode 30%, kernel 15%, other duckdb 15%
+     2710   1.1 | parquet decode 43%, kernel 17%, libc (memcpy/malloc/...) 13%
+     2720   1.1 | parquet decode 37%, kernel 23%, expressions 16%
+     2730   1.1 | parquet decode 28%, expressions 19%, other duckdb 16%
+     2740   1.1 | parquet decode 31%, kernel 18%, expressions 15%
+     2750   1.1 | parquet decode 38%, kernel 13%, libc (memcpy/malloc/...) 11%
+     2760   1.1 | parquet decode 35%, kernel 15%, scan filters / late decoding 8%
+     2770   1.1 | parquet decode 31%, kernel 15%, other duckdb 13%
+     2780   1.1 | parquet decode 41%, expressions 13%, aggregate 11%
+     2790   1.0 | parquet decode 43%, kernel 17%, expressions 14%
+     2800   1.1 | parquet decode 40%, kernel 17%, expressions 11%
+     2810   1.1 | parquet decode 40%, expressions 18%, kernel 13%
+     2820   1.1 | parquet decode 32%, aggregate 16%, other duckdb 11%
+     2830   1.1 | parquet decode 30%, kernel 20%, other duckdb 16%
+     2840   1.1 | parquet decode 24%, other duckdb 20%, kernel 17%
+     2850   1.1 | parquet decode 40%, kernel 13%, expressions 11%
+     2860   1.1 | parquet decode 35%, expressions 16%, other duckdb 14%
+     2870   1.1 | parquet decode 40%, other duckdb 17%, kernel 13%
+     2880   1.1 | parquet decode 37%, kernel 13%, aggregate 11%
+     2890   1.1 | parquet decode 40%, aggregate 14%, kernel 11%
+     2900   1.1 | parquet decode 40%, aggregate 13%, kernel 11%
+     2910   1.1 | parquet decode 29%, kernel 20%, expressions 18%
+     2920   1.1 | parquet decode 38%, other duckdb 21%, kernel 9%
+     2930   1.1 | parquet decode 33%, aggregate 11%, kernel 11%
+     2940   1.1 | parquet decode 32%, kernel 16%, other duckdb 9%
+     2950   1.1 | parquet decode 40%, kernel 14%, libc (memcpy/malloc/...) 11%
+     2960   1.1 | parquet decode 25%, aggregate 15%, other duckdb 13%
+     2970   1.1 | parquet decode 24%, kernel 20%, vectors 13%
+     2980   1.1 | parquet decode 27%, kernel 18%, aggregate 13%
+     2990   1.1 | parquet decode 40%, expressions 16%, kernel 9%
+     3000   1.1 | parquet decode 43%, expressions 13%, libc (memcpy/malloc/...) 9%
+     3010   1.1 | parquet decode 34%, expressions 15%, other duckdb 13%
+     3020   1.1 | parquet decode 34%, other duckdb 18%, expressions 11%
+     3030   1.1 | parquet decode 31%, aggregate 11%, other duckdb 11%
+     3040   1.1 | parquet decode 37%, kernel 15%, aggregate 13%
+     3050   1.1 | parquet decode 30%, aggregate 20%, kernel 13%
+     3060   1.1 | parquet decode 26%, expressions 17%, libc (memcpy/malloc/...) 13%
+     3070   1.1 | parquet decode 38%, aggregate 13%, kernel 13%
+     3080   1.2 | parquet decode 31%, kernel 14%, expressions 12%
+     3090   1.1 | parquet decode 39%, other duckdb 13%, libc (memcpy/malloc/...) 11%
+     3100   1.0 | parquet decode 31%, other duckdb 17%, expressions 14%
+     3110   1.1 | parquet decode 27%, expressions 18%, other duckdb 13%
+     3120   1.1 | parquet decode 28%, expressions 15%, kernel 15%
+     3130   1.1 | parquet decode 45%, kernel 15%, other duckdb 11%
+     3140   1.0 | parquet decode 36%, expressions 19%, libc (memcpy/malloc/...) 12%
+     3150   1.1 | parquet decode 32%, kernel 16%, expressions 13%
+     3160   1.1 | parquet decode 31%, libc (memcpy/malloc/...) 13%, kernel 11%
+     3170   1.1 | parquet decode 35%, other duckdb 13%, kernel 11%
+     3180   1.1 | parquet decode 23%, other duckdb 19%, kernel 16%
+     3190   1.1 | parquet decode 33%, kernel 14%, scan filters / late decoding 11%
+     3200   1.0 | parquet decode 31%, aggregate 14%, other duckdb 14%
+     3210   1.1 | parquet decode 36%, kernel 15%, expressions 13%
+     3220   1.1 | libc (memcpy/malloc/...) 26%, parquet decode 19%, aggregate 14%
+     3230   1.0 | parquet decode 27%, aggregate 17%, libc (memcpy/malloc/...) 15%
+     3240   1.1 | parquet decode 33%, libc (memcpy/malloc/...) 15%, other duckdb 13%
+     3250   1.1 | parquet decode 31%, expressions 15%, aggregate 13%
+     3260   1.1 | parquet decode 42%, kernel 14%, expressions 11%
+     3270   1.1 | parquet decode 34%, kernel 13%, scan filters / late decoding 11%
+     3280   1.1 | parquet decode 33%, aggregate 15%, expressions 13%
+     3290   1.1 | parquet decode 35%, kernel 19%, other duckdb 14%
+     3300   1.1 | parquet decode 34%, expressions 15%, libc (memcpy/malloc/...) 13%
+     3310   1.1 | parquet decode 40%, kernel 15%, aggregate 11%
+     3320   1.1 | parquet decode 30%, kernel 21%, other duckdb 13%
+     3330   1.1 | parquet decode 28%, kernel 17%, other duckdb 15%
+     3340   1.1 | parquet decode 40%, kernel 22%, scan filters / late decoding 8%
+     3350   1.1 | parquet decode 43%, kernel 15%, expressions 11%
+     3360   1.1 | parquet decode 44%, kernel 13%, other duckdb 11%
+     3370   1.1 | parquet decode 32%, kernel 18%, expressions 18%
+     3380   1.1 | parquet decode 40%, expressions 17%, kernel 13%
+     3390   1.1 | parquet decode 31%, expressions 13%, aggregate 13%
+     3400   1.1 | parquet decode 35%, expressions 13%, kernel 11%
+     3410   1.0 | parquet decode 41%, scan filters / late decoding 12%, expressions 12%
+     3420   1.1 | parquet decode 48%, expressions 16%, kernel 11%
+     3430   1.1 | parquet decode 30%, expressions 16%, other duckdb 11%
+     3440   1.1 | parquet decode 40%, kernel 11%, libc (memcpy/malloc/...) 11%
+     3450   1.1 | parquet decode 44%, expressions 16%, other duckdb 11%
+     3460   1.1 | parquet decode 27%, kernel 20%, scan filters / late decoding 13%
+     3470   1.1 | parquet decode 36%, other duckdb 13%, kernel 8%
+     3480   1.1 | parquet decode 27%, kernel 20%, other duckdb 13%
+     3490   5.3 | kernel 68%, libc (memcpy/malloc/...) 16%, other duckdb 13%
+     3500   2.0 | kernel 92%, libc (memcpy/malloc/...) 3%, other 1%

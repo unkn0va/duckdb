@@ -1,0 +1,1397 @@
+threads=1  wall 13840 ms, CPU 13901 ms, average busy threads 1.0
+  CPU ms per category:  expressions 3146, parquet decode 3104, unnest 2931, list assembly 2316, other duckdb 803, libc (memcpy/malloc/...) 524, aggregate 427, kernel 332, vectors 301, scheduler 14, other 1, scan filters / late decoding 1
+  hottest functions:
+      2650 ms  duckdb::PhysicalUnnest::ExecuteInternal(duckdb::ExecutionContext&, duckdb::DataChunk&, duckdb::DataChunk&, duc
+      2261 ms  unsigned long duckdb::ListColumnReader::ReadInternal<duckdb::TemplatedListReader>(duckdb::ColumnReaderInput&, 
+      1582 ms  duckdb::ValidityMask::CopySel(duckdb::ValidityMask const&, duckdb::SelectionVector const&, unsigned long, unsi
+      1430 ms  void duckdb::RleBpDecoder::GetBatch<unsigned int>(unsigned char*, unsigned int)
+       742 ms  void duckdb::RleBpDecoder::GetBatch<unsigned char>(unsigned char*, unsigned int)
+       624 ms  duckdb::DictionaryDecoder::GetValidValues(unsigned char*, unsigned long, unsigned long)
+       500 ms  unsigned long duckdb::ScalarExecutor::SelectOutputDispatch<duckdb::BinaryExecutor::SelectPolicy, duckdb::Binar
+       473 ms  duckdb::CopyVectorBuffer(unsigned char*, unsigned char const*, duckdb::SelectionVector const&, unsigned long, 
+  timeline (10 ms): busy threads | main categories
+        0   1.0 | parquet decode 67%, libc (memcpy/malloc/...) 20%, other duckdb 7%
+       10   1.0 | parquet decode 70%, libc (memcpy/malloc/...) 20%, other duckdb 5%
+       20   1.0 | parquet decode 65%, other duckdb 17%, libc (memcpy/malloc/...) 12%
+       30   1.0 | unnest 30%, parquet decode 15%, other duckdb 12%
+       40   1.0 | expressions 27%, parquet decode 25%, unnest 17%
+       50   1.0 | unnest 35%, parquet decode 22%, expressions 12%
+       60   1.0 | parquet decode 37%, expressions 27%, list assembly 17%
+       70   1.0 | parquet decode 30%, list assembly 25%, unnest 22%
+       80   1.0 | parquet decode 27%, unnest 27%, expressions 20%
+       90   1.0 | parquet decode 32%, expressions 22%, unnest 20%
+      100   1.0 | expressions 32%, unnest 25%, parquet decode 22%
+      110   1.0 | parquet decode 35%, expressions 27%, unnest 20%
+      120   1.0 | expressions 30%, unnest 22%, parquet decode 20%
+      130   1.0 | unnest 25%, parquet decode 22%, expressions 15%
+      140   1.0 | unnest 37%, parquet decode 22%, expressions 15%
+      150   1.0 | parquet decode 37%, unnest 22%, list assembly 15%
+      160   1.0 | unnest 27%, expressions 22%, parquet decode 20%
+      170   1.0 | expressions 37%, list assembly 22%, parquet decode 20%
+      180   1.0 | expressions 25%, parquet decode 20%, list assembly 17%
+      190   1.0 | parquet decode 25%, expressions 22%, unnest 17%
+      200   1.0 | unnest 40%, parquet decode 27%, expressions 15%
+      210   1.0 | parquet decode 27%, expressions 25%, list assembly 17%
+      220   1.0 | list assembly 40%, expressions 20%, parquet decode 15%
+      230   1.0 | unnest 35%, expressions 20%, parquet decode 15%
+      240   1.0 | unnest 30%, list assembly 22%, parquet decode 20%
+      250   1.0 | list assembly 40%, parquet decode 25%, unnest 12%
+      260   1.0 | unnest 27%, parquet decode 20%, expressions 12%
+      270   1.0 | unnest 27%, parquet decode 25%, expressions 22%
+      280   1.0 | unnest 40%, parquet decode 20%, list assembly 17%
+      290   1.0 | parquet decode 32%, unnest 25%, list assembly 17%
+      300   1.0 | unnest 32%, expressions 25%, parquet decode 15%
+      310   1.0 | unnest 27%, parquet decode 22%, expressions 15%
+      320   1.0 | parquet decode 27%, expressions 27%, unnest 20%
+      330   1.0 | unnest 30%, expressions 27%, parquet decode 15%
+      340   1.0 | unnest 30%, expressions 22%, list assembly 15%
+      350   1.0 | parquet decode 32%, unnest 20%, expressions 17%
+      360   1.0 | parquet decode 20%, expressions 20%, list assembly 17%
+      370   1.0 | unnest 32%, parquet decode 22%, expressions 12%
+      380   1.0 | expressions 37%, unnest 25%, list assembly 15%
+      390   1.0 | expressions 40%, unnest 22%, parquet decode 17%
+      400   1.0 | expressions 25%, list assembly 25%, unnest 22%
+      410   1.0 | parquet decode 25%, expressions 25%, unnest 17%
+      420   1.0 | expressions 32%, parquet decode 27%, unnest 15%
+      430   1.0 | parquet decode 25%, expressions 20%, unnest 17%
+      440   1.0 | parquet decode 45%, unnest 20%, expressions 17%
+      450   1.0 | unnest 22%, list assembly 20%, parquet decode 17%
+      460   1.0 | unnest 32%, parquet decode 30%, expressions 22%
+      470   1.0 | parquet decode 35%, expressions 22%, other duckdb 15%
+      480   1.0 | expressions 32%, parquet decode 22%, unnest 22%
+      490   1.0 | expressions 27%, unnest 25%, parquet decode 22%
+      500   1.0 | expressions 30%, unnest 25%, list assembly 20%
+      510   1.0 | parquet decode 35%, unnest 20%, list assembly 17%
+      520   1.0 | expressions 30%, parquet decode 27%, unnest 17%
+      530   1.0 | unnest 25%, expressions 22%, list assembly 20%
+      540   1.0 | list assembly 30%, expressions 27%, unnest 15%
+      550   1.0 | parquet decode 25%, expressions 22%, list assembly 20%
+      560   1.0 | unnest 35%, expressions 30%, list assembly 17%
+      570   1.0 | unnest 35%, parquet decode 20%, list assembly 17%
+      580   1.0 | expressions 30%, unnest 25%, parquet decode 22%
+      590   1.0 | parquet decode 37%, unnest 20%, expressions 15%
+      600   1.0 | expressions 32%, parquet decode 22%, list assembly 17%
+      610   1.0 | parquet decode 37%, expressions 25%, unnest 17%
+      620   1.0 | parquet decode 27%, list assembly 27%, expressions 20%
+      630   1.0 | expressions 33%, parquet decode 30%, unnest 15%
+      640   1.0 | expressions 41%, parquet decode 21%, list assembly 17%
+      650   1.0 | unnest 32%, expressions 27%, list assembly 25%
+      660   1.0 | list assembly 35%, expressions 22%, unnest 15%
+      670   1.0 | parquet decode 40%, expressions 22%, list assembly 12%
+      680   1.0 | unnest 32%, expressions 25%, list assembly 12%
+      690   1.0 | parquet decode 37%, unnest 17%, expressions 10%
+      700   1.0 | list assembly 27%, parquet decode 25%, unnest 20%
+      710   1.0 | parquet decode 25%, expressions 25%, unnest 22%
+      720   1.0 | unnest 25%, parquet decode 20%, expressions 20%
+      730   1.0 | list assembly 27%, parquet decode 22%, expressions 17%
+      740   1.0 | expressions 37%, unnest 25%, parquet decode 15%
+      750   1.0 | expressions 30%, unnest 23%, list assembly 12%
+      760   1.0 | list assembly 26%, parquet decode 24%, unnest 14%
+      770   1.0 | parquet decode 40%, list assembly 20%, expressions 17%
+      780   1.0 | parquet decode 37%, unnest 25%, expressions 15%
+      790   1.0 | unnest 32%, expressions 25%, parquet decode 20%
+      800   1.0 | unnest 32%, parquet decode 25%, other duckdb 12%
+      810   1.0 | parquet decode 35%, list assembly 20%, expressions 12%
+      820   1.0 | parquet decode 41%, unnest 12%, other duckdb 10%
+      830   1.0 | expressions 34%, unnest 21%, parquet decode 14%
+      840   1.0 | list assembly 27%, parquet decode 27%, unnest 20%
+      850   1.0 | parquet decode 27%, list assembly 20%, expressions 20%
+      860   1.0 | parquet decode 50%, list assembly 15%, unnest 12%
+      870   1.0 | list assembly 27%, unnest 25%, expressions 20%
+      880   1.0 | unnest 32%, expressions 25%, parquet decode 22%
+      890   1.0 | expressions 37%, parquet decode 20%, list assembly 10%
+      900   1.0 | list assembly 37%, expressions 22%, unnest 15%
+      910   1.0 | unnest 27%, list assembly 20%, expressions 20%
+      920   1.0 | unnest 35%, expressions 22%, parquet decode 20%
+      930   1.0 | unnest 25%, parquet decode 20%, list assembly 20%
+      940   1.0 | list assembly 25%, expressions 23%, unnest 17%
+      950   1.0 | list assembly 32%, unnest 25%, expressions 20%
+      960   1.0 | parquet decode 30%, unnest 22%, expressions 17%
+      970   1.0 | expressions 32%, parquet decode 22%, unnest 15%
+      980   1.0 | expressions 30%, list assembly 27%, unnest 20%
+      990   1.0 | expressions 27%, unnest 22%, parquet decode 17%
+     1000   1.0 | unnest 25%, parquet decode 17%, expressions 17%
+     1010   1.0 | list assembly 27%, parquet decode 22%, expressions 20%
+     1020   1.0 | parquet decode 30%, list assembly 25%, expressions 22%
+     1030   1.0 | expressions 25%, parquet decode 20%, unnest 20%
+     1040   1.0 | expressions 37%, parquet decode 20%, unnest 20%
+     1050   1.0 | expressions 27%, unnest 25%, parquet decode 15%
+     1060   1.0 | parquet decode 37%, unnest 17%, list assembly 15%
+     1070   1.0 | list assembly 27%, expressions 22%, parquet decode 17%
+     1080   1.0 | expressions 25%, parquet decode 20%, unnest 20%
+     1090   1.0 | list assembly 32%, parquet decode 22%, unnest 17%
+     1100   1.0 | list assembly 35%, expressions 20%, parquet decode 17%
+     1110   1.0 | list assembly 30%, unnest 20%, expressions 17%
+     1120   1.0 | parquet decode 32%, list assembly 25%, expressions 17%
+     1130   1.0 | list assembly 32%, parquet decode 25%, expressions 12%
+     1140   1.0 | expressions 35%, parquet decode 17%, list assembly 15%
+     1150   1.0 | parquet decode 30%, unnest 22%, list assembly 22%
+     1160   1.0 | unnest 30%, list assembly 27%, expressions 17%
+     1170   1.0 | unnest 25%, expressions 20%, parquet decode 17%
+     1180   1.0 | expressions 42%, list assembly 32%, other duckdb 7%
+     1190   1.0 | unnest 32%, parquet decode 27%, expressions 17%
+     1200   1.0 | parquet decode 40%, other duckdb 20%, unnest 20%
+     1210   1.0 | parquet decode 32%, unnest 22%, expressions 12%
+     1220   1.0 | unnest 32%, expressions 25%, parquet decode 17%
+     1230   1.0 | expressions 32%, parquet decode 22%, unnest 17%
+     1240   1.0 | parquet decode 30%, unnest 20%, expressions 17%
+     1250   1.0 | expressions 32%, list assembly 25%, unnest 15%
+     1260   1.0 | list assembly 40%, unnest 22%, parquet decode 22%
+     1270   1.0 | parquet decode 45%, expressions 27%, list assembly 12%
+     1280   1.0 | parquet decode 30%, unnest 27%, expressions 20%
+     1290   1.0 | unnest 30%, parquet decode 30%, expressions 20%
+     1300   1.0 | unnest 25%, parquet decode 22%, list assembly 20%
+     1310   1.0 | expressions 32%, unnest 20%, parquet decode 20%
+     1320   1.0 | parquet decode 30%, unnest 22%, expressions 20%
+     1330   1.0 | parquet decode 22%, list assembly 22%, unnest 20%
+     1340   1.0 | expressions 45%, list assembly 30%, unnest 10%
+     1350   1.0 | unnest 25%, list assembly 22%, expressions 15%
+     1360   1.0 | expressions 37%, parquet decode 20%, unnest 20%
+     1370   1.0 | parquet decode 27%, unnest 25%, list assembly 22%
+     1380   1.0 | unnest 30%, list assembly 22%, parquet decode 22%
+     1390   1.0 | parquet decode 35%, expressions 30%, list assembly 15%
+     1400   1.0 | unnest 30%, expressions 25%, parquet decode 12%
+     1410   1.0 | unnest 32%, expressions 22%, list assembly 15%
+     1420   1.0 | expressions 40%, parquet decode 20%, list assembly 15%
+     1430   1.0 | unnest 25%, expressions 22%, list assembly 22%
+     1440   1.0 | expressions 30%, unnest 27%, list assembly 22%
+     1450   1.0 | parquet decode 32%, expressions 22%, unnest 20%
+     1460   1.0 | parquet decode 42%, expressions 25%, unnest 20%
+     1470   1.0 | parquet decode 35%, expressions 32%, list assembly 12%
+     1480   1.0 | expressions 30%, unnest 20%, list assembly 17%
+     1490   1.0 | unnest 27%, parquet decode 25%, expressions 22%
+     1500   1.0 | unnest 25%, expressions 22%, list assembly 22%
+     1510   1.0 | expressions 30%, unnest 27%, parquet decode 25%
+     1520   1.0 | list assembly 30%, parquet decode 30%, unnest 17%
+     1530   1.0 | parquet decode 47%, unnest 20%, expressions 17%
+     1540   1.0 | expressions 30%, unnest 25%, list assembly 15%
+     1550   1.0 | parquet decode 35%, unnest 22%, expressions 20%
+     1560   1.0 | expressions 25%, parquet decode 22%, unnest 17%
+     1570   1.0 | expressions 37%, list assembly 20%, unnest 12%
+     1580   1.0 | list assembly 32%, parquet decode 27%, unnest 20%
+     1590   1.0 | parquet decode 35%, expressions 25%, unnest 22%
+     1600   1.0 | unnest 25%, expressions 20%, parquet decode 17%
+     1610   1.0 | list assembly 32%, expressions 32%, parquet decode 20%
+     1620   1.0 | parquet decode 30%, list assembly 25%, expressions 15%
+     1630   1.0 | parquet decode 35%, unnest 25%, expressions 17%
+     1640   1.0 | list assembly 37%, expressions 20%, other duckdb 12%
+     1650   1.0 | list assembly 32%, unnest 27%, parquet decode 20%
+     1660   1.0 | unnest 30%, expressions 27%, list assembly 22%
+     1670   1.0 | unnest 22%, expressions 22%, list assembly 20%
+     1680   1.0 | unnest 27%, expressions 22%, list assembly 17%
+     1690   1.0 | parquet decode 32%, expressions 17%, unnest 15%
+     1700   1.0 | expressions 35%, list assembly 20%, unnest 17%
+     1710   1.0 | list assembly 32%, expressions 30%, parquet decode 20%
+     1720   1.0 | parquet decode 40%, unnest 17%, list assembly 15%
+     1730   1.0 | list assembly 30%, expressions 25%, other duckdb 12%
+     1740   1.0 | parquet decode 32%, unnest 22%, expressions 15%
+     1750   1.0 | expressions 27%, parquet decode 25%, unnest 25%
+     1760   1.0 | parquet decode 27%, list assembly 25%, unnest 17%
+     1770   1.0 | unnest 32%, expressions 22%, list assembly 17%
+     1780   1.0 | parquet decode 40%, unnest 25%, expressions 7%
+     1790   1.0 | expressions 35%, list assembly 32%, parquet decode 12%
+     1800   1.0 | unnest 30%, expressions 25%, parquet decode 22%
+     1810   1.0 | expressions 55%, list assembly 10%, parquet decode 10%
+     1820   1.0 | parquet decode 30%, expressions 25%, list assembly 17%
+     1830   1.0 | expressions 45%, list assembly 12%, unnest 12%
+     1840   1.0 | parquet decode 30%, list assembly 22%, expressions 20%
+     1850   1.0 | expressions 40%, parquet decode 30%, unnest 15%
+     1860   1.0 | expressions 32%, list assembly 25%, unnest 20%
+     1870   1.0 | parquet decode 30%, unnest 22%, list assembly 20%
+     1880   1.0 | list assembly 37%, unnest 17%, expressions 15%
+     1890   1.0 | unnest 30%, parquet decode 27%, expressions 12%
+     1900   1.0 | parquet decode 27%, list assembly 22%, unnest 15%
+     1910   1.0 | parquet decode 25%, unnest 25%, list assembly 17%
+     1920   1.0 | unnest 27%, parquet decode 22%, expressions 17%
+     1930   1.0 | expressions 25%, unnest 25%, parquet decode 12%
+     1940   1.0 | parquet decode 32%, expressions 22%, unnest 20%
+     1950   1.0 | expressions 30%, list assembly 25%, parquet decode 15%
+     1960   1.0 | parquet decode 27%, list assembly 22%, expressions 20%
+     1970   1.0 | parquet decode 22%, list assembly 15%, expressions 15%
+     1980   1.0 | unnest 35%, parquet decode 22%, list assembly 15%
+     1990   1.0 | unnest 30%, parquet decode 25%, expressions 15%
+     2000   1.0 | expressions 32%, kernel 20%, unnest 15%
+     2010   1.0 | unnest 22%, kernel 22%, expressions 17%
+     2020   1.0 | unnest 32%, expressions 17%, list assembly 17%
+     2030   1.0 | list assembly 40%, parquet decode 17%, unnest 15%
+     2040   1.0 | parquet decode 32%, list assembly 22%, unnest 20%
+     2050   1.0 | expressions 27%, unnest 25%, list assembly 22%
+     2060   1.0 | unnest 35%, expressions 17%, parquet decode 15%
+     2070   1.0 | unnest 22%, parquet decode 20%, expressions 17%
+     2080   1.0 | parquet decode 35%, expressions 22%, list assembly 17%
+     2090   1.0 | list assembly 27%, expressions 25%, parquet decode 25%
+     2100   1.0 | unnest 27%, parquet decode 25%, list assembly 20%
+     2110   1.0 | parquet decode 32%, expressions 20%, list assembly 20%
+     2120   1.0 | expressions 32%, unnest 30%, list assembly 12%
+     2130   1.0 | expressions 30%, unnest 25%, list assembly 20%
+     2140   1.0 | unnest 22%, expressions 22%, parquet decode 17%
+     2150   1.0 | parquet decode 35%, unnest 22%, expressions 17%
+     2160   1.0 | list assembly 30%, parquet decode 25%, expressions 15%
+     2170   1.0 | list assembly 27%, other duckdb 20%, expressions 20%
+     2180   1.0 | unnest 27%, list assembly 25%, expressions 22%
+     2190   1.0 | parquet decode 27%, expressions 22%, list assembly 17%
+     2200   1.0 | parquet decode 37%, unnest 17%, expressions 15%
+     2210   1.0 | unnest 32%, expressions 22%, parquet decode 20%
+     2220   1.0 | expressions 25%, unnest 20%, parquet decode 20%
+     2230   1.0 | parquet decode 32%, unnest 22%, list assembly 20%
+     2240   1.0 | unnest 35%, list assembly 20%, expressions 17%
+     2250   1.0 | parquet decode 35%, unnest 20%, expressions 17%
+     2260   1.0 | unnest 32%, parquet decode 17%, list assembly 17%
+     2270   1.0 | unnest 30%, list assembly 17%, expressions 17%
+     2280   1.0 | list assembly 30%, expressions 22%, parquet decode 17%
+     2290   1.0 | unnest 25%, list assembly 20%, expressions 20%
+     2300   1.0 | parquet decode 35%, list assembly 17%, expressions 15%
+     2310   1.0 | expressions 30%, unnest 27%, other duckdb 12%
+     2320   1.0 | unnest 32%, expressions 25%, list assembly 10%
+     2330   1.0 | parquet decode 30%, unnest 27%, expressions 17%
+     2340   1.0 | unnest 30%, list assembly 25%, expressions 15%
+     2350   1.0 | expressions 27%, unnest 20%, list assembly 17%
+     2360   1.0 | expressions 30%, unnest 30%, list assembly 12%
+     2370   1.0 | parquet decode 30%, expressions 20%, unnest 17%
+     2380   1.0 | parquet decode 27%, expressions 27%, unnest 20%
+     2390   1.0 | unnest 27%, parquet decode 22%, list assembly 20%
+     2400   1.0 | parquet decode 30%, expressions 25%, unnest 22%
+     2410   1.0 | expressions 30%, unnest 25%, list assembly 22%
+     2420   1.0 | list assembly 27%, parquet decode 22%, expressions 15%
+     2430   1.0 | parquet decode 40%, expressions 20%, unnest 17%
+     2440   1.0 | parquet decode 22%, expressions 22%, unnest 15%
+     2450   1.0 | unnest 30%, expressions 30%, list assembly 10%
+     2460   1.0 | expressions 32%, unnest 25%, parquet decode 17%
+     2470   1.0 | parquet decode 45%, expressions 17%, unnest 12%
+     2480   1.0 | list assembly 30%, unnest 20%, expressions 15%
+     2490   1.0 | expressions 27%, unnest 22%, parquet decode 22%
+     2500   1.0 | expressions 27%, parquet decode 22%, unnest 20%
+     2510   1.0 | list assembly 37%, unnest 17%, expressions 17%
+     2520   1.0 | expressions 32%, unnest 30%, list assembly 20%
+     2530   1.0 | expressions 27%, unnest 27%, list assembly 22%
+     2540   1.0 | parquet decode 30%, expressions 25%, list assembly 25%
+     2550   1.0 | expressions 37%, parquet decode 22%, unnest 17%
+     2560   1.0 | list assembly 30%, expressions 20%, parquet decode 17%
+     2570   1.0 | expressions 40%, unnest 27%, parquet decode 15%
+     2580   1.0 | expressions 30%, parquet decode 22%, list assembly 12%
+     2590   1.0 | unnest 32%, list assembly 22%, expressions 17%
+     2600   1.0 | parquet decode 41%, other duckdb 17%, unnest 15%
+     2610   1.0 | expressions 39%, unnest 17%, parquet decode 14%
+     2620   1.0 | unnest 30%, parquet decode 25%, expressions 15%
+     2630   1.0 | unnest 32%, parquet decode 27%, other duckdb 12%
+     2640   1.0 | parquet decode 32%, unnest 27%, expressions 15%
+     2650   1.0 | unnest 27%, parquet decode 22%, expressions 22%
+     2660   1.0 | unnest 27%, parquet decode 20%, list assembly 17%
+     2670   1.0 | unnest 20%, expressions 20%, parquet decode 20%
+     2680   1.0 | parquet decode 32%, list assembly 32%, unnest 20%
+     2690   1.0 | unnest 30%, list assembly 22%, parquet decode 15%
+     2700   1.0 | unnest 27%, parquet decode 22%, expressions 15%
+     2710   1.0 | unnest 30%, expressions 20%, list assembly 15%
+     2720   1.0 | parquet decode 32%, unnest 20%, expressions 17%
+     2730   1.0 | list assembly 31%, expressions 26%, unnest 19%
+     2740   1.0 | unnest 25%, expressions 22%, parquet decode 22%
+     2750   1.0 | parquet decode 30%, expressions 22%, list assembly 17%
+     2760   1.0 | expressions 27%, list assembly 27%, unnest 17%
+     2770   1.0 | expressions 22%, list assembly 22%, unnest 17%
+     2780   1.0 | unnest 30%, parquet decode 22%, expressions 17%
+     2790   1.0 | parquet decode 25%, expressions 22%, list assembly 17%
+     2800   1.0 | expressions 35%, unnest 17%, parquet decode 17%
+     2810   1.0 | unnest 24%, expressions 21%, parquet decode 21%
+     2820   1.0 | parquet decode 47%, unnest 22%, expressions 15%
+     2830   1.0 | parquet decode 30%, unnest 20%, list assembly 17%
+     2840   1.0 | parquet decode 27%, expressions 25%, list assembly 17%
+     2850   1.0 | list assembly 25%, expressions 20%, parquet decode 20%
+     2860   1.0 | expressions 27%, unnest 27%, parquet decode 17%
+     2870   1.0 | list assembly 30%, unnest 22%, parquet decode 12%
+     2880   1.0 | unnest 25%, expressions 17%, list assembly 17%
+     2890   1.0 | unnest 35%, expressions 20%, list assembly 17%
+     2900   1.0 | parquet decode 32%, expressions 22%, unnest 20%
+     2910   1.0 | expressions 40%, parquet decode 37%, list assembly 12%
+     2920   1.0 | expressions 28%, unnest 23%, list assembly 15%
+     2930   1.0 | parquet decode 52%, expressions 17%, unnest 10%
+     2940   1.0 | unnest 29%, parquet decode 19%, expressions 14%
+     2950   1.0 | parquet decode 30%, unnest 25%, list assembly 17%
+     2960   1.0 | expressions 30%, list assembly 25%, unnest 17%
+     2970   1.0 | parquet decode 36%, unnest 19%, list assembly 17%
+     2980   1.0 | parquet decode 30%, expressions 30%, list assembly 15%
+     2990   1.0 | parquet decode 38%, expressions 20%, list assembly 15%
+     3000   1.0 | expressions 42%, unnest 22%, parquet decode 17%
+     3010   1.0 | expressions 55%, list assembly 15%, parquet decode 15%
+     3020   1.0 | unnest 31%, expressions 26%, list assembly 14%
+     3030   1.0 | expressions 30%, parquet decode 22%, unnest 17%
+     3040   1.0 | expressions 27%, unnest 25%, parquet decode 22%
+     3050   1.0 | parquet decode 32%, list assembly 20%, expressions 15%
+     3060   1.0 | parquet decode 47%, unnest 17%, expressions 10%
+     3070   1.0 | expressions 42%, list assembly 17%, parquet decode 12%
+     3080   1.0 | unnest 33%, expressions 23%, list assembly 12%
+     3090   1.0 | parquet decode 32%, list assembly 20%, unnest 20%
+     3100   1.0 | parquet decode 30%, expressions 22%, unnest 22%
+     3110   1.0 | expressions 22%, unnest 20%, parquet decode 17%
+     3120   1.0 | expressions 27%, unnest 22%, parquet decode 22%
+     3130   1.0 | unnest 25%, list assembly 20%, expressions 17%
+     3140   1.0 | parquet decode 35%, expressions 27%, unnest 22%
+     3150   1.0 | parquet decode 40%, unnest 20%, expressions 17%
+     3160   1.0 | parquet decode 22%, list assembly 22%, unnest 17%
+     3170   1.0 | list assembly 35%, parquet decode 15%, unnest 15%
+     3180   1.0 | unnest 25%, list assembly 22%, expressions 20%
+     3190   1.0 | expressions 40%, other duckdb 15%, unnest 15%
+     3200   1.0 | list assembly 32%, parquet decode 22%, unnest 17%
+     3210   1.0 | expressions 32%, parquet decode 22%, other duckdb 12%
+     3220   1.0 | expressions 32%, unnest 25%, list assembly 22%
+     3230   1.0 | parquet decode 32%, expressions 22%, list assembly 20%
+     3240   1.0 | list assembly 30%, unnest 20%, parquet decode 20%
+     3250   1.0 | parquet decode 30%, expressions 20%, list assembly 17%
+     3260   1.0 | expressions 35%, parquet decode 17%, unnest 17%
+     3270   1.0 | expressions 32%, unnest 25%, parquet decode 12%
+     3280   1.0 | parquet decode 32%, unnest 25%, expressions 15%
+     3290   1.0 | expressions 30%, parquet decode 22%, unnest 20%
+     3300   1.0 | unnest 27%, expressions 20%, parquet decode 17%
+     3310   1.0 | expressions 30%, unnest 27%, parquet decode 25%
+     3320   1.0 | parquet decode 45%, expressions 25%, unnest 10%
+     3330   1.0 | list assembly 27%, expressions 20%, unnest 20%
+     3340   1.0 | expressions 45%, unnest 15%, list assembly 15%
+     3350   1.0 | expressions 35%, unnest 25%, parquet decode 22%
+     3360   1.0 | list assembly 37%, expressions 17%, unnest 12%
+     3370   1.0 | parquet decode 27%, expressions 25%, unnest 17%
+     3380   1.0 | list assembly 27%, expressions 22%, parquet decode 20%
+     3390   1.0 | expressions 25%, unnest 25%, parquet decode 17%
+     3400   1.0 | list assembly 30%, expressions 25%, parquet decode 22%
+     3410   1.0 | parquet decode 40%, unnest 22%, expressions 15%
+     3420   1.0 | expressions 27%, parquet decode 25%, unnest 25%
+     3430   1.0 | expressions 40%, parquet decode 20%, unnest 20%
+     3440   1.0 | expressions 27%, unnest 17%, other duckdb 15%
+     3450   1.0 | list assembly 22%, unnest 20%, expressions 20%
+     3460   1.0 | expressions 32%, list assembly 22%, parquet decode 20%
+     3470   1.0 | parquet decode 30%, unnest 25%, list assembly 17%
+     3480   1.0 | parquet decode 35%, expressions 32%, unnest 12%
+     3490   1.0 | expressions 35%, unnest 22%, aggregate 12%
+     3500   1.0 | unnest 30%, parquet decode 27%, list assembly 20%
+     3510   1.0 | unnest 27%, parquet decode 20%, list assembly 17%
+     3520   1.0 | parquet decode 27%, unnest 20%, list assembly 17%
+     3530   1.0 | expressions 27%, parquet decode 27%, unnest 17%
+     3540   1.0 | parquet decode 30%, list assembly 25%, expressions 15%
+     3550   1.0 | list assembly 30%, expressions 20%, parquet decode 15%
+     3560   1.0 | expressions 30%, parquet decode 27%, unnest 15%
+     3570   1.0 | list assembly 30%, unnest 27%, expressions 17%
+     3580   1.0 | expressions 22%, unnest 20%, parquet decode 20%
+     3590   1.0 | list assembly 30%, parquet decode 22%, unnest 12%
+     3600   1.0 | expressions 25%, unnest 25%, parquet decode 20%
+     3610   1.0 | expressions 22%, unnest 22%, list assembly 20%
+     3620   1.0 | unnest 22%, expressions 22%, parquet decode 17%
+     3630   1.0 | expressions 27%, parquet decode 25%, other duckdb 17%
+     3640   1.0 | expressions 32%, parquet decode 25%, unnest 15%
+     3650   1.0 | list assembly 27%, unnest 25%, expressions 25%
+     3660   1.0 | list assembly 30%, expressions 20%, kernel 20%
+     3670   1.0 | expressions 27%, parquet decode 25%, list assembly 15%
+     3680   1.0 | parquet decode 27%, list assembly 22%, expressions 17%
+     3690   1.0 | parquet decode 37%, list assembly 22%, expressions 15%
+     3700   1.0 | unnest 25%, list assembly 22%, expressions 22%
+     3710   1.0 | expressions 27%, parquet decode 22%, unnest 17%
+     3720   1.0 | parquet decode 30%, list assembly 22%, unnest 20%
+     3730   1.0 | unnest 30%, list assembly 20%, parquet decode 17%
+     3740   1.0 | list assembly 32%, expressions 20%, unnest 15%
+     3750   1.0 | parquet decode 40%, unnest 17%, list assembly 15%
+     3760   1.0 | unnest 35%, expressions 15%, parquet decode 15%
+     3770   1.0 | parquet decode 35%, unnest 22%, list assembly 12%
+     3780   1.0 | list assembly 37%, parquet decode 22%, unnest 20%
+     3790   1.0 | unnest 25%, list assembly 17%, expressions 17%
+     3800   1.0 | expressions 32%, unnest 22%, list assembly 20%
+     3810   1.0 | parquet decode 45%, expressions 37%, other duckdb 7%
+     3820   1.0 | list assembly 30%, expressions 22%, parquet decode 17%
+     3830   1.0 | expressions 37%, parquet decode 20%, unnest 15%
+     3840   1.0 | expressions 27%, parquet decode 22%, list assembly 15%
+     3850   1.0 | parquet decode 30%, expressions 25%, list assembly 17%
+     3860   1.0 | unnest 30%, list assembly 27%, parquet decode 15%
+     3870   1.0 | expressions 30%, list assembly 27%, unnest 22%
+     3880   1.0 | unnest 30%, expressions 17%, parquet decode 17%
+     3890   1.0 | unnest 25%, parquet decode 25%, expressions 25%
+     3900   1.0 | expressions 32%, parquet decode 17%, list assembly 17%
+     3910   1.0 | parquet decode 30%, expressions 25%, list assembly 22%
+     3920   1.0 | list assembly 37%, parquet decode 22%, expressions 17%
+     3930   1.0 | expressions 30%, unnest 25%, parquet decode 20%
+     3940   1.0 | list assembly 25%, unnest 22%, other duckdb 17%
+     3950   1.0 | list assembly 22%, unnest 17%, expressions 17%
+     3960   1.0 | list assembly 25%, parquet decode 22%, unnest 20%
+     3970   1.0 | parquet decode 25%, list assembly 22%, unnest 15%
+     3980   1.0 | expressions 40%, libc (memcpy/malloc/...) 17%, unnest 17%
+     3990   1.0 | parquet decode 27%, expressions 20%, unnest 15%
+     4000   1.0 | expressions 25%, list assembly 22%, unnest 17%
+     4010   1.0 | expressions 30%, list assembly 25%, parquet decode 20%
+     4020   1.0 | list assembly 30%, parquet decode 27%, unnest 22%
+     4030   1.0 | parquet decode 22%, list assembly 22%, expressions 22%
+     4040   1.0 | expressions 37%, unnest 20%, parquet decode 17%
+     4050   1.0 | unnest 27%, list assembly 22%, expressions 20%
+     4060   1.0 | parquet decode 45%, expressions 20%, other duckdb 12%
+     4070   1.0 | expressions 25%, parquet decode 22%, unnest 20%
+     4080   1.0 | parquet decode 32%, expressions 27%, list assembly 20%
+     4090   1.0 | unnest 27%, list assembly 27%, other duckdb 10%
+     4100   1.0 | expressions 35%, list assembly 27%, unnest 12%
+     4110   1.0 | expressions 30%, unnest 25%, parquet decode 15%
+     4120   1.0 | parquet decode 32%, unnest 30%, expressions 22%
+     4130   1.0 | parquet decode 35%, unnest 22%, list assembly 15%
+     4140   1.0 | expressions 27%, parquet decode 20%, other duckdb 17%
+     4150   1.0 | expressions 37%, unnest 25%, parquet decode 10%
+     4160   1.0 | unnest 30%, expressions 27%, parquet decode 15%
+     4170   1.0 | unnest 40%, expressions 20%, list assembly 12%
+     4180   1.0 | expressions 37%, unnest 17%, other duckdb 12%
+     4190   1.0 | expressions 20%, list assembly 20%, parquet decode 20%
+     4200   1.0 | expressions 27%, list assembly 20%, parquet decode 17%
+     4210   1.0 | expressions 25%, unnest 25%, parquet decode 20%
+     4220   1.0 | parquet decode 32%, unnest 30%, expressions 17%
+     4230   1.0 | expressions 22%, unnest 17%, parquet decode 17%
+     4240   1.0 | expressions 30%, unnest 22%, list assembly 17%
+     4250   1.0 | parquet decode 30%, list assembly 22%, expressions 17%
+     4260   1.0 | unnest 30%, expressions 25%, list assembly 15%
+     4270   1.0 | parquet decode 47%, list assembly 17%, unnest 12%
+     4280   1.0 | expressions 40%, parquet decode 27%, unnest 17%
+     4290   1.0 | expressions 32%, parquet decode 30%, unnest 17%
+     4300   1.0 | parquet decode 30%, unnest 22%, expressions 17%
+     4310   1.0 | expressions 30%, parquet decode 22%, unnest 20%
+     4320   1.0 | unnest 30%, parquet decode 27%, expressions 20%
+     4330   1.0 | unnest 30%, list assembly 22%, expressions 17%
+     4340   1.0 | list assembly 25%, expressions 20%, unnest 15%
+     4350   1.0 | parquet decode 35%, list assembly 32%, unnest 12%
+     4360   1.0 | expressions 25%, list assembly 20%, parquet decode 20%
+     4370   1.0 | unnest 27%, expressions 20%, parquet decode 17%
+     4380   1.0 | parquet decode 22%, expressions 22%, unnest 20%
+     4390   1.0 | parquet decode 30%, unnest 27%, expressions 17%
+     4400   1.0 | list assembly 32%, unnest 25%, parquet decode 17%
+     4410   1.0 | expressions 22%, parquet decode 22%, list assembly 20%
+     4420   1.0 | parquet decode 37%, unnest 25%, list assembly 20%
+     4430   1.0 | parquet decode 30%, expressions 22%, unnest 17%
+     4440   1.0 | unnest 32%, expressions 25%, list assembly 17%
+     4450   1.0 | expressions 25%, list assembly 20%, parquet decode 20%
+     4460   1.0 | expressions 27%, unnest 20%, parquet decode 17%
+     4470   1.0 | list assembly 37%, unnest 20%, parquet decode 15%
+     4480   1.0 | expressions 22%, unnest 17%, parquet decode 17%
+     4490   1.0 | unnest 32%, parquet decode 22%, expressions 20%
+     4500   1.0 | parquet decode 37%, expressions 30%, other duckdb 12%
+     4510   1.0 | parquet decode 32%, expressions 27%, unnest 12%
+     4520   1.0 | parquet decode 45%, expressions 25%, unnest 10%
+     4530   1.0 | expressions 25%, unnest 22%, parquet decode 22%
+     4540   1.0 | expressions 30%, unnest 22%, parquet decode 22%
+     4550   1.0 | unnest 25%, expressions 22%, parquet decode 22%
+     4560   1.0 | unnest 37%, expressions 25%, parquet decode 12%
+     4570   1.0 | parquet decode 30%, expressions 27%, list assembly 17%
+     4580   1.0 | expressions 32%, list assembly 30%, parquet decode 17%
+     4590   1.0 | parquet decode 32%, expressions 25%, unnest 15%
+     4600   1.0 | parquet decode 35%, expressions 20%, list assembly 15%
+     4610   1.0 | expressions 32%, unnest 25%, list assembly 12%
+     4620   1.0 | unnest 45%, parquet decode 15%, expressions 15%
+     4630   1.0 | unnest 32%, expressions 27%, list assembly 25%
+     4640   1.0 | unnest 25%, parquet decode 20%, list assembly 20%
+     4650   1.0 | unnest 30%, parquet decode 30%, expressions 12%
+     4660   1.0 | unnest 25%, expressions 22%, other duckdb 15%
+     4670   1.0 | unnest 32%, parquet decode 20%, expressions 17%
+     4680   1.0 | unnest 27%, parquet decode 27%, expressions 25%
+     4690   1.0 | expressions 30%, list assembly 22%, unnest 17%
+     4700   1.0 | parquet decode 37%, expressions 15%, list assembly 15%
+     4710   1.0 | unnest 27%, parquet decode 22%, expressions 20%
+     4720   1.0 | expressions 27%, parquet decode 25%, unnest 17%
+     4730   1.0 | expressions 37%, other duckdb 15%, parquet decode 15%
+     4740   1.0 | unnest 32%, expressions 20%, parquet decode 17%
+     4750   1.0 | unnest 32%, list assembly 22%, expressions 17%
+     4760   1.0 | parquet decode 37%, unnest 22%, expressions 17%
+     4770   1.0 | expressions 32%, unnest 22%, parquet decode 22%
+     4780   1.0 | parquet decode 32%, unnest 22%, expressions 20%
+     4790   1.0 | expressions 42%, parquet decode 25%, libc (memcpy/malloc/...) 7%
+     4800   1.0 | parquet decode 32%, expressions 27%, list assembly 17%
+     4810   1.0 | expressions 37%, parquet decode 32%, unnest 15%
+     4820   1.0 | unnest 37%, parquet decode 17%, expressions 15%
+     4830   1.0 | parquet decode 27%, unnest 27%, expressions 17%
+     4840   1.0 | unnest 27%, expressions 20%, parquet decode 17%
+     4850   1.0 | unnest 27%, expressions 25%, parquet decode 12%
+     4860   1.0 | expressions 40%, list assembly 15%, unnest 15%
+     4870   1.0 | parquet decode 27%, unnest 22%, expressions 20%
+     4880   1.0 | parquet decode 32%, unnest 22%, list assembly 17%
+     4890   1.0 | parquet decode 30%, unnest 22%, list assembly 12%
+     4900   1.0 | parquet decode 20%, expressions 20%, list assembly 20%
+     4910   1.0 | list assembly 30%, unnest 27%, expressions 20%
+     4920   1.0 | parquet decode 40%, list assembly 17%, unnest 15%
+     4930   1.0 | expressions 25%, unnest 22%, list assembly 17%
+     4940   1.0 | expressions 32%, parquet decode 22%, list assembly 17%
+     4950   1.0 | parquet decode 35%, expressions 25%, unnest 25%
+     4960   1.0 | parquet decode 30%, expressions 30%, unnest 12%
+     4970   1.0 | expressions 32%, parquet decode 30%, unnest 20%
+     4980   1.0 | parquet decode 37%, expressions 20%, list assembly 15%
+     4990   1.0 | expressions 35%, parquet decode 27%, unnest 10%
+     5000   1.0 | expressions 30%, unnest 22%, list assembly 17%
+     5010   1.0 | expressions 32%, unnest 22%, list assembly 17%
+     5020   1.0 | expressions 30%, parquet decode 27%, unnest 22%
+     5030   1.0 | list assembly 27%, expressions 25%, parquet decode 20%
+     5040   1.0 | parquet decode 37%, expressions 22%, unnest 17%
+     5050   1.0 | expressions 35%, parquet decode 22%, list assembly 20%
+     5060   1.0 | parquet decode 30%, expressions 30%, unnest 15%
+     5070   1.0 | parquet decode 27%, unnest 22%, list assembly 20%
+     5080   1.0 | unnest 22%, expressions 22%, parquet decode 22%
+     5090   1.0 | parquet decode 35%, unnest 22%, other duckdb 15%
+     5100   1.0 | list assembly 25%, unnest 22%, expressions 20%
+     5110   1.0 | list assembly 27%, expressions 25%, parquet decode 17%
+     5120   1.0 | unnest 30%, expressions 22%, list assembly 17%
+     5130   1.0 | unnest 27%, expressions 22%, parquet decode 22%
+     5140   1.0 | parquet decode 30%, list assembly 27%, unnest 17%
+     5150   1.0 | expressions 30%, unnest 25%, parquet decode 15%
+     5160   1.0 | parquet decode 50%, expressions 17%, unnest 15%
+     5170   1.0 | parquet decode 25%, unnest 22%, expressions 22%
+     5180   1.0 | unnest 32%, expressions 25%, list assembly 17%
+     5190   1.0 | parquet decode 30%, expressions 30%, unnest 12%
+     5200   1.0 | parquet decode 27%, expressions 20%, unnest 15%
+     5210   1.0 | expressions 37%, parquet decode 20%, unnest 20%
+     5220   1.0 | unnest 32%, expressions 22%, parquet decode 17%
+     5230   1.0 | parquet decode 32%, list assembly 20%, expressions 17%
+     5240   1.0 | list assembly 32%, unnest 20%, expressions 17%
+     5250   1.0 | parquet decode 25%, list assembly 22%, unnest 17%
+     5260   1.0 | expressions 30%, unnest 27%, list assembly 15%
+     5270   1.0 | parquet decode 40%, expressions 27%, unnest 15%
+     5280   1.0 | unnest 27%, parquet decode 22%, expressions 17%
+     5290   1.0 | parquet decode 28%, unnest 20%, list assembly 12%
+     5300   1.0 | expressions 39%, unnest 24%, parquet decode 19%
+     5310   1.0 | parquet decode 25%, expressions 22%, unnest 20%
+     5320   1.0 | list assembly 32%, parquet decode 25%, unnest 20%
+     5330   1.0 | unnest 35%, expressions 17%, list assembly 15%
+     5340   1.0 | parquet decode 32%, list assembly 20%, unnest 17%
+     5350   1.0 | parquet decode 35%, unnest 30%, expressions 20%
+     5360   1.0 | list assembly 29%, parquet decode 24%, expressions 21%
+     5370   1.0 | parquet decode 33%, unnest 28%, expressions 15%
+     5380   1.0 | parquet decode 39%, expressions 17%, other duckdb 14%
+     5390   1.0 | unnest 25%, expressions 25%, list assembly 20%
+     5400   1.0 | expressions 30%, unnest 22%, list assembly 22%
+     5410   1.0 | unnest 35%, parquet decode 25%, other duckdb 15%
+     5420   1.0 | parquet decode 35%, unnest 30%, expressions 15%
+     5430   1.0 | list assembly 22%, unnest 22%, expressions 20%
+     5440   1.0 | expressions 35%, unnest 17%, parquet decode 15%
+     5450   1.0 | expressions 27%, unnest 22%, parquet decode 20%
+     5460   1.0 | expressions 30%, parquet decode 22%, list assembly 17%
+     5470   1.0 | expressions 32%, unnest 25%, parquet decode 20%
+     5480   1.0 | parquet decode 30%, expressions 25%, unnest 25%
+     5490   1.0 | list assembly 22%, unnest 22%, expressions 20%
+     5500   1.0 | parquet decode 30%, expressions 25%, unnest 22%
+     5510   1.0 | list assembly 32%, parquet decode 22%, unnest 20%
+     5520   1.0 | parquet decode 27%, expressions 22%, unnest 22%
+     5530   1.0 | expressions 35%, parquet decode 30%, list assembly 15%
+     5540   1.0 | parquet decode 27%, unnest 20%, expressions 20%
+     5550   1.0 | parquet decode 27%, expressions 25%, unnest 20%
+     5560   1.0 | parquet decode 35%, expressions 27%, unnest 12%
+     5570   1.0 | expressions 32%, unnest 27%, list assembly 12%
+     5580   1.0 | unnest 35%, expressions 30%, parquet decode 15%
+     5590   1.0 | parquet decode 32%, expressions 20%, unnest 15%
+     5600   1.0 | parquet decode 25%, unnest 22%, expressions 20%
+     5610   1.0 | list assembly 35%, expressions 22%, unnest 15%
+     5620   1.0 | unnest 37%, expressions 27%, parquet decode 22%
+     5630   1.0 | parquet decode 37%, unnest 25%, list assembly 15%
+     5640   1.0 | parquet decode 22%, unnest 22%, expressions 20%
+     5650   1.0 | expressions 32%, parquet decode 22%, unnest 17%
+     5660   1.0 | expressions 32%, list assembly 27%, parquet decode 17%
+     5670   1.0 | parquet decode 32%, unnest 30%, expressions 15%
+     5680   1.0 | expressions 27%, parquet decode 22%, unnest 20%
+     5690   1.0 | expressions 32%, list assembly 20%, parquet decode 17%
+     5700   1.0 | unnest 30%, list assembly 20%, expressions 17%
+     5710   1.0 | list assembly 27%, expressions 20%, unnest 20%
+     5720   1.0 | list assembly 25%, parquet decode 22%, unnest 20%
+     5730   1.0 | parquet decode 27%, expressions 25%, unnest 17%
+     5740   1.0 | unnest 32%, parquet decode 27%, other duckdb 12%
+     5750   1.0 | expressions 27%, unnest 25%, parquet decode 12%
+     5760   1.0 | parquet decode 30%, unnest 22%, list assembly 17%
+     5770   1.0 | parquet decode 37%, unnest 20%, expressions 12%
+     5780   1.0 | parquet decode 25%, expressions 22%, unnest 22%
+     5790   1.0 | parquet decode 22%, unnest 20%, other duckdb 17%
+     5800   1.0 | parquet decode 32%, unnest 22%, expressions 10%
+     5810   1.0 | unnest 30%, parquet decode 25%, list assembly 25%
+     5820   1.0 | unnest 42%, parquet decode 17%, list assembly 15%
+     5830   1.0 | unnest 27%, expressions 25%, list assembly 20%
+     5840   1.0 | unnest 30%, parquet decode 22%, expressions 17%
+     5850   1.0 | parquet decode 32%, expressions 17%, list assembly 17%
+     5860   1.0 | expressions 25%, list assembly 22%, unnest 17%
+     5870   1.0 | unnest 30%, list assembly 22%, expressions 20%
+     5880   1.0 | unnest 20%, expressions 17%, parquet decode 17%
+     5890   1.0 | unnest 32%, parquet decode 22%, list assembly 20%
+     5900   1.0 | parquet decode 22%, unnest 20%, list assembly 17%
+     5910   1.0 | unnest 27%, parquet decode 27%, expressions 20%
+     5920   1.0 | unnest 30%, expressions 20%, parquet decode 17%
+     5930   1.0 | parquet decode 27%, list assembly 27%, expressions 22%
+     5940   1.0 | unnest 35%, expressions 25%, parquet decode 15%
+     5950   1.0 | expressions 32%, unnest 25%, parquet decode 12%
+     5960   1.0 | parquet decode 35%, unnest 27%, list assembly 10%
+     5970   1.0 | expressions 27%, list assembly 25%, unnest 25%
+     5980   1.0 | expressions 30%, unnest 25%, parquet decode 17%
+     5990   1.0 | list assembly 27%, parquet decode 25%, unnest 20%
+     6000   1.0 | parquet decode 40%, list assembly 35%, unnest 15%
+     6010   1.0 | unnest 35%, expressions 22%, parquet decode 12%
+     6020   1.0 | expressions 32%, unnest 27%, parquet decode 12%
+     6030   1.0 | expressions 37%, unnest 25%, list assembly 17%
+     6040   1.0 | parquet decode 30%, list assembly 22%, unnest 17%
+     6050   1.0 | expressions 35%, parquet decode 25%, unnest 17%
+     6060   1.0 | parquet decode 37%, list assembly 25%, expressions 12%
+     6070   1.0 | list assembly 35%, expressions 17%, unnest 17%
+     6080   1.0 | parquet decode 37%, expressions 20%, unnest 17%
+     6090   1.0 | list assembly 35%, unnest 25%, parquet decode 20%
+     6100   1.0 | list assembly 25%, unnest 20%, parquet decode 20%
+     6110   1.0 | parquet decode 40%, expressions 20%, unnest 17%
+     6120   1.0 | expressions 30%, unnest 20%, parquet decode 17%
+     6130   1.0 | unnest 30%, parquet decode 25%, expressions 22%
+     6140   1.0 | parquet decode 32%, unnest 27%, expressions 12%
+     6150   1.0 | parquet decode 42%, unnest 17%, list assembly 15%
+     6160   1.0 | parquet decode 37%, expressions 27%, unnest 12%
+     6170   1.0 | unnest 27%, parquet decode 27%, expressions 22%
+     6180   1.0 | list assembly 30%, expressions 25%, unnest 22%
+     6190   1.0 | expressions 30%, list assembly 27%, parquet decode 17%
+     6200   1.0 | parquet decode 27%, expressions 25%, unnest 22%
+     6210   1.0 | expressions 32%, parquet decode 30%, list assembly 12%
+     6220   1.0 | unnest 40%, list assembly 22%, expressions 15%
+     6230   1.0 | expressions 30%, unnest 22%, list assembly 17%
+     6240   1.0 | list assembly 25%, parquet decode 25%, unnest 22%
+     6250   1.0 | parquet decode 42%, list assembly 22%, unnest 12%
+     6260   1.0 | parquet decode 35%, expressions 20%, unnest 17%
+     6270   1.0 | unnest 35%, parquet decode 20%, list assembly 20%
+     6280   1.0 | parquet decode 35%, unnest 25%, list assembly 17%
+     6290   1.0 | parquet decode 25%, unnest 22%, list assembly 20%
+     6300   1.0 | unnest 30%, expressions 30%, parquet decode 17%
+     6310   1.0 | expressions 30%, unnest 22%, parquet decode 20%
+     6320   1.0 | expressions 32%, parquet decode 27%, unnest 22%
+     6330   1.0 | expressions 30%, unnest 25%, parquet decode 22%
+     6340   1.0 | expressions 22%, unnest 22%, list assembly 20%
+     6350   1.0 | parquet decode 27%, unnest 25%, expressions 22%
+     6360   1.0 | expressions 37%, unnest 12%, parquet decode 12%
+     6370   1.0 | parquet decode 40%, unnest 20%, expressions 15%
+     6380   1.0 | parquet decode 57%, expressions 22%, libc (memcpy/malloc/...) 5%
+     6390   1.0 | unnest 25%, parquet decode 20%, list assembly 20%
+     6400   1.0 | unnest 30%, parquet decode 25%, expressions 25%
+     6410   1.0 | unnest 27%, expressions 25%, parquet decode 20%
+     6420   1.0 | expressions 32%, unnest 22%, parquet decode 20%
+     6430   1.0 | list assembly 30%, parquet decode 25%, expressions 22%
+     6440   1.0 | expressions 27%, list assembly 25%, parquet decode 15%
+     6450   1.0 | unnest 32%, list assembly 20%, expressions 15%
+     6460   1.0 | parquet decode 35%, expressions 30%, unnest 20%
+     6470   1.0 | parquet decode 32%, expressions 22%, list assembly 20%
+     6480   1.0 | parquet decode 25%, unnest 17%, expressions 12%
+     6490   1.0 | parquet decode 40%, list assembly 15%, unnest 15%
+     6500   1.0 | list assembly 22%, expressions 22%, unnest 20%
+     6510   1.0 | unnest 30%, parquet decode 30%, expressions 12%
+     6520   1.0 | parquet decode 30%, unnest 25%, list assembly 22%
+     6530   1.0 | list assembly 40%, expressions 15%, unnest 12%
+     6540   1.0 | parquet decode 35%, list assembly 22%, expressions 17%
+     6550   1.0 | parquet decode 35%, unnest 27%, expressions 12%
+     6560   1.0 | parquet decode 27%, expressions 22%, unnest 17%
+     6570   1.0 | unnest 32%, expressions 25%, parquet decode 15%
+     6580   1.0 | list assembly 35%, parquet decode 25%, unnest 12%
+     6590   1.0 | unnest 27%, parquet decode 22%, list assembly 15%
+     6600   1.0 | parquet decode 55%, unnest 17%, other duckdb 12%
+     6610   1.0 | parquet decode 27%, list assembly 22%, unnest 17%
+     6620   1.0 | list assembly 32%, expressions 25%, parquet decode 20%
+     6630   1.0 | parquet decode 32%, unnest 30%, expressions 15%
+     6640   1.0 | unnest 30%, expressions 25%, parquet decode 22%
+     6650   1.0 | unnest 27%, list assembly 22%, expressions 15%
+     6660   1.0 | parquet decode 37%, unnest 25%, expressions 22%
+     6670   1.0 | parquet decode 52%, unnest 25%, expressions 5%
+     6680   1.0 | expressions 25%, parquet decode 22%, unnest 20%
+     6690   1.0 | list assembly 32%, expressions 25%, parquet decode 12%
+     6700   1.0 | expressions 27%, parquet decode 22%, unnest 17%
+     6710   1.0 | list assembly 30%, expressions 30%, unnest 22%
+     6720   1.0 | unnest 35%, expressions 22%, parquet decode 17%
+     6730   1.0 | parquet decode 30%, unnest 22%, list assembly 22%
+     6740   1.0 | expressions 37%, list assembly 22%, unnest 17%
+     6750   1.0 | expressions 40%, unnest 17%, parquet decode 10%
+     6760   1.0 | unnest 25%, parquet decode 22%, expressions 22%
+     6770   1.0 | parquet decode 35%, expressions 20%, unnest 15%
+     6780   1.0 | expressions 30%, unnest 22%, list assembly 20%
+     6790   1.0 | parquet decode 30%, expressions 27%, unnest 27%
+     6800   1.0 | unnest 22%, expressions 17%, parquet decode 17%
+     6810   1.0 | unnest 27%, parquet decode 22%, expressions 20%
+     6820   1.0 | unnest 30%, list assembly 25%, parquet decode 17%
+     6830   1.0 | list assembly 25%, unnest 22%, parquet decode 22%
+     6840   1.0 | parquet decode 27%, unnest 22%, expressions 17%
+     6850   1.0 | parquet decode 35%, expressions 20%, unnest 20%
+     6860   1.0 | parquet decode 30%, expressions 22%, list assembly 20%
+     6870   1.0 | list assembly 22%, expressions 22%, other duckdb 20%
+     6880   1.0 | expressions 27%, list assembly 27%, unnest 17%
+     6890   1.0 | expressions 27%, unnest 25%, list assembly 20%
+     6900   1.0 | parquet decode 35%, unnest 17%, expressions 15%
+     6910   1.0 | unnest 37%, parquet decode 20%, list assembly 17%
+     6920   1.0 | unnest 32%, expressions 17%, parquet decode 17%
+     6930   1.0 | parquet decode 37%, list assembly 20%, unnest 12%
+     6940   1.0 | list assembly 32%, unnest 17%, parquet decode 15%
+     6950   1.0 | parquet decode 30%, expressions 22%, unnest 17%
+     6960   1.0 | unnest 35%, expressions 20%, parquet decode 20%
+     6970   1.0 | expressions 32%, list assembly 22%, parquet decode 15%
+     6980   1.0 | expressions 25%, list assembly 22%, unnest 20%
+     6990   1.0 | unnest 33%, expressions 25%, parquet decode 15%
+     7000   1.0 | list assembly 41%, unnest 19%, expressions 12%
+     7010   1.0 | expressions 25%, list assembly 25%, unnest 17%
+     7020   1.0 | expressions 42%, unnest 25%, parquet decode 20%
+     7030   1.0 | expressions 25%, list assembly 25%, parquet decode 15%
+     7040   1.0 | unnest 35%, parquet decode 25%, expressions 22%
+     7050   1.0 | expressions 25%, parquet decode 20%, unnest 20%
+     7060   1.0 | unnest 40%, parquet decode 25%, expressions 17%
+     7070   1.0 | unnest 27%, list assembly 17%, expressions 15%
+     7080   1.0 | parquet decode 32%, expressions 20%, unnest 20%
+     7090   1.0 | parquet decode 22%, expressions 22%, unnest 20%
+     7100   1.0 | parquet decode 30%, list assembly 30%, unnest 12%
+     7110   1.0 | unnest 22%, expressions 20%, parquet decode 15%
+     7120   1.0 | parquet decode 38%, expressions 25%, unnest 15%
+     7130   1.0 | expressions 29%, unnest 26%, parquet decode 21%
+     7140   1.0 | expressions 35%, parquet decode 27%, unnest 15%
+     7150   1.0 | expressions 42%, unnest 22%, libc (memcpy/malloc/...) 12%
+     7160   1.0 | expressions 27%, parquet decode 20%, unnest 17%
+     7170   1.0 | unnest 27%, expressions 25%, list assembly 17%
+     7180   1.0 | list assembly 32%, unnest 22%, expressions 17%
+     7190   1.0 | expressions 22%, unnest 22%, list assembly 20%
+     7200   1.0 | unnest 32%, parquet decode 22%, expressions 20%
+     7210   1.0 | expressions 40%, unnest 20%, list assembly 17%
+     7220   1.0 | list assembly 22%, expressions 20%, unnest 20%
+     7230   1.0 | parquet decode 32%, expressions 27%, unnest 17%
+     7240   1.0 | expressions 35%, list assembly 27%, parquet decode 12%
+     7250   1.0 | parquet decode 32%, list assembly 27%, unnest 15%
+     7260   1.0 | parquet decode 45%, list assembly 20%, other duckdb 10%
+     7270   1.0 | parquet decode 30%, unnest 20%, expressions 17%
+     7280   1.0 | parquet decode 22%, unnest 22%, expressions 17%
+     7290   1.0 | parquet decode 25%, expressions 22%, unnest 20%
+     7300   1.0 | unnest 27%, expressions 22%, parquet decode 17%
+     7310   1.0 | parquet decode 35%, expressions 25%, list assembly 17%
+     7320   1.0 | unnest 32%, parquet decode 22%, list assembly 17%
+     7330   1.0 | list assembly 30%, expressions 25%, parquet decode 17%
+     7340   1.0 | parquet decode 27%, expressions 25%, unnest 17%
+     7350   1.0 | expressions 27%, unnest 22%, libc (memcpy/malloc/...) 12%
+     7360   1.0 | expressions 37%, list assembly 22%, unnest 15%
+     7370   1.0 | list assembly 35%, parquet decode 17%, unnest 12%
+     7380   1.0 | unnest 35%, parquet decode 32%, expressions 10%
+     7390   1.0 | expressions 32%, unnest 22%, parquet decode 20%
+     7400   1.0 | parquet decode 25%, unnest 25%, list assembly 22%
+     7410   1.0 | expressions 30%, unnest 27%, parquet decode 12%
+     7420   1.0 | unnest 35%, expressions 20%, parquet decode 15%
+     7430   1.0 | parquet decode 30%, expressions 20%, unnest 15%
+     7440   1.0 | expressions 22%, parquet decode 20%, list assembly 17%
+     7450   1.0 | unnest 32%, parquet decode 20%, list assembly 20%
+     7460   1.0 | list assembly 32%, expressions 30%, parquet decode 15%
+     7470   1.0 | parquet decode 45%, unnest 17%, list assembly 15%
+     7480   1.0 | list assembly 27%, parquet decode 25%, expressions 17%
+     7490   1.0 | unnest 22%, list assembly 22%, parquet decode 20%
+     7500   1.0 | unnest 27%, expressions 25%, parquet decode 12%
+     7510   1.0 | unnest 30%, parquet decode 25%, expressions 20%
+     7520   1.0 | expressions 35%, parquet decode 22%, unnest 15%
+     7530   1.0 | parquet decode 30%, unnest 20%, list assembly 17%
+     7540   1.0 | list assembly 27%, parquet decode 25%, expressions 22%
+     7550   1.0 | list assembly 27%, expressions 20%, unnest 17%
+     7560   1.0 | parquet decode 22%, unnest 20%, expressions 20%
+     7570   1.0 | parquet decode 27%, unnest 22%, expressions 22%
+     7580   1.0 | unnest 35%, expressions 32%, other duckdb 10%
+     7590   1.0 | expressions 40%, unnest 22%, list assembly 15%
+     7600   1.0 | unnest 30%, expressions 25%, list assembly 17%
+     7610   1.0 | unnest 27%, expressions 25%, list assembly 12%
+     7620   1.0 | list assembly 32%, expressions 22%, unnest 10%
+     7630   1.0 | parquet decode 20%, expressions 20%, unnest 17%
+     7640   1.0 | parquet decode 32%, expressions 22%, list assembly 12%
+     7650   1.0 | unnest 30%, list assembly 17%, expressions 15%
+     7660   1.0 | parquet decode 25%, unnest 22%, expressions 17%
+     7670   1.0 | expressions 30%, unnest 27%, parquet decode 20%
+     7680   1.0 | parquet decode 30%, expressions 25%, unnest 20%
+     7690   1.0 | unnest 27%, parquet decode 20%, list assembly 17%
+     7700   1.0 | list assembly 32%, expressions 15%, unnest 15%
+     7710   1.0 | expressions 40%, unnest 30%, list assembly 12%
+     7720   1.0 | expressions 35%, unnest 25%, list assembly 15%
+     7730   1.0 | unnest 37%, parquet decode 20%, list assembly 20%
+     7740   1.0 | parquet decode 35%, expressions 25%, list assembly 17%
+     7750   1.0 | expressions 42%, parquet decode 25%, unnest 12%
+     7760   1.0 | unnest 30%, expressions 25%, parquet decode 15%
+     7770   1.0 | expressions 30%, list assembly 22%, parquet decode 22%
+     7780   1.0 | parquet decode 37%, expressions 20%, unnest 15%
+     7790   1.0 | expressions 30%, unnest 27%, parquet decode 10%
+     7800   1.0 | list assembly 30%, expressions 25%, unnest 15%
+     7810   1.0 | unnest 35%, list assembly 27%, expressions 17%
+     7820   1.0 | expressions 32%, list assembly 27%, parquet decode 17%
+     7830   1.0 | list assembly 37%, unnest 17%, parquet decode 17%
+     7840   1.0 | parquet decode 27%, expressions 25%, list assembly 22%
+     7850   1.0 | parquet decode 52%, expressions 22%, unnest 7%
+     7860   1.0 | parquet decode 40%, expressions 20%, list assembly 17%
+     7870   1.0 | parquet decode 27%, expressions 27%, list assembly 22%
+     7880   1.0 | expressions 25%, parquet decode 25%, unnest 20%
+     7890   1.0 | unnest 27%, expressions 17%, parquet decode 17%
+     7900   1.0 | parquet decode 27%, unnest 25%, expressions 25%
+     7910   1.0 | parquet decode 32%, unnest 27%, expressions 22%
+     7920   1.0 | unnest 27%, list assembly 22%, expressions 20%
+     7930   1.0 | unnest 40%, list assembly 20%, expressions 15%
+     7940   1.0 | parquet decode 30%, list assembly 27%, unnest 20%
+     7950   1.0 | parquet decode 32%, unnest 30%, expressions 15%
+     7960   1.0 | expressions 30%, parquet decode 25%, unnest 22%
+     7970   1.0 | unnest 25%, list assembly 22%, parquet decode 20%
+     7980   1.0 | parquet decode 30%, unnest 25%, expressions 17%
+     7990   1.0 | list assembly 25%, parquet decode 25%, unnest 20%
+     8000   1.0 | parquet decode 32%, list assembly 25%, unnest 12%
+     8010   1.0 | unnest 37%, expressions 22%, list assembly 10%
+     8020   1.0 | expressions 42%, unnest 15%, parquet decode 12%
+     8030   1.0 | list assembly 27%, expressions 20%, parquet decode 20%
+     8040   1.0 | unnest 32%, parquet decode 25%, expressions 17%
+     8050   1.0 | list assembly 42%, unnest 22%, expressions 15%
+     8060   1.0 | expressions 22%, unnest 20%, parquet decode 20%
+     8070   1.0 | parquet decode 27%, list assembly 25%, unnest 22%
+     8080   1.0 | unnest 27%, expressions 17%, list assembly 17%
+     8090   1.0 | parquet decode 32%, unnest 25%, expressions 12%
+     8100   1.0 | expressions 27%, unnest 25%, list assembly 15%
+     8110   1.0 | parquet decode 47%, list assembly 17%, other duckdb 12%
+     8120   1.0 | list assembly 25%, parquet decode 22%, expressions 22%
+     8130   1.0 | list assembly 45%, unnest 22%, expressions 15%
+     8140   1.0 | expressions 35%, parquet decode 30%, unnest 12%
+     8150   1.0 | list assembly 25%, unnest 22%, parquet decode 20%
+     8160   1.0 | expressions 27%, parquet decode 25%, list assembly 15%
+     8170   1.0 | parquet decode 50%, unnest 17%, list assembly 12%
+     8180   1.0 | parquet decode 37%, unnest 22%, list assembly 20%
+     8190   1.0 | parquet decode 27%, list assembly 25%, expressions 15%
+     8200   1.0 | parquet decode 37%, expressions 15%, list assembly 15%
+     8210   1.0 | list assembly 47%, expressions 15%, unnest 15%
+     8220   1.0 | expressions 32%, list assembly 30%, libc (memcpy/malloc/...) 10%
+     8230   1.0 | unnest 30%, expressions 27%, list assembly 20%
+     8240   1.0 | list assembly 25%, unnest 20%, parquet decode 17%
+     8250   1.0 | unnest 30%, parquet decode 22%, expressions 17%
+     8260   1.0 | unnest 30%, expressions 27%, list assembly 25%
+     8270   1.0 | expressions 25%, unnest 22%, parquet decode 20%
+     8280   1.0 | expressions 35%, parquet decode 30%, unnest 12%
+     8290   1.0 | expressions 22%, list assembly 22%, parquet decode 20%
+     8300   1.0 | unnest 37%, expressions 25%, list assembly 15%
+     8310   1.0 | unnest 27%, parquet decode 27%, list assembly 15%
+     8320   1.0 | unnest 30%, parquet decode 22%, expressions 15%
+     8330   1.0 | parquet decode 35%, unnest 22%, list assembly 15%
+     8340   1.0 | unnest 25%, parquet decode 22%, list assembly 20%
+     8350   1.0 | unnest 30%, expressions 22%, parquet decode 17%
+     8360   1.0 | expressions 40%, list assembly 22%, parquet decode 17%
+     8370   1.0 | expressions 37%, parquet decode 32%, unnest 15%
+     8380   1.0 | expressions 32%, unnest 22%, parquet decode 15%
+     8390   1.0 | parquet decode 30%, unnest 25%, expressions 15%
+     8400   1.0 | parquet decode 30%, unnest 25%, expressions 17%
+     8410   1.0 | unnest 25%, parquet decode 22%, list assembly 12%
+     8420   1.0 | parquet decode 30%, expressions 27%, list assembly 20%
+     8430   1.0 | expressions 27%, unnest 25%, parquet decode 17%
+     8440   1.0 | unnest 35%, parquet decode 20%, list assembly 15%
+     8450   1.0 | parquet decode 30%, expressions 22%, list assembly 20%
+     8460   1.0 | expressions 40%, unnest 20%, list assembly 17%
+     8470   1.0 | unnest 30%, expressions 25%, parquet decode 20%
+     8480   1.0 | expressions 32%, list assembly 22%, unnest 15%
+     8490   1.0 | expressions 27%, unnest 25%, list assembly 15%
+     8500   1.0 | list assembly 27%, parquet decode 25%, expressions 22%
+     8510   1.0 | parquet decode 27%, unnest 22%, expressions 17%
+     8520   1.0 | unnest 30%, expressions 25%, list assembly 17%
+     8530   1.0 | expressions 32%, list assembly 25%, unnest 22%
+     8540   1.0 | unnest 32%, expressions 20%, parquet decode 15%
+     8550   1.0 | parquet decode 35%, expressions 25%, unnest 15%
+     8560   1.0 | unnest 32%, parquet decode 22%, expressions 22%
+     8570   1.0 | parquet decode 37%, expressions 22%, list assembly 12%
+     8580   1.0 | unnest 30%, parquet decode 27%, expressions 15%
+     8590   1.0 | parquet decode 32%, unnest 22%, list assembly 20%
+     8600   1.0 | parquet decode 35%, expressions 20%, other duckdb 12%
+     8610   1.0 | expressions 32%, unnest 22%, list assembly 22%
+     8620   1.0 | expressions 35%, parquet decode 27%, unnest 20%
+     8630   1.0 | list assembly 40%, parquet decode 25%, unnest 12%
+     8640   1.0 | unnest 32%, list assembly 22%, parquet decode 20%
+     8650   1.0 | list assembly 40%, expressions 20%, parquet decode 15%
+     8660   1.0 | expressions 27%, parquet decode 27%, list assembly 17%
+     8670   1.0 | expressions 30%, unnest 22%, parquet decode 20%
+     8680   1.0 | unnest 30%, parquet decode 22%, list assembly 17%
+     8690   1.0 | unnest 27%, list assembly 20%, parquet decode 20%
+     8700   1.0 | unnest 30%, expressions 17%, list assembly 17%
+     8710   1.0 | expressions 35%, unnest 25%, parquet decode 25%
+     8720   1.0 | expressions 40%, unnest 25%, list assembly 15%
+     8730   1.0 | parquet decode 50%, unnest 30%, expressions 10%
+     8740   1.0 | list assembly 30%, parquet decode 25%, unnest 20%
+     8750   1.0 | list assembly 25%, parquet decode 22%, unnest 22%
+     8760   1.0 | unnest 40%, expressions 22%, parquet decode 15%
+     8770   1.0 | parquet decode 30%, expressions 20%, list assembly 17%
+     8780   1.0 | expressions 22%, list assembly 20%, parquet decode 20%
+     8790   1.0 | expressions 27%, parquet decode 25%, list assembly 15%
+     8800   1.0 | unnest 35%, expressions 20%, parquet decode 15%
+     8810   1.0 | expressions 30%, unnest 25%, parquet decode 15%
+     8820   1.0 | expressions 27%, unnest 22%, list assembly 20%
+     8830   1.0 | expressions 30%, list assembly 20%, unnest 10%
+     8840   1.0 | expressions 30%, parquet decode 27%, unnest 15%
+     8850   1.0 | parquet decode 27%, unnest 25%, expressions 20%
+     8860   1.0 | unnest 30%, expressions 22%, parquet decode 17%
+     8870   1.0 | expressions 37%, list assembly 17%, unnest 12%
+     8880   1.0 | parquet decode 32%, list assembly 22%, expressions 22%
+     8890   1.0 | parquet decode 27%, unnest 27%, expressions 17%
+     8900   1.0 | expressions 32%, unnest 22%, list assembly 22%
+     8910   1.0 | expressions 37%, unnest 30%, list assembly 20%
+     8920   1.0 | unnest 20%, list assembly 20%, expressions 20%
+     8930   1.0 | unnest 35%, list assembly 25%, parquet decode 22%
+     8940   1.0 | expressions 25%, parquet decode 25%, list assembly 22%
+     8950   1.0 | unnest 35%, expressions 22%, list assembly 17%
+     8960   1.0 | unnest 27%, expressions 25%, parquet decode 20%
+     8970   1.0 | unnest 25%, expressions 25%, parquet decode 15%
+     8980   1.1 | list assembly 28%, expressions 23%, unnest 19%
+     8990   1.0 | expressions 30%, unnest 22%, list assembly 17%
+     9000   1.0 | list assembly 27%, other duckdb 20%, parquet decode 15%
+     9010   1.1 | list assembly 23%, expressions 21%, unnest 21%
+     9020   1.0 | list assembly 32%, unnest 20%, expressions 17%
+     9030   1.0 | parquet decode 40%, expressions 22%, unnest 15%
+     9040   1.0 | expressions 40%, unnest 20%, list assembly 20%
+     9050   1.0 | parquet decode 35%, expressions 27%, unnest 17%
+     9060   1.0 | expressions 30%, parquet decode 25%, unnest 17%
+     9070   1.0 | parquet decode 25%, unnest 22%, list assembly 17%
+     9080   1.0 | unnest 32%, expressions 27%, parquet decode 17%
+     9090   1.0 | expressions 25%, unnest 25%, list assembly 17%
+     9100   1.0 | list assembly 25%, expressions 17%, other duckdb 15%
+     9110   1.0 | expressions 27%, unnest 25%, list assembly 17%
+     9120   1.0 | list assembly 27%, unnest 22%, expressions 17%
+     9130   1.0 | list assembly 32%, parquet decode 22%, unnest 17%
+     9140   1.0 | expressions 32%, parquet decode 20%, list assembly 15%
+     9150   1.0 | parquet decode 32%, expressions 30%, libc (memcpy/malloc/...) 10%
+     9160   1.0 | unnest 27%, expressions 20%, list assembly 17%
+     9170   1.0 | parquet decode 50%, expressions 20%, list assembly 12%
+     9180   1.0 | expressions 32%, unnest 22%, list assembly 20%
+     9190   1.0 | parquet decode 32%, list assembly 22%, expressions 15%
+     9200   1.0 | parquet decode 32%, list assembly 22%, expressions 17%
+     9210   1.0 | expressions 35%, list assembly 20%, unnest 17%
+     9220   1.0 | expressions 32%, list assembly 20%, unnest 20%
+     9230   1.0 | unnest 30%, parquet decode 27%, list assembly 17%
+     9240   1.0 | parquet decode 35%, expressions 32%, unnest 15%
+     9250   1.0 | parquet decode 27%, list assembly 25%, unnest 20%
+     9260   1.0 | list assembly 27%, parquet decode 25%, expressions 17%
+     9270   1.0 | expressions 35%, parquet decode 22%, list assembly 15%
+     9280   1.0 | expressions 27%, parquet decode 25%, unnest 22%
+     9290   1.0 | list assembly 25%, unnest 22%, parquet decode 22%
+     9300   1.0 | list assembly 32%, expressions 32%, unnest 20%
+     9310   1.0 | parquet decode 22%, unnest 20%, expressions 20%
+     9320   1.0 | list assembly 30%, expressions 22%, unnest 20%
+     9330   1.0 | parquet decode 40%, expressions 20%, unnest 17%
+     9340   1.0 | unnest 32%, parquet decode 17%, list assembly 17%
+     9350   1.0 | unnest 25%, parquet decode 22%, expressions 17%
+     9360   1.0 | unnest 30%, list assembly 22%, parquet decode 20%
+     9370   1.0 | unnest 40%, parquet decode 17%, expressions 17%
+     9380   1.0 | expressions 32%, unnest 20%, list assembly 15%
+     9390   1.0 | unnest 30%, expressions 25%, parquet decode 12%
+     9400   1.0 | parquet decode 27%, expressions 27%, unnest 17%
+     9410   1.0 | list assembly 32%, parquet decode 27%, expressions 15%
+     9420   1.0 | expressions 27%, parquet decode 22%, list assembly 20%
+     9430   1.0 | unnest 40%, list assembly 22%, expressions 17%
+     9440   1.0 | parquet decode 35%, expressions 25%, unnest 17%
+     9450   1.0 | expressions 25%, list assembly 25%, unnest 17%
+     9460   1.0 | unnest 25%, expressions 22%, parquet decode 12%
+     9470   1.0 | list assembly 27%, unnest 25%, parquet decode 17%
+     9480   1.0 | parquet decode 30%, expressions 25%, unnest 17%
+     9490   1.0 | parquet decode 32%, unnest 30%, expressions 17%
+     9500   1.0 | unnest 35%, list assembly 22%, parquet decode 15%
+     9510   1.0 | parquet decode 40%, list assembly 30%, other duckdb 12%
+     9520   1.0 | list assembly 42%, expressions 22%, parquet decode 10%
+     9530   1.0 | parquet decode 40%, list assembly 22%, expressions 22%
+     9540   1.0 | unnest 37%, expressions 20%, parquet decode 15%
+     9550   1.0 | expressions 30%, unnest 20%, parquet decode 15%
+     9560   1.0 | list assembly 30%, unnest 27%, expressions 15%
+     9570   1.0 | unnest 27%, expressions 25%, list assembly 17%
+     9580   1.0 | parquet decode 30%, expressions 27%, list assembly 20%
+     9590   1.0 | parquet decode 27%, list assembly 22%, expressions 20%
+     9600   1.0 | expressions 40%, unnest 35%, list assembly 7%
+     9610   1.0 | expressions 27%, unnest 25%, parquet decode 12%
+     9620   1.0 | expressions 35%, list assembly 27%, unnest 15%
+     9630   1.0 | expressions 27%, list assembly 22%, parquet decode 17%
+     9640   1.0 | expressions 37%, unnest 25%, parquet decode 22%
+     9650   1.0 | expressions 32%, unnest 27%, list assembly 15%
+     9660   1.0 | list assembly 25%, expressions 20%, unnest 17%
+     9670   1.0 | expressions 42%, unnest 27%, parquet decode 10%
+     9680   1.0 | expressions 37%, unnest 22%, parquet decode 20%
+     9690   1.0 | expressions 32%, unnest 20%, parquet decode 20%
+     9700   1.0 | parquet decode 32%, unnest 22%, expressions 17%
+     9710   1.0 | unnest 25%, list assembly 22%, expressions 20%
+     9720   1.0 | unnest 35%, expressions 22%, parquet decode 20%
+     9730   1.0 | list assembly 30%, expressions 25%, parquet decode 17%
+     9740   1.0 | parquet decode 27%, unnest 20%, expressions 20%
+     9750   1.0 | expressions 32%, list assembly 27%, unnest 17%
+     9760   1.0 | parquet decode 45%, list assembly 25%, expressions 15%
+     9770   1.0 | expressions 30%, unnest 25%, list assembly 22%
+     9780   1.0 | expressions 32%, list assembly 27%, parquet decode 15%
+     9790   1.0 | parquet decode 32%, expressions 30%, unnest 22%
+     9800   1.0 | parquet decode 30%, list assembly 20%, expressions 17%
+     9810   1.0 | parquet decode 25%, expressions 25%, unnest 22%
+     9820   1.0 | unnest 27%, expressions 27%, parquet decode 20%
+     9830   1.0 | parquet decode 47%, expressions 17%, unnest 15%
+     9840   1.0 | parquet decode 35%, unnest 25%, list assembly 15%
+     9850   1.0 | parquet decode 27%, list assembly 27%, unnest 15%
+     9860   1.0 | unnest 25%, parquet decode 22%, list assembly 17%
+     9870   1.0 | expressions 32%, unnest 32%, list assembly 12%
+     9880   1.0 | list assembly 30%, unnest 20%, expressions 17%
+     9890   1.0 | list assembly 35%, unnest 30%, expressions 17%
+     9900   1.0 | expressions 32%, unnest 22%, list assembly 20%
+     9910   1.0 | expressions 27%, parquet decode 17%, unnest 17%
+     9920   1.0 | expressions 42%, parquet decode 27%, list assembly 12%
+     9930   1.0 | parquet decode 35%, expressions 22%, unnest 17%
+     9940   1.0 | parquet decode 25%, expressions 20%, unnest 17%
+     9950   1.0 | parquet decode 32%, expressions 27%, unnest 22%
+     9960   1.0 | parquet decode 37%, expressions 30%, unnest 10%
+     9970   1.0 | parquet decode 32%, expressions 27%, list assembly 15%
+     9980   1.0 | parquet decode 27%, list assembly 27%, expressions 15%
+     9990   1.0 | parquet decode 35%, list assembly 15%, expressions 15%
+    10000   1.0 | unnest 37%, parquet decode 22%, expressions 20%
+    10010   1.0 | parquet decode 30%, expressions 17%, unnest 17%
+    10020   1.0 | parquet decode 30%, expressions 25%, list assembly 25%
+    10030   1.0 | parquet decode 40%, expressions 20%, unnest 12%
+    10040   1.0 | expressions 32%, unnest 20%, parquet decode 17%
+    10050   1.0 | parquet decode 25%, list assembly 20%, expressions 17%
+    10060   1.0 | parquet decode 30%, unnest 17%, list assembly 17%
+    10070   1.0 | expressions 40%, unnest 25%, list assembly 20%
+    10080   1.0 | unnest 27%, parquet decode 22%, expressions 17%
+    10090   1.0 | unnest 32%, expressions 22%, parquet decode 20%
+    10100   1.0 | expressions 27%, list assembly 27%, unnest 20%
+    10110   1.0 | parquet decode 35%, list assembly 32%, unnest 15%
+    10120   1.0 | list assembly 25%, expressions 17%, unnest 15%
+    10130   1.0 | expressions 40%, unnest 17%, parquet decode 15%
+    10140   1.0 | unnest 32%, expressions 20%, parquet decode 17%
+    10150   1.0 | expressions 30%, unnest 27%, list assembly 15%
+    10160   1.0 | expressions 35%, parquet decode 20%, unnest 20%
+    10170   1.0 | unnest 37%, list assembly 17%, parquet decode 12%
+    10180   1.0 | expressions 37%, parquet decode 20%, list assembly 17%
+    10190   1.0 | parquet decode 25%, expressions 25%, list assembly 20%
+    10200   1.0 | expressions 25%, unnest 25%, parquet decode 22%
+    10210   1.0 | unnest 25%, parquet decode 22%, expressions 20%
+    10220   1.0 | expressions 40%, unnest 22%, parquet decode 22%
+    10230   1.0 | unnest 30%, parquet decode 20%, expressions 20%
+    10240   1.0 | unnest 35%, expressions 25%, parquet decode 15%
+    10250   1.0 | expressions 30%, unnest 22%, parquet decode 20%
+    10260   1.0 | expressions 22%, parquet decode 20%, list assembly 20%
+    10270   1.0 | parquet decode 40%, list assembly 25%, expressions 12%
+    10280   1.0 | parquet decode 37%, expressions 32%, unnest 15%
+    10290   1.0 | parquet decode 25%, unnest 20%, expressions 20%
+    10300   1.0 | parquet decode 27%, unnest 27%, expressions 20%
+    10310   1.0 | unnest 25%, parquet decode 25%, expressions 17%
+    10320   1.0 | parquet decode 27%, expressions 27%, unnest 20%
+    10330   1.0 | unnest 27%, parquet decode 22%, expressions 17%
+    10340   1.0 | expressions 37%, parquet decode 30%, unnest 25%
+    10350   1.0 | parquet decode 42%, expressions 30%, list assembly 10%
+    10360   1.0 | expressions 42%, parquet decode 25%, unnest 12%
+    10370   1.0 | list assembly 30%, parquet decode 22%, expressions 20%
+    10380   1.0 | parquet decode 27%, expressions 25%, unnest 15%
+    10390   1.0 | expressions 30%, parquet decode 25%, other duckdb 17%
+    10400   1.0 | unnest 30%, expressions 20%, list assembly 17%
+    10410   1.0 | unnest 33%, expressions 20%, parquet decode 12%
+    10420   1.0 | expressions 36%, unnest 24%, parquet decode 17%
+    10430   1.0 | unnest 32%, list assembly 15%, expressions 15%
+    10440   1.0 | list assembly 37%, unnest 17%, expressions 15%
+    10450   1.0 | unnest 32%, expressions 22%, list assembly 17%
+    10460   1.0 | unnest 28%, expressions 20%, list assembly 20%
+    10470   1.0 | parquet decode 29%, expressions 21%, list assembly 19%
+    10480   1.0 | parquet decode 30%, expressions 25%, list assembly 17%
+    10490   1.0 | unnest 32%, expressions 22%, list assembly 12%
+    10500   1.0 | expressions 32%, list assembly 17%, unnest 15%
+    10510   1.0 | unnest 28%, list assembly 25%, expressions 23%
+    10520   1.0 | expressions 21%, list assembly 21%, unnest 19%
+    10530   1.0 | unnest 40%, expressions 27%, parquet decode 17%
+    10540   1.0 | list assembly 37%, expressions 17%, unnest 15%
+    10550   1.0 | parquet decode 40%, expressions 20%, unnest 15%
+    10560   1.0 | parquet decode 37%, unnest 20%, list assembly 20%
+    10570   1.0 | list assembly 42%, expressions 15%, unnest 15%
+    10580   1.0 | expressions 42%, unnest 25%, parquet decode 25%
+    10590   1.0 | unnest 30%, expressions 20%, parquet decode 12%
+    10600   1.0 | unnest 30%, expressions 30%, parquet decode 12%
+    10610   1.0 | unnest 37%, expressions 15%, parquet decode 15%
+    10620   1.0 | parquet decode 42%, expressions 20%, unnest 15%
+    10630   1.0 | expressions 30%, unnest 25%, list assembly 15%
+    10640   1.0 | unnest 27%, parquet decode 25%, expressions 15%
+    10650   1.0 | expressions 30%, unnest 25%, parquet decode 20%
+    10660   1.0 | expressions 42%, unnest 22%, list assembly 10%
+    10670   1.0 | expressions 30%, list assembly 20%, unnest 15%
+    10680   1.0 | expressions 27%, parquet decode 22%, list assembly 20%
+    10690   1.0 | parquet decode 32%, unnest 27%, expressions 12%
+    10700   1.0 | unnest 35%, parquet decode 30%, expressions 12%
+    10710   1.0 | unnest 28%, parquet decode 28%, list assembly 15%
+    10720   1.0 | expressions 26%, unnest 21%, parquet decode 19%
+    10730   1.0 | expressions 25%, parquet decode 22%, unnest 20%
+    10740   1.0 | expressions 32%, list assembly 22%, parquet decode 22%
+    10750   1.0 | parquet decode 25%, expressions 25%, list assembly 20%
+    10760   1.0 | parquet decode 27%, list assembly 22%, unnest 17%
+    10770   1.0 | unnest 30%, parquet decode 25%, list assembly 22%
+    10780   1.0 | parquet decode 45%, list assembly 17%, unnest 17%
+    10790   1.0 | expressions 32%, unnest 22%, parquet decode 20%
+    10800   1.0 | unnest 32%, parquet decode 32%, expressions 15%
+    10810   1.0 | unnest 40%, parquet decode 27%, expressions 12%
+    10820   1.0 | unnest 30%, parquet decode 22%, expressions 17%
+    10830   1.0 | unnest 30%, parquet decode 30%, list assembly 17%
+    10840   1.0 | expressions 30%, unnest 27%, parquet decode 20%
+    10850   1.0 | expressions 35%, unnest 25%, parquet decode 17%
+    10860   1.0 | expressions 27%, unnest 22%, parquet decode 22%
+    10870   1.0 | list assembly 27%, expressions 22%, parquet decode 22%
+    10880   1.0 | expressions 35%, parquet decode 32%, unnest 22%
+    10890   1.0 | parquet decode 37%, list assembly 17%, expressions 15%
+    10900   1.0 | list assembly 25%, parquet decode 23%, expressions 17%
+    10910   1.0 | parquet decode 27%, unnest 20%, expressions 15%
+    10920   1.0 | expressions 39%, unnest 26%, parquet decode 17%
+    10930   1.0 | expressions 32%, list assembly 22%, unnest 17%
+    10940   1.0 | unnest 23%, parquet decode 23%, expressions 20%
+    10950   1.0 | parquet decode 40%, expressions 25%, list assembly 12%
+    10960   1.0 | parquet decode 27%, unnest 25%, expressions 15%
+    10970   1.0 | parquet decode 32%, unnest 22%, expressions 20%
+    10980   1.0 | unnest 30%, expressions 25%, list assembly 17%
+    10990   1.0 | parquet decode 30%, expressions 25%, unnest 20%
+    11000   1.0 | unnest 25%, list assembly 20%, expressions 20%
+    11010   1.0 | expressions 30%, unnest 22%, list assembly 20%
+    11020   1.0 | parquet decode 32%, expressions 20%, unnest 17%
+    11030   1.0 | parquet decode 30%, unnest 30%, other duckdb 12%
+    11040   1.0 | parquet decode 37%, unnest 17%, expressions 17%
+    11050   1.0 | unnest 32%, parquet decode 22%, expressions 20%
+    11060   1.0 | list assembly 30%, parquet decode 22%, unnest 20%
+    11070   1.0 | unnest 27%, list assembly 22%, expressions 15%
+    11080   1.0 | unnest 30%, expressions 27%, list assembly 20%
+    11090   1.0 | parquet decode 32%, expressions 30%, unnest 17%
+    11100   1.0 | expressions 40%, parquet decode 22%, unnest 17%
+    11110   1.0 | expressions 32%, unnest 20%, list assembly 15%
+    11120   1.0 | list assembly 22%, expressions 22%, unnest 20%
+    11130   1.0 | unnest 35%, expressions 25%, other duckdb 10%
+    11140   1.0 | expressions 30%, list assembly 20%, unnest 17%
+    11150   1.0 | parquet decode 32%, unnest 27%, expressions 22%
+    11160   1.0 | unnest 35%, expressions 22%, list assembly 20%
+    11170   1.0 | list assembly 30%, unnest 20%, expressions 20%
+    11180   1.0 | unnest 35%, expressions 30%, other duckdb 7%
+    11190   1.0 | unnest 30%, parquet decode 27%, expressions 17%
+    11200   1.0 | unnest 32%, parquet decode 27%, expressions 17%
+    11210   1.0 | expressions 40%, unnest 20%, list assembly 15%
+    11220   1.0 | parquet decode 32%, unnest 20%, expressions 15%
+    11230   1.0 | list assembly 40%, parquet decode 27%, expressions 12%
+    11240   1.0 | parquet decode 40%, unnest 17%, list assembly 15%
+    11250   1.0 | unnest 25%, expressions 22%, parquet decode 20%
+    11260   1.0 | unnest 30%, list assembly 20%, parquet decode 17%
+    11270   1.0 | list assembly 37%, expressions 20%, unnest 17%
+    11280   1.0 | parquet decode 40%, expressions 17%, list assembly 12%
+    11290   1.0 | parquet decode 27%, list assembly 25%, expressions 22%
+    11300   1.0 | unnest 27%, expressions 17%, list assembly 17%
+    11310   1.0 | unnest 32%, expressions 25%, parquet decode 22%
+    11320   1.0 | unnest 27%, expressions 22%, parquet decode 17%
+    11330   1.0 | parquet decode 35%, expressions 22%, unnest 17%
+    11340   1.0 | parquet decode 30%, unnest 30%, expressions 27%
+    11350   1.0 | list assembly 25%, parquet decode 25%, unnest 22%
+    11360   1.0 | parquet decode 27%, list assembly 20%, expressions 17%
+    11370   1.0 | expressions 35%, parquet decode 27%, unnest 17%
+    11380   1.0 | expressions 32%, list assembly 22%, unnest 17%
+    11390   1.0 | expressions 27%, list assembly 22%, parquet decode 20%
+    11400   1.0 | parquet decode 27%, expressions 25%, list assembly 22%
+    11410   1.0 | expressions 35%, unnest 20%, list assembly 12%
+    11420   1.0 | unnest 30%, expressions 30%, parquet decode 17%
+    11430   1.0 | expressions 45%, unnest 20%, list assembly 12%
+    11440   1.0 | parquet decode 50%, expressions 25%, unnest 7%
+    11450   1.0 | parquet decode 35%, expressions 30%, unnest 12%
+    11460   1.0 | unnest 25%, expressions 25%, parquet decode 20%
+    11470   1.0 | parquet decode 27%, unnest 22%, expressions 15%
+    11480   1.0 | expressions 32%, unnest 15%, parquet decode 15%
+    11490   1.0 | unnest 27%, list assembly 27%, expressions 17%
+    11500   1.0 | parquet decode 30%, unnest 20%, expressions 20%
+    11510   1.0 | list assembly 37%, parquet decode 20%, unnest 17%
+    11520   1.0 | expressions 25%, list assembly 20%, unnest 20%
+    11530   1.0 | list assembly 30%, expressions 22%, unnest 20%
+    11540   1.0 | list assembly 40%, parquet decode 15%, unnest 15%
+    11550   1.0 | parquet decode 27%, expressions 22%, unnest 20%
+    11560   1.0 | parquet decode 25%, unnest 22%, expressions 17%
+    11570   1.0 | list assembly 30%, unnest 27%, expressions 20%
+    11580   1.0 | unnest 27%, expressions 25%, list assembly 20%
+    11590   1.0 | parquet decode 45%, list assembly 20%, expressions 15%
+    11600   1.0 | expressions 27%, parquet decode 22%, list assembly 22%
+    11610   1.0 | unnest 30%, parquet decode 22%, list assembly 17%
+    11620   1.0 | parquet decode 40%, list assembly 25%, expressions 15%
+    11630   1.0 | parquet decode 32%, unnest 22%, list assembly 20%
+    11640   1.0 | expressions 30%, list assembly 22%, parquet decode 22%
+    11650   1.0 | parquet decode 30%, unnest 27%, expressions 25%
+    11660   1.0 | unnest 27%, parquet decode 22%, expressions 20%
+    11670   1.0 | unnest 25%, parquet decode 25%, list assembly 20%
+    11680   1.0 | unnest 30%, parquet decode 20%, expressions 17%
+    11690   1.0 | expressions 32%, unnest 25%, parquet decode 15%
+    11700   1.0 | parquet decode 40%, list assembly 27%, unnest 7%
+    11710   1.0 | expressions 27%, parquet decode 25%, list assembly 17%
+    11720   1.0 | expressions 30%, list assembly 20%, parquet decode 15%
+    11730   1.0 | list assembly 30%, expressions 25%, parquet decode 15%
+    11740   1.0 | parquet decode 32%, unnest 22%, expressions 20%
+    11750   1.0 | parquet decode 32%, unnest 22%, other duckdb 12%
+    11760   1.0 | parquet decode 30%, expressions 27%, unnest 20%
+    11770   1.0 | parquet decode 37%, list assembly 22%, expressions 15%
+    11780   1.0 | expressions 32%, unnest 27%, list assembly 20%
+    11790   1.0 | expressions 27%, parquet decode 25%, unnest 22%
+    11800   1.0 | expressions 25%, parquet decode 22%, list assembly 17%
+    11810   1.0 | expressions 40%, unnest 20%, parquet decode 17%
+    11820   1.0 | parquet decode 32%, list assembly 22%, expressions 17%
+    11830   1.0 | list assembly 25%, expressions 22%, unnest 20%
+    11840   1.0 | parquet decode 45%, expressions 15%, unnest 15%
+    11850   1.0 | expressions 25%, unnest 20%, parquet decode 20%
+    11860   1.0 | list assembly 37%, expressions 20%, unnest 15%
+    11870   1.0 | parquet decode 32%, expressions 20%, list assembly 17%
+    11880   1.0 | expressions 30%, parquet decode 25%, unnest 20%
+    11890   1.0 | expressions 30%, unnest 25%, parquet decode 22%
+    11900   1.0 | expressions 45%, parquet decode 25%, unnest 7%
+    11910   1.0 | expressions 27%, parquet decode 25%, unnest 20%
+    11920   1.0 | unnest 27%, expressions 25%, list assembly 15%
+    11930   1.0 | parquet decode 25%, list assembly 22%, expressions 22%
+    11940   1.0 | expressions 27%, unnest 22%, parquet decode 17%
+    11950   1.0 | list assembly 45%, unnest 25%, parquet decode 7%
+    11960   1.0 | expressions 37%, parquet decode 22%, list assembly 15%
+    11970   1.0 | parquet decode 30%, expressions 22%, other duckdb 15%
+    11980   1.0 | unnest 25%, expressions 25%, list assembly 17%
+    11990   1.0 | unnest 30%, list assembly 22%, expressions 22%
+    12000   1.0 | expressions 32%, unnest 25%, list assembly 15%
+    12010   1.0 | parquet decode 32%, expressions 25%, unnest 22%
+    12020   1.0 | list assembly 32%, unnest 27%, parquet decode 22%
+    12030   1.0 | unnest 25%, expressions 22%, list assembly 20%
+    12040   1.0 | unnest 30%, expressions 27%, parquet decode 20%
+    12050   1.0 | parquet decode 35%, expressions 25%, list assembly 15%
+    12060   1.0 | unnest 30%, expressions 22%, parquet decode 20%
+    12070   1.0 | expressions 27%, list assembly 22%, unnest 22%
+    12080   1.0 | parquet decode 32%, list assembly 22%, expressions 20%
+    12090   1.0 | parquet decode 37%, expressions 17%, list assembly 17%
+    12100   1.0 | parquet decode 32%, expressions 27%, unnest 15%
+    12110   1.0 | expressions 22%, unnest 22%, list assembly 17%
+    12120   1.0 | list assembly 25%, unnest 20%, parquet decode 17%
+    12130   1.0 | expressions 45%, parquet decode 25%, unnest 15%
+    12140   1.0 | parquet decode 32%, expressions 25%, unnest 17%
+    12150   1.0 | expressions 30%, unnest 25%, other duckdb 15%
+    12160   1.0 | expressions 35%, list assembly 27%, unnest 17%
+    12170   1.0 | unnest 25%, expressions 25%, parquet decode 12%
+    12180   1.0 | expressions 27%, unnest 25%, parquet decode 22%
+    12190   1.0 | list assembly 30%, expressions 27%, unnest 22%
+    12200   1.0 | expressions 32%, unnest 20%, other duckdb 15%
+    12210   1.0 | expressions 30%, unnest 25%, list assembly 20%
+    12220   1.0 | parquet decode 22%, expressions 20%, list assembly 17%
+    12230   1.0 | unnest 30%, parquet decode 22%, list assembly 20%
+    12240   1.0 | unnest 27%, expressions 25%, list assembly 20%
+    12250   1.0 | parquet decode 40%, expressions 27%, list assembly 15%
+    12260   1.0 | unnest 30%, expressions 17%, list assembly 12%
+    12270   1.0 | expressions 25%, unnest 20%, list assembly 20%
+    12280   1.0 | parquet decode 37%, expressions 32%, unnest 12%
+    12290   1.0 | parquet decode 37%, expressions 27%, unnest 12%
+    12300   1.0 | parquet decode 35%, unnest 27%, expressions 12%
+    12310   1.0 | expressions 25%, parquet decode 20%, unnest 20%
+    12320   1.0 | parquet decode 30%, unnest 27%, expressions 12%
+    12330   1.0 | parquet decode 30%, unnest 20%, expressions 17%
+    12340   1.0 | expressions 40%, parquet decode 27%, unnest 10%
+    12350   1.0 | list assembly 30%, unnest 22%, parquet decode 20%
+    12360   1.0 | list assembly 32%, expressions 30%, unnest 12%
+    12370   1.0 | parquet decode 27%, list assembly 25%, expressions 17%
+    12380   1.0 | parquet decode 25%, expressions 22%, list assembly 20%
+    12390   1.0 | expressions 42%, parquet decode 17%, unnest 12%
+    12400   1.0 | expressions 37%, unnest 25%, parquet decode 15%
+    12410   1.0 | unnest 37%, list assembly 17%, expressions 15%
+    12420   1.0 | unnest 22%, expressions 20%, parquet decode 20%
+    12430   1.0 | list assembly 35%, expressions 20%, parquet decode 17%
+    12440   1.0 | parquet decode 35%, list assembly 15%, unnest 15%
+    12450   1.0 | expressions 42%, unnest 22%, parquet decode 15%
+    12460   1.0 | expressions 30%, unnest 27%, parquet decode 20%
+    12470   1.0 | unnest 32%, expressions 22%, list assembly 20%
+    12480   1.0 | other duckdb 22%, expressions 22%, unnest 20%
+    12490   1.0 | unnest 32%, parquet decode 30%, list assembly 17%
+    12500   1.0 | parquet decode 40%, expressions 22%, unnest 17%
+    12510   1.0 | parquet decode 35%, list assembly 30%, unnest 12%
+    12520   1.0 | list assembly 32%, unnest 25%, expressions 17%
+    12530   1.0 | expressions 30%, list assembly 22%, parquet decode 22%
+    12540   1.0 | parquet decode 35%, list assembly 20%, other duckdb 17%
+    12550   1.0 | unnest 32%, expressions 25%, list assembly 17%
+    12560   1.0 | unnest 30%, expressions 25%, parquet decode 15%
+    12570   1.0 | expressions 37%, list assembly 27%, unnest 15%
+    12580   1.0 | expressions 35%, parquet decode 32%, list assembly 20%
+    12590   1.0 | expressions 30%, list assembly 25%, unnest 22%
+    12600   1.0 | expressions 27%, unnest 17%, parquet decode 15%
+    12610   1.0 | expressions 45%, unnest 17%, parquet decode 15%
+    12620   1.0 | unnest 25%, expressions 22%, parquet decode 22%
+    12630   1.0 | unnest 22%, expressions 20%, list assembly 17%
+    12640   1.0 | parquet decode 40%, unnest 20%, list assembly 15%
+    12650   1.0 | expressions 27%, unnest 20%, other duckdb 17%
+    12660   1.0 | expressions 32%, parquet decode 17%, unnest 17%
+    12670   1.0 | unnest 27%, parquet decode 22%, expressions 22%
+    12680   1.0 | expressions 30%, unnest 20%, parquet decode 17%
+    12690   1.0 | list assembly 35%, parquet decode 17%, expressions 15%
+    12700   1.0 | expressions 27%, list assembly 20%, unnest 20%
+    12710   1.0 | expressions 35%, unnest 27%, parquet decode 15%
+    12720   1.0 | unnest 27%, list assembly 20%, expressions 15%
+    12730   1.0 | expressions 37%, unnest 17%, parquet decode 17%
+    12740   1.0 | unnest 27%, expressions 25%, list assembly 22%
+    12750   1.0 | unnest 27%, expressions 22%, list assembly 15%
+    12760   1.0 | expressions 25%, unnest 20%, parquet decode 20%
+    12770   1.0 | expressions 42%, parquet decode 22%, list assembly 20%
+    12780   1.0 | unnest 25%, parquet decode 22%, list assembly 12%
+    12790   1.0 | expressions 25%, list assembly 22%, parquet decode 15%
+    12800   1.0 | parquet decode 22%, expressions 20%, unnest 20%
+    12810   1.0 | unnest 42%, list assembly 22%, parquet decode 17%
+    12820   1.0 | unnest 40%, expressions 20%, parquet decode 17%
+    12830   1.0 | parquet decode 35%, expressions 20%, unnest 20%
+    12840   1.0 | unnest 40%, parquet decode 20%, expressions 15%
+    12850   1.0 | parquet decode 30%, unnest 25%, expressions 17%
+    12860   1.0 | list assembly 27%, expressions 25%, parquet decode 12%
+    12870   1.0 | expressions 25%, unnest 25%, parquet decode 20%
+    12880   1.0 | unnest 40%, expressions 22%, parquet decode 17%
+    12890   1.0 | unnest 30%, expressions 17%, parquet decode 15%
+    12900   1.0 | parquet decode 30%, expressions 20%, unnest 12%
+    12910   1.0 | expressions 45%, parquet decode 20%, unnest 17%
+    12920   1.0 | expressions 35%, list assembly 25%, parquet decode 15%
+    12930   1.0 | expressions 27%, list assembly 17%, parquet decode 15%
+    12940   1.0 | unnest 25%, expressions 20%, list assembly 20%
+    12950   1.0 | list assembly 40%, parquet decode 25%, expressions 15%
+    12960   1.0 | expressions 35%, parquet decode 22%, list assembly 20%
+    12970   1.0 | unnest 20%, list assembly 17%, kernel 17%
+    12980   1.0 | unnest 27%, expressions 20%, parquet decode 12%
+    12990   1.0 | unnest 25%, expressions 20%, parquet decode 20%
+    13000   1.0 | parquet decode 30%, unnest 25%, expressions 20%
+    13010   1.0 | expressions 27%, parquet decode 27%, list assembly 15%
+    13020   1.0 | parquet decode 37%, expressions 20%, unnest 17%
+    13030   1.0 | unnest 27%, expressions 20%, list assembly 15%
+    13040   1.0 | parquet decode 50%, expressions 17%, list assembly 10%
+    13050   1.0 | parquet decode 35%, unnest 22%, expressions 15%
+    13060   1.0 | parquet decode 40%, expressions 25%, list assembly 17%
+    13070   1.0 | expressions 35%, parquet decode 25%, list assembly 12%
+    13080   1.0 | list assembly 35%, parquet decode 25%, expressions 20%
+    13090   1.0 | unnest 27%, expressions 17%, parquet decode 15%
+    13100   1.0 | expressions 32%, list assembly 22%, parquet decode 17%
+    13110   1.0 | list assembly 40%, expressions 20%, unnest 17%
+    13120   1.0 | list assembly 27%, expressions 22%, parquet decode 20%
+    13130   1.0 | unnest 27%, list assembly 22%, expressions 15%
+    13140   1.0 | parquet decode 30%, list assembly 20%, expressions 17%
+    13150   1.0 | parquet decode 37%, unnest 25%, list assembly 12%
+    13160   1.0 | unnest 32%, expressions 30%, parquet decode 15%
+    13170   1.0 | unnest 32%, expressions 20%, parquet decode 20%
+    13180   1.0 | expressions 52%, unnest 17%, parquet decode 10%
+    13190   1.0 | expressions 32%, unnest 25%, parquet decode 20%
+    13200   1.0 | list assembly 22%, unnest 22%, expressions 22%
+    13210   1.0 | parquet decode 27%, expressions 27%, unnest 17%
+    13220   1.0 | parquet decode 25%, expressions 22%, unnest 20%
+    13230   1.0 | expressions 30%, unnest 27%, parquet decode 12%
+    13240   1.0 | expressions 27%, unnest 25%, parquet decode 22%
+    13250   1.0 | unnest 25%, parquet decode 20%, list assembly 20%
+    13260   1.0 | parquet decode 22%, unnest 22%, expressions 22%
+    13270   1.0 | expressions 27%, parquet decode 25%, unnest 17%
+    13280   1.0 | unnest 37%, list assembly 22%, expressions 12%
+    13290   1.0 | list assembly 27%, unnest 25%, parquet decode 20%
+    13300   1.0 | expressions 37%, parquet decode 17%, unnest 15%
+    13310   1.0 | parquet decode 35%, list assembly 22%, unnest 12%
+    13320   1.0 | list assembly 35%, unnest 27%, expressions 12%
+    13330   1.0 | unnest 25%, other duckdb 20%, expressions 17%
+    13340   1.0 | parquet decode 55%, unnest 22%, expressions 12%
+    13350   1.0 | parquet decode 40%, unnest 25%, expressions 15%
+    13360   1.0 | parquet decode 42%, unnest 20%, list assembly 17%
+    13370   1.0 | parquet decode 30%, expressions 27%, unnest 20%
+    13380   1.0 | expressions 30%, unnest 22%, list assembly 22%
+    13390   1.0 | parquet decode 27%, expressions 22%, unnest 15%
+    13400   1.0 | expressions 27%, unnest 22%, parquet decode 20%
+    13410   1.0 | parquet decode 40%, unnest 22%, list assembly 22%
+    13420   1.0 | parquet decode 30%, list assembly 22%, expressions 17%
+    13430   1.0 | expressions 35%, list assembly 25%, unnest 20%
+    13440   1.0 | expressions 40%, parquet decode 22%, unnest 17%
+    13450   1.0 | expressions 35%, unnest 22%, list assembly 22%
+    13460   1.0 | expressions 20%, parquet decode 20%, list assembly 17%
+    13470   1.0 | expressions 32%, list assembly 22%, parquet decode 15%
+    13480   1.0 | expressions 28%, parquet decode 25%, unnest 15%
+    13490   1.0 | unnest 27%, parquet decode 25%, list assembly 17%
+    13500   1.0 | unnest 22%, other duckdb 20%, expressions 17%
+    13510   1.0 | unnest 30%, parquet decode 27%, expressions 15%
+    13520   1.0 | unnest 27%, expressions 22%, parquet decode 22%
+    13530   1.0 | unnest 30%, expressions 22%, parquet decode 15%
+    13540   1.0 | expressions 25%, unnest 20%, parquet decode 20%
+    13550   1.0 | expressions 42%, parquet decode 22%, unnest 20%
+    13560   1.0 | list assembly 25%, expressions 22%, unnest 22%
+    13570   1.0 | parquet decode 35%, expressions 20%, unnest 17%
+    13580   1.0 | parquet decode 32%, expressions 25%, unnest 15%
+    13590   1.0 | expressions 42%, parquet decode 20%, list assembly 15%
+    13600   1.0 | expressions 27%, list assembly 22%, unnest 20%
+    13610   1.0 | expressions 30%, unnest 22%, parquet decode 12%
+    13620   1.0 | unnest 32%, expressions 20%, parquet decode 17%
+    13630   1.0 | expressions 25%, list assembly 22%, parquet decode 20%
+    13640   1.0 | expressions 30%, unnest 27%, parquet decode 17%
+    13650   1.0 | expressions 35%, list assembly 17%, unnest 15%
+    13660   1.0 | unnest 22%, parquet decode 20%, expressions 20%
+    13670   1.0 | list assembly 30%, parquet decode 22%, expressions 20%
+    13680   1.0 | list assembly 35%, unnest 17%, parquet decode 15%
+    13690   1.0 | list assembly 37%, unnest 25%, expressions 22%
+    13700   1.0 | parquet decode 40%, unnest 32%, expressions 12%
+    13710   1.0 | parquet decode 42%, unnest 17%, list assembly 15%
+    13720   1.0 | unnest 35%, list assembly 32%, expressions 15%
+    13730   1.0 | parquet decode 25%, unnest 22%, expressions 20%
+    13740   1.0 | parquet decode 37%, unnest 22%, list assembly 12%
+    13750   1.0 | expressions 30%, parquet decode 25%, unnest 25%
+    13760   1.0 | unnest 30%, expressions 15%, parquet decode 15%
+    13770   1.0 | expressions 47%, unnest 25%, list assembly 10%
+    13780   1.0 | unnest 32%, expressions 20%, list assembly 17%
+    13790   1.0 | parquet decode 35%, expressions 30%, unnest 10%
+    13800   1.0 | parquet decode 30%, expressions 25%, other duckdb 12%
+    13810   1.0 | list assembly 22%, parquet decode 22%, unnest 20%
+    13820   1.0 | libc (memcpy/malloc/...) 47%, other duckdb 27%, kernel 12%
+    13830   7.0 | kernel 71%, libc (memcpy/malloc/...) 14%, other duckdb 11%
+    13840   0.0 | 

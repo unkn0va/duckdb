@@ -1,0 +1,1219 @@
+threads=1  wall 12068 ms, CPU 12082 ms, average busy threads 1.0
+  CPU ms per category:  keys 6026, parquet decode 3053, scan filters / late decoding 992, aggregate 524, other duckdb 409, vectors 383, expressions 287, kernel 205, libc (memcpy/malloc/...) 193, scheduler 6, other 2, parquet levels/skip 1
+  hottest functions:
+      6026 ms  duckdb::ParquetNodeKeyGenerator::Process(unsigned char const*, unsigned char const*, unsigned long, duckdb::Se
+      1378 ms  void duckdb::RleBpDecoder::GetBatch<unsigned int>(unsigned char*, unsigned int)
+       982 ms  unsigned long duckdb::ComparisonFilterExecutor::SelectTyped<long>(duckdb::UnifiedVectorFormat const&, duckdb::
+       700 ms  void duckdb::RleBpDecoder::GetBatch<unsigned char>(unsigned char*, unsigned int)
+       621 ms  duckdb::DictionaryDecoder::GetValidValues(unsigned char*, unsigned long, unsigned long)
+       502 ms  bool duckdb::AggregateExecutor::UpdateUnaryClusteredOpt<true, duckdb::SumState<duckdb::hugeint_t>, long, duckd
+       218 ms  duckdb::ReadParquetNodeScan(duckdb::ClientContext&, duckdb::TableFunctionInput&, duckdb::DataChunk&)
+       206 ms  void duckdb_snappy::SnappyDecompressor::DecompressAllTags<duckdb_snappy::SnappyArrayWriter>(duckdb_snappy::Sna
+  timeline (10 ms): busy threads | main categories
+        0   1.0 | parquet decode 75%, libc (memcpy/malloc/...) 10%, other duckdb 7%
+       10   1.0 | parquet decode 72%, libc (memcpy/malloc/...) 20%, other duckdb 5%
+       20   1.0 | parquet decode 72%, libc (memcpy/malloc/...) 15%, other duckdb 10%
+       30   1.0 | parquet decode 47%, libc (memcpy/malloc/...) 32%, other duckdb 15%
+       40   1.0 | parquet decode 80%, other duckdb 15%, libc (memcpy/malloc/...) 2%
+       50   1.0 | parquet decode 77%, libc (memcpy/malloc/...) 12%, other duckdb 7%
+       60   1.0 | parquet decode 77%, libc (memcpy/malloc/...) 10%, other duckdb 10%
+       70   1.0 | parquet decode 45%, libc (memcpy/malloc/...) 37%, other duckdb 17%
+       80   1.0 | parquet decode 62%, libc (memcpy/malloc/...) 30%, other duckdb 5%
+       90   1.0 | parquet decode 85%, other duckdb 10%, libc (memcpy/malloc/...) 5%
+      100   1.0 | parquet decode 65%, libc (memcpy/malloc/...) 25%, other duckdb 7%
+      110   1.0 | parquet decode 57%, libc (memcpy/malloc/...) 17%, other duckdb 10%
+      120   1.0 | keys 47%, parquet decode 37%, scan filters / late decoding 7%
+      130   1.0 | keys 42%, parquet decode 27%, scan filters / late decoding 17%
+      140   1.0 | keys 42%, parquet decode 30%, scan filters / late decoding 10%
+      150   1.0 | keys 50%, parquet decode 17%, scan filters / late decoding 12%
+      160   1.0 | keys 50%, parquet decode 27%, scan filters / late decoding 12%
+      170   1.0 | keys 52%, parquet decode 32%, scan filters / late decoding 5%
+      180   1.0 | keys 50%, parquet decode 27%, scan filters / late decoding 10%
+      190   1.0 | keys 50%, parquet decode 27%, vectors 5%
+      200   1.0 | keys 45%, parquet decode 22%, scan filters / late decoding 10%
+      210   1.0 | keys 52%, parquet decode 17%, scan filters / late decoding 10%
+      220   1.0 | keys 52%, parquet decode 17%, scan filters / late decoding 15%
+      230   1.0 | keys 52%, parquet decode 20%, scan filters / late decoding 12%
+      240   1.0 | keys 55%, parquet decode 17%, vectors 7%
+      250   1.0 | keys 52%, parquet decode 22%, scan filters / late decoding 15%
+      260   1.0 | keys 52%, parquet decode 22%, scan filters / late decoding 15%
+      270   1.0 | keys 52%, parquet decode 22%, aggregate 7%
+      280   1.0 | keys 42%, parquet decode 30%, scan filters / late decoding 10%
+      290   1.0 | keys 55%, parquet decode 25%, scan filters / late decoding 7%
+      300   1.0 | keys 47%, parquet decode 30%, vectors 10%
+      310   1.0 | keys 45%, parquet decode 30%, vectors 5%
+      320   1.0 | keys 45%, parquet decode 22%, scan filters / late decoding 10%
+      330   1.0 | keys 52%, parquet decode 27%, scan filters / late decoding 10%
+      340   1.0 | keys 52%, parquet decode 17%, scan filters / late decoding 12%
+      350   1.0 | keys 47%, parquet decode 27%, scan filters / late decoding 7%
+      360   1.0 | keys 42%, parquet decode 27%, scan filters / late decoding 10%
+      370   1.0 | keys 50%, parquet decode 25%, scan filters / late decoding 12%
+      380   1.0 | keys 60%, parquet decode 27%, scan filters / late decoding 5%
+      390   1.0 | keys 50%, parquet decode 20%, vectors 7%
+      400   1.0 | keys 52%, parquet decode 25%, scan filters / late decoding 7%
+      410   1.0 | keys 47%, parquet decode 30%, other duckdb 7%
+      420   1.0 | keys 52%, parquet decode 22%, scan filters / late decoding 10%
+      430   1.0 | keys 40%, parquet decode 35%, scan filters / late decoding 12%
+      440   1.0 | keys 50%, parquet decode 27%, scan filters / late decoding 12%
+      450   1.0 | keys 50%, parquet decode 20%, other duckdb 10%
+      460   1.0 | keys 57%, parquet decode 20%, vectors 7%
+      470   1.0 | keys 60%, parquet decode 15%, expressions 7%
+      480   1.0 | keys 45%, parquet decode 30%, scan filters / late decoding 10%
+      490   1.0 | keys 58%, parquet decode 20%, aggregate 5%
+      500   1.0 | keys 41%, parquet decode 26%, other duckdb 9%
+      510   1.0 | keys 47%, parquet decode 35%, vectors 15%
+      520   1.0 | keys 55%, parquet decode 25%, scan filters / late decoding 7%
+      530   1.0 | keys 55%, parquet decode 30%, aggregate 10%
+      540   1.0 | keys 52%, parquet decode 17%, scan filters / late decoding 10%
+      550   1.0 | keys 50%, parquet decode 30%, scan filters / late decoding 7%
+      560   1.0 | keys 50%, parquet decode 25%, scan filters / late decoding 10%
+      570   1.0 | keys 47%, parquet decode 27%, aggregate 10%
+      580   1.0 | keys 50%, parquet decode 17%, scan filters / late decoding 12%
+      590   1.0 | keys 52%, parquet decode 17%, scan filters / late decoding 12%
+      600   1.0 | keys 47%, parquet decode 20%, scan filters / late decoding 17%
+      610   1.0 | keys 57%, parquet decode 20%, vectors 5%
+      620   1.0 | keys 50%, parquet decode 25%, scan filters / late decoding 10%
+      630   1.0 | keys 47%, parquet decode 22%, scan filters / late decoding 15%
+      640   1.0 | keys 55%, parquet decode 27%, scan filters / late decoding 7%
+      650   1.0 | keys 50%, parquet decode 25%, scan filters / late decoding 10%
+      660   1.0 | keys 52%, parquet decode 25%, scan filters / late decoding 7%
+      670   1.0 | keys 60%, parquet decode 22%, aggregate 7%
+      680   1.0 | keys 47%, parquet decode 25%, scan filters / late decoding 12%
+      690   1.0 | keys 57%, parquet decode 25%, scan filters / late decoding 10%
+      700   1.0 | keys 40%, parquet decode 25%, scan filters / late decoding 17%
+      710   1.0 | keys 52%, parquet decode 25%, scan filters / late decoding 7%
+      720   1.0 | keys 52%, parquet decode 15%, aggregate 10%
+      730   1.0 | keys 50%, parquet decode 27%, expressions 7%
+      740   1.0 | keys 52%, parquet decode 22%, scan filters / late decoding 10%
+      750   1.0 | keys 40%, parquet decode 32%, scan filters / late decoding 7%
+      760   1.0 | keys 50%, parquet decode 17%, scan filters / late decoding 12%
+      770   1.0 | keys 52%, parquet decode 25%, other duckdb 10%
+      780   1.0 | keys 45%, parquet decode 27%, scan filters / late decoding 12%
+      790   1.0 | keys 45%, parquet decode 27%, vectors 10%
+      800   1.0 | keys 55%, parquet decode 25%, scan filters / late decoding 7%
+      810   1.0 | keys 57%, parquet decode 20%, aggregate 7%
+      820   1.0 | keys 52%, parquet decode 22%, aggregate 7%
+      830   1.0 | keys 55%, parquet decode 25%, scan filters / late decoding 7%
+      840   1.0 | keys 45%, parquet decode 27%, scan filters / late decoding 12%
+      850   1.0 | keys 57%, parquet decode 17%, aggregate 7%
+      860   1.0 | keys 45%, parquet decode 32%, scan filters / late decoding 7%
+      870   1.0 | keys 50%, parquet decode 30%, scan filters / late decoding 5%
+      880   1.0 | keys 57%, parquet decode 12%, other duckdb 10%
+      890   1.0 | keys 57%, parquet decode 25%, scan filters / late decoding 7%
+      900   1.0 | keys 40%, parquet decode 27%, scan filters / late decoding 20%
+      910   1.0 | keys 52%, parquet decode 22%, other duckdb 7%
+      920   1.0 | keys 47%, scan filters / late decoding 15%, parquet decode 15%
+      930   1.0 | keys 45%, parquet decode 35%, scan filters / late decoding 10%
+      940   1.0 | keys 60%, parquet decode 15%, other duckdb 7%
+      950   1.0 | keys 50%, parquet decode 32%, scan filters / late decoding 7%
+      960   1.0 | keys 47%, parquet decode 25%, vectors 5%
+      970   1.0 | keys 47%, parquet decode 20%, scan filters / late decoding 7%
+      980   1.0 | keys 50%, parquet decode 22%, scan filters / late decoding 7%
+      990   1.0 | keys 52%, parquet decode 17%, scan filters / late decoding 15%
+     1000   1.0 | keys 52%, parquet decode 25%, other duckdb 7%
+     1010   1.0 | keys 60%, parquet decode 17%, scan filters / late decoding 7%
+     1020   1.0 | keys 47%, scan filters / late decoding 17%, parquet decode 15%
+     1030   1.0 | keys 35%, parquet decode 20%, scan filters / late decoding 12%
+     1040   1.0 | keys 42%, parquet decode 20%, vectors 12%
+     1050   1.0 | keys 57%, parquet decode 17%, kernel 15%
+     1060   1.0 | keys 40%, parquet decode 22%, kernel 15%
+     1070   1.0 | keys 42%, parquet decode 15%, scan filters / late decoding 12%
+     1080   1.0 | keys 40%, parquet decode 22%, kernel 17%
+     1090   1.0 | keys 32%, parquet decode 20%, kernel 20%
+     1100   1.0 | keys 45%, kernel 20%, parquet decode 17%
+     1110   1.0 | keys 46%, parquet decode 20%, kernel 10%
+     1120   1.0 | keys 47%, parquet decode 22%, scan filters / late decoding 10%
+     1130   1.0 | keys 50%, parquet decode 27%, scan filters / late decoding 10%
+     1140   1.0 | keys 52%, parquet decode 27%, scan filters / late decoding 10%
+     1150   1.0 | keys 57%, parquet decode 20%, scan filters / late decoding 10%
+     1160   1.0 | keys 45%, parquet decode 20%, scan filters / late decoding 10%
+     1170   1.0 | keys 52%, parquet decode 22%, scan filters / late decoding 5%
+     1180   1.0 | keys 55%, parquet decode 15%, scan filters / late decoding 10%
+     1190   1.0 | keys 52%, parquet decode 17%, scan filters / late decoding 10%
+     1200   1.0 | keys 47%, parquet decode 22%, scan filters / late decoding 12%
+     1210   1.0 | keys 50%, parquet decode 20%, scan filters / late decoding 10%
+     1220   1.0 | keys 45%, parquet decode 27%, other duckdb 7%
+     1230   1.0 | keys 50%, parquet decode 25%, scan filters / late decoding 12%
+     1240   1.0 | keys 55%, parquet decode 22%, scan filters / late decoding 12%
+     1250   1.0 | keys 52%, parquet decode 27%, vectors 5%
+     1260   1.0 | keys 45%, parquet decode 30%, scan filters / late decoding 7%
+     1270   1.0 | keys 42%, parquet decode 30%, scan filters / late decoding 10%
+     1280   1.0 | keys 55%, parquet decode 22%, expressions 10%
+     1290   1.0 | keys 45%, parquet decode 20%, scan filters / late decoding 10%
+     1300   1.0 | keys 47%, parquet decode 30%, scan filters / late decoding 10%
+     1310   1.0 | keys 45%, parquet decode 22%, scan filters / late decoding 12%
+     1320   1.0 | keys 47%, parquet decode 30%, aggregate 12%
+     1330   1.0 | keys 50%, parquet decode 17%, aggregate 12%
+     1340   1.0 | keys 50%, parquet decode 25%, scan filters / late decoding 15%
+     1350   1.0 | keys 47%, parquet decode 37%, scan filters / late decoding 5%
+     1360   1.0 | keys 42%, parquet decode 40%, scan filters / late decoding 7%
+     1370   1.0 | keys 42%, parquet decode 32%, other duckdb 7%
+     1380   1.0 | keys 47%, parquet decode 30%, other duckdb 5%
+     1390   1.0 | keys 45%, parquet decode 25%, scan filters / late decoding 15%
+     1400   1.0 | keys 52%, parquet decode 22%, scan filters / late decoding 10%
+     1410   1.0 | keys 52%, parquet decode 30%, scan filters / late decoding 10%
+     1420   1.0 | keys 42%, parquet decode 27%, scan filters / late decoding 12%
+     1430   1.0 | keys 52%, parquet decode 20%, vectors 7%
+     1440   1.0 | keys 50%, parquet decode 25%, scan filters / late decoding 10%
+     1450   1.0 | keys 47%, parquet decode 30%, scan filters / late decoding 7%
+     1460   1.0 | keys 55%, parquet decode 15%, scan filters / late decoding 10%
+     1470   1.0 | keys 60%, parquet decode 20%, aggregate 7%
+     1480   1.0 | keys 50%, parquet decode 25%, vectors 10%
+     1490   1.0 | keys 42%, parquet decode 27%, scan filters / late decoding 12%
+     1500   1.0 | keys 57%, parquet decode 22%, expressions 5%
+     1510   1.0 | keys 57%, parquet decode 22%, aggregate 7%
+     1520   1.0 | keys 47%, parquet decode 32%, scan filters / late decoding 10%
+     1530   1.0 | keys 42%, parquet decode 25%, scan filters / late decoding 10%
+     1540   1.0 | keys 47%, parquet decode 27%, scan filters / late decoding 12%
+     1550   1.0 | keys 47%, parquet decode 27%, scan filters / late decoding 10%
+     1560   1.0 | keys 45%, parquet decode 27%, scan filters / late decoding 7%
+     1570   1.0 | keys 52%, parquet decode 20%, scan filters / late decoding 10%
+     1580   1.0 | keys 62%, parquet decode 15%, libc (memcpy/malloc/...) 7%
+     1590   1.0 | keys 52%, parquet decode 15%, scan filters / late decoding 10%
+     1600   1.0 | keys 52%, parquet decode 27%, vectors 5%
+     1610   1.0 | keys 50%, parquet decode 22%, aggregate 10%
+     1620   1.0 | keys 50%, parquet decode 30%, scan filters / late decoding 7%
+     1630   1.0 | keys 47%, parquet decode 27%, scan filters / late decoding 10%
+     1640   1.0 | keys 50%, parquet decode 27%, scan filters / late decoding 7%
+     1650   1.0 | keys 52%, parquet decode 20%, scan filters / late decoding 10%
+     1660   1.0 | keys 47%, parquet decode 25%, libc (memcpy/malloc/...) 7%
+     1670   1.0 | keys 45%, parquet decode 35%, scan filters / late decoding 10%
+     1680   1.0 | keys 50%, parquet decode 32%, scan filters / late decoding 7%
+     1690   1.0 | keys 47%, parquet decode 30%, scan filters / late decoding 10%
+     1700   1.0 | keys 45%, parquet decode 30%, scan filters / late decoding 10%
+     1710   1.0 | keys 55%, parquet decode 17%, vectors 15%
+     1720   1.0 | keys 52%, parquet decode 32%, scan filters / late decoding 5%
+     1730   1.0 | keys 55%, parquet decode 25%, other duckdb 7%
+     1740   1.0 | keys 50%, parquet decode 25%, scan filters / late decoding 7%
+     1750   1.0 | keys 45%, parquet decode 27%, scan filters / late decoding 10%
+     1760   1.0 | keys 50%, parquet decode 25%, scan filters / late decoding 10%
+     1770   1.0 | keys 55%, scan filters / late decoding 12%, parquet decode 12%
+     1780   1.0 | keys 55%, parquet decode 22%, scan filters / late decoding 7%
+     1790   1.0 | keys 52%, parquet decode 30%, scan filters / late decoding 7%
+     1800   1.0 | keys 50%, parquet decode 22%, scan filters / late decoding 10%
+     1810   1.0 | keys 50%, parquet decode 22%, scan filters / late decoding 10%
+     1820   1.0 | keys 47%, parquet decode 32%, vectors 5%
+     1830   1.0 | parquet decode 37%, keys 35%, scan filters / late decoding 10%
+     1840   1.0 | keys 50%, parquet decode 25%, scan filters / late decoding 7%
+     1850   1.0 | keys 47%, parquet decode 35%, scan filters / late decoding 7%
+     1860   1.0 | keys 50%, parquet decode 20%, scan filters / late decoding 10%
+     1870   1.0 | keys 52%, parquet decode 30%, scan filters / late decoding 5%
+     1880   1.0 | keys 52%, parquet decode 27%, other duckdb 5%
+     1890   1.0 | keys 55%, parquet decode 20%, scan filters / late decoding 10%
+     1900   1.0 | keys 52%, parquet decode 25%, scan filters / late decoding 12%
+     1910   1.0 | keys 50%, parquet decode 22%, scan filters / late decoding 15%
+     1920   1.0 | keys 60%, parquet decode 22%, scan filters / late decoding 5%
+     1930   1.0 | keys 52%, parquet decode 25%, aggregate 10%
+     1940   1.0 | keys 50%, parquet decode 25%, scan filters / late decoding 10%
+     1950   1.0 | keys 50%, parquet decode 17%, scan filters / late decoding 10%
+     1960   1.0 | keys 47%, parquet decode 22%, other duckdb 12%
+     1970   1.0 | keys 45%, parquet decode 20%, scan filters / late decoding 15%
+     1980   1.0 | keys 57%, parquet decode 27%, scan filters / late decoding 7%
+     1990   1.0 | keys 52%, parquet decode 25%, scan filters / late decoding 12%
+     2000   1.0 | keys 52%, parquet decode 25%, expressions 7%
+     2010   1.0 | keys 45%, parquet decode 30%, scan filters / late decoding 7%
+     2020   1.0 | keys 60%, parquet decode 22%, vectors 7%
+     2030   1.0 | keys 60%, parquet decode 15%, aggregate 7%
+     2040   1.0 | keys 47%, parquet decode 27%, scan filters / late decoding 12%
+     2050   1.0 | keys 45%, parquet decode 30%, vectors 10%
+     2060   1.0 | keys 57%, parquet decode 22%, aggregate 7%
+     2070   1.0 | keys 47%, parquet decode 25%, aggregate 12%
+     2080   1.0 | keys 55%, parquet decode 20%, scan filters / late decoding 10%
+     2090   1.0 | keys 57%, parquet decode 25%, scan filters / late decoding 7%
+     2100   1.0 | keys 55%, parquet decode 22%, scan filters / late decoding 5%
+     2110   1.0 | keys 45%, parquet decode 27%, scan filters / late decoding 10%
+     2120   1.0 | keys 45%, parquet decode 30%, scan filters / late decoding 15%
+     2130   1.0 | keys 50%, parquet decode 27%, libc (memcpy/malloc/...) 5%
+     2140   1.0 | keys 42%, parquet decode 25%, scan filters / late decoding 15%
+     2150   1.0 | keys 45%, parquet decode 30%, scan filters / late decoding 7%
+     2160   1.0 | keys 47%, parquet decode 30%, scan filters / late decoding 7%
+     2170   1.0 | keys 55%, parquet decode 20%, aggregate 10%
+     2180   1.0 | keys 52%, parquet decode 17%, scan filters / late decoding 7%
+     2190   1.0 | keys 52%, parquet decode 25%, aggregate 7%
+     2200   1.0 | keys 55%, parquet decode 20%, scan filters / late decoding 7%
+     2210   1.0 | keys 50%, parquet decode 25%, aggregate 7%
+     2220   1.0 | keys 47%, parquet decode 20%, scan filters / late decoding 15%
+     2230   1.0 | keys 42%, parquet decode 17%, scan filters / late decoding 12%
+     2240   1.0 | keys 50%, parquet decode 27%, scan filters / late decoding 10%
+     2250   1.0 | keys 52%, parquet decode 20%, aggregate 10%
+     2260   1.0 | keys 50%, parquet decode 25%, scan filters / late decoding 7%
+     2270   1.0 | keys 60%, parquet decode 25%, aggregate 5%
+     2280   1.0 | keys 52%, parquet decode 20%, scan filters / late decoding 10%
+     2290   1.0 | keys 45%, parquet decode 27%, scan filters / late decoding 7%
+     2300   1.0 | keys 47%, parquet decode 30%, aggregate 7%
+     2310   1.0 | keys 50%, parquet decode 25%, scan filters / late decoding 10%
+     2320   1.0 | keys 42%, parquet decode 37%, scan filters / late decoding 7%
+     2330   1.0 | keys 55%, parquet decode 22%, scan filters / late decoding 10%
+     2340   1.0 | keys 45%, parquet decode 32%, scan filters / late decoding 7%
+     2350   1.0 | keys 55%, parquet decode 27%, aggregate 5%
+     2360   1.0 | keys 50%, parquet decode 27%, other duckdb 5%
+     2370   1.0 | keys 45%, parquet decode 35%, aggregate 7%
+     2380   1.0 | keys 47%, parquet decode 20%, aggregate 10%
+     2390   1.0 | keys 55%, parquet decode 22%, other duckdb 7%
+     2400   1.0 | keys 47%, parquet decode 25%, scan filters / late decoding 7%
+     2410   1.0 | keys 50%, parquet decode 25%, scan filters / late decoding 10%
+     2420   1.0 | keys 47%, parquet decode 27%, vectors 10%
+     2430   1.0 | keys 47%, parquet decode 30%, scan filters / late decoding 7%
+     2440   1.0 | keys 47%, parquet decode 30%, scan filters / late decoding 10%
+     2450   1.0 | keys 47%, parquet decode 35%, scan filters / late decoding 10%
+     2460   1.0 | keys 40%, parquet decode 37%, scan filters / late decoding 10%
+     2470   1.0 | keys 57%, parquet decode 27%, scan filters / late decoding 5%
+     2480   1.0 | keys 55%, parquet decode 22%, scan filters / late decoding 10%
+     2490   1.0 | keys 55%, scan filters / late decoding 12%, parquet decode 12%
+     2500   1.0 | keys 37%, parquet decode 35%, scan filters / late decoding 10%
+     2510   1.0 | keys 47%, parquet decode 22%, scan filters / late decoding 10%
+     2520   1.0 | keys 55%, parquet decode 17%, scan filters / late decoding 10%
+     2530   1.0 | keys 47%, parquet decode 30%, scan filters / late decoding 10%
+     2540   1.0 | keys 42%, parquet decode 32%, scan filters / late decoding 10%
+     2550   1.0 | keys 52%, parquet decode 22%, scan filters / late decoding 7%
+     2560   1.0 | keys 57%, parquet decode 22%, other duckdb 5%
+     2570   1.0 | keys 47%, parquet decode 32%, scan filters / late decoding 10%
+     2580   1.0 | keys 50%, parquet decode 27%, aggregate 7%
+     2590   1.0 | keys 52%, parquet decode 30%, aggregate 5%
+     2600   1.0 | keys 50%, parquet decode 27%, scan filters / late decoding 10%
+     2610   1.0 | keys 50%, parquet decode 32%, scan filters / late decoding 5%
+     2620   1.0 | keys 42%, parquet decode 30%, scan filters / late decoding 12%
+     2630   1.0 | keys 50%, parquet decode 20%, aggregate 10%
+     2640   1.0 | keys 50%, parquet decode 22%, scan filters / late decoding 10%
+     2650   1.0 | keys 52%, parquet decode 25%, other duckdb 7%
+     2660   1.0 | keys 52%, parquet decode 22%, scan filters / late decoding 12%
+     2670   1.0 | keys 52%, parquet decode 27%, scan filters / late decoding 7%
+     2680   1.0 | keys 47%, parquet decode 30%, aggregate 7%
+     2690   1.0 | keys 50%, parquet decode 27%, scan filters / late decoding 7%
+     2700   1.0 | keys 52%, parquet decode 20%, scan filters / late decoding 7%
+     2710   1.0 | keys 42%, parquet decode 27%, scan filters / late decoding 10%
+     2720   1.0 | keys 50%, parquet decode 25%, scan filters / late decoding 10%
+     2730   1.0 | keys 40%, parquet decode 27%, scan filters / late decoding 17%
+     2740   1.0 | keys 47%, parquet decode 25%, scan filters / late decoding 7%
+     2750   1.0 | keys 57%, parquet decode 25%, expressions 5%
+     2760   1.0 | keys 52%, parquet decode 25%, other duckdb 10%
+     2770   1.0 | keys 42%, parquet decode 32%, scan filters / late decoding 15%
+     2780   1.0 | keys 52%, parquet decode 20%, aggregate 12%
+     2790   1.0 | keys 50%, parquet decode 27%, scan filters / late decoding 12%
+     2800   1.0 | keys 50%, parquet decode 25%, scan filters / late decoding 12%
+     2810   1.0 | keys 55%, parquet decode 27%, scan filters / late decoding 10%
+     2820   1.0 | keys 55%, parquet decode 22%, scan filters / late decoding 12%
+     2830   1.0 | keys 45%, parquet decode 30%, aggregate 10%
+     2840   1.0 | keys 42%, parquet decode 32%, scan filters / late decoding 10%
+     2850   1.0 | keys 60%, parquet decode 17%, scan filters / late decoding 12%
+     2860   1.0 | keys 52%, parquet decode 30%, vectors 7%
+     2870   1.0 | keys 52%, parquet decode 17%, aggregate 12%
+     2880   1.0 | keys 57%, parquet decode 22%, aggregate 7%
+     2890   1.0 | keys 55%, parquet decode 25%, scan filters / late decoding 5%
+     2900   1.0 | keys 50%, parquet decode 17%, scan filters / late decoding 15%
+     2910   1.0 | keys 55%, parquet decode 17%, scan filters / late decoding 7%
+     2920   1.0 | keys 52%, parquet decode 20%, scan filters / late decoding 10%
+     2930   1.0 | keys 47%, parquet decode 30%, scan filters / late decoding 12%
+     2940   1.0 | keys 52%, parquet decode 25%, scan filters / late decoding 10%
+     2950   1.0 | keys 50%, parquet decode 25%, other duckdb 7%
+     2960   1.0 | keys 47%, parquet decode 25%, scan filters / late decoding 12%
+     2970   1.0 | keys 62%, parquet decode 22%, scan filters / late decoding 5%
+     2980   1.0 | keys 50%, parquet decode 17%, aggregate 10%
+     2990   1.0 | keys 47%, parquet decode 27%, aggregate 5%
+     3000   1.0 | keys 47%, parquet decode 22%, scan filters / late decoding 12%
+     3010   1.0 | keys 45%, parquet decode 25%, scan filters / late decoding 12%
+     3020   1.0 | keys 50%, parquet decode 22%, scan filters / late decoding 7%
+     3030   1.0 | keys 52%, parquet decode 22%, scan filters / late decoding 12%
+     3040   1.0 | keys 55%, parquet decode 20%, scan filters / late decoding 10%
+     3050   1.0 | keys 57%, parquet decode 20%, other duckdb 7%
+     3060   1.0 | keys 42%, parquet decode 37%, scan filters / late decoding 7%
+     3070   1.0 | keys 52%, parquet decode 27%, scan filters / late decoding 7%
+     3080   1.0 | keys 50%, parquet decode 22%, aggregate 7%
+     3090   1.0 | keys 57%, parquet decode 17%, scan filters / late decoding 7%
+     3100   1.0 | keys 55%, parquet decode 27%, aggregate 7%
+     3110   1.0 | keys 47%, parquet decode 30%, scan filters / late decoding 7%
+     3120   1.0 | keys 50%, parquet decode 22%, scan filters / late decoding 12%
+     3130   1.0 | keys 47%, parquet decode 22%, other duckdb 10%
+     3140   1.0 | keys 52%, parquet decode 30%, scan filters / late decoding 5%
+     3150   1.0 | keys 45%, parquet decode 32%, aggregate 7%
+     3160   1.0 | keys 42%, parquet decode 27%, vectors 10%
+     3170   1.0 | keys 55%, parquet decode 15%, scan filters / late decoding 12%
+     3180   1.0 | keys 50%, parquet decode 32%, scan filters / late decoding 7%
+     3190   1.0 | keys 50%, parquet decode 22%, expressions 7%
+     3200   1.0 | keys 52%, parquet decode 17%, expressions 10%
+     3210   1.0 | keys 55%, parquet decode 20%, scan filters / late decoding 12%
+     3220   1.0 | keys 52%, parquet decode 25%, scan filters / late decoding 7%
+     3230   1.0 | keys 50%, parquet decode 25%, aggregate 10%
+     3240   1.0 | keys 50%, parquet decode 22%, expressions 10%
+     3250   1.0 | keys 55%, parquet decode 30%, scan filters / late decoding 10%
+     3260   1.0 | keys 50%, parquet decode 30%, scan filters / late decoding 10%
+     3270   1.0 | keys 52%, parquet decode 22%, scan filters / late decoding 12%
+     3280   1.0 | keys 47%, parquet decode 27%, scan filters / late decoding 10%
+     3290   1.0 | keys 47%, parquet decode 30%, scan filters / late decoding 7%
+     3300   1.0 | keys 52%, parquet decode 22%, scan filters / late decoding 10%
+     3310   1.0 | keys 50%, parquet decode 25%, scan filters / late decoding 10%
+     3320   1.0 | keys 45%, parquet decode 25%, vectors 10%
+     3330   1.0 | keys 47%, parquet decode 27%, vectors 10%
+     3340   1.0 | keys 50%, parquet decode 27%, scan filters / late decoding 12%
+     3350   1.0 | keys 47%, parquet decode 25%, scan filters / late decoding 12%
+     3360   1.0 | keys 52%, parquet decode 25%, scan filters / late decoding 10%
+     3370   1.0 | keys 52%, parquet decode 17%, vectors 7%
+     3380   1.0 | keys 55%, parquet decode 17%, other duckdb 7%
+     3390   1.0 | keys 57%, parquet decode 20%, scan filters / late decoding 12%
+     3400   1.0 | keys 47%, parquet decode 25%, other duckdb 7%
+     3410   1.0 | keys 47%, parquet decode 27%, aggregate 7%
+     3420   1.0 | keys 50%, parquet decode 25%, scan filters / late decoding 10%
+     3430   1.0 | keys 42%, parquet decode 30%, scan filters / late decoding 17%
+     3440   1.0 | keys 52%, parquet decode 25%, expressions 12%
+     3450   1.0 | keys 50%, parquet decode 32%, scan filters / late decoding 10%
+     3460   1.0 | keys 45%, parquet decode 30%, scan filters / late decoding 7%
+     3470   1.0 | keys 52%, parquet decode 32%, scan filters / late decoding 7%
+     3480   1.0 | keys 55%, parquet decode 17%, vectors 7%
+     3490   1.0 | keys 45%, parquet decode 32%, scan filters / late decoding 10%
+     3500   1.0 | keys 50%, parquet decode 27%, scan filters / late decoding 7%
+     3510   1.0 | keys 52%, parquet decode 25%, scan filters / late decoding 7%
+     3520   1.0 | keys 50%, parquet decode 22%, scan filters / late decoding 12%
+     3530   1.0 | keys 52%, parquet decode 20%, aggregate 7%
+     3540   1.0 | keys 45%, parquet decode 35%, scan filters / late decoding 15%
+     3550   1.0 | keys 47%, parquet decode 32%, scan filters / late decoding 10%
+     3560   1.0 | keys 57%, parquet decode 22%, aggregate 12%
+     3570   1.0 | keys 55%, parquet decode 27%, scan filters / late decoding 5%
+     3580   1.0 | keys 52%, parquet decode 30%, scan filters / late decoding 7%
+     3590   1.0 | keys 50%, parquet decode 25%, aggregate 7%
+     3600   1.0 | keys 52%, parquet decode 27%, expressions 5%
+     3610   1.0 | keys 60%, parquet decode 27%, vectors 5%
+     3620   1.0 | keys 47%, parquet decode 25%, aggregate 7%
+     3630   1.0 | keys 50%, parquet decode 27%, scan filters / late decoding 10%
+     3640   1.0 | keys 50%, parquet decode 22%, scan filters / late decoding 7%
+     3650   1.0 | keys 50%, parquet decode 32%, scan filters / late decoding 5%
+     3660   1.0 | keys 55%, parquet decode 22%, scan filters / late decoding 7%
+     3670   1.0 | keys 50%, parquet decode 17%, scan filters / late decoding 10%
+     3680   1.0 | keys 47%, parquet decode 20%, scan filters / late decoding 12%
+     3690   1.0 | keys 55%, parquet decode 25%, scan filters / late decoding 7%
+     3700   1.0 | keys 52%, parquet decode 22%, scan filters / late decoding 12%
+     3710   1.0 | keys 47%, parquet decode 25%, scan filters / late decoding 10%
+     3720   1.0 | keys 55%, parquet decode 22%, scan filters / late decoding 5%
+     3730   1.0 | keys 50%, parquet decode 20%, scan filters / late decoding 10%
+     3740   1.0 | keys 52%, parquet decode 27%, scan filters / late decoding 7%
+     3750   1.0 | keys 45%, parquet decode 25%, scan filters / late decoding 10%
+     3760   1.0 | keys 45%, parquet decode 30%, scan filters / late decoding 10%
+     3770   1.0 | keys 47%, parquet decode 25%, vectors 7%
+     3780   1.0 | keys 45%, parquet decode 15%, scan filters / late decoding 10%
+     3790   1.0 | keys 45%, parquet decode 22%, kernel 17%
+     3800   1.0 | keys 40%, kernel 20%, parquet decode 15%
+     3810   1.0 | keys 42%, parquet decode 17%, kernel 12%
+     3820   1.0 | keys 57%, parquet decode 25%, vectors 7%
+     3830   1.0 | keys 55%, parquet decode 20%, aggregate 5%
+     3840   1.0 | keys 52%, parquet decode 22%, scan filters / late decoding 10%
+     3850   1.0 | keys 60%, parquet decode 17%, scan filters / late decoding 7%
+     3860   1.0 | keys 52%, parquet decode 27%, scan filters / late decoding 5%
+     3870   1.0 | keys 55%, parquet decode 22%, aggregate 7%
+     3880   1.0 | keys 57%, parquet decode 22%, vectors 7%
+     3890   1.0 | keys 52%, parquet decode 27%, other duckdb 5%
+     3900   1.0 | keys 50%, parquet decode 27%, scan filters / late decoding 12%
+     3910   1.0 | keys 57%, parquet decode 17%, scan filters / late decoding 7%
+     3920   1.0 | keys 47%, parquet decode 20%, aggregate 10%
+     3930   1.0 | keys 52%, parquet decode 25%, expressions 7%
+     3940   1.0 | keys 60%, parquet decode 25%, aggregate 7%
+     3950   1.0 | keys 52%, parquet decode 25%, scan filters / late decoding 12%
+     3960   1.0 | keys 45%, parquet decode 30%, aggregate 10%
+     3970   1.0 | keys 57%, parquet decode 22%, scan filters / late decoding 7%
+     3980   1.0 | keys 47%, parquet decode 22%, scan filters / late decoding 12%
+     3990   1.0 | keys 52%, parquet decode 25%, libc (memcpy/malloc/...) 7%
+     4000   1.0 | keys 45%, parquet decode 32%, expressions 7%
+     4010   1.0 | keys 52%, parquet decode 20%, scan filters / late decoding 10%
+     4020   1.0 | keys 50%, parquet decode 17%, scan filters / late decoding 15%
+     4030   1.0 | keys 45%, parquet decode 35%, scan filters / late decoding 7%
+     4040   1.0 | keys 60%, parquet decode 20%, vectors 5%
+     4050   1.0 | keys 55%, parquet decode 22%, scan filters / late decoding 10%
+     4060   1.0 | keys 47%, parquet decode 30%, expressions 7%
+     4070   1.0 | keys 52%, parquet decode 27%, scan filters / late decoding 7%
+     4080   1.0 | keys 47%, parquet decode 30%, scan filters / late decoding 10%
+     4090   1.0 | keys 45%, parquet decode 27%, scan filters / late decoding 7%
+     4100   1.0 | keys 52%, parquet decode 22%, aggregate 7%
+     4110   1.0 | keys 55%, parquet decode 17%, expressions 7%
+     4120   1.0 | keys 47%, parquet decode 20%, scan filters / late decoding 10%
+     4130   1.0 | keys 45%, parquet decode 27%, aggregate 12%
+     4140   1.0 | keys 50%, parquet decode 27%, scan filters / late decoding 10%
+     4150   1.0 | keys 52%, parquet decode 30%, scan filters / late decoding 7%
+     4160   1.0 | keys 55%, parquet decode 17%, expressions 7%
+     4170   1.0 | keys 47%, parquet decode 25%, scan filters / late decoding 10%
+     4180   1.0 | keys 55%, parquet decode 27%, scan filters / late decoding 7%
+     4190   1.0 | keys 57%, parquet decode 15%, aggregate 12%
+     4200   1.0 | keys 57%, parquet decode 27%, scan filters / late decoding 10%
+     4210   1.0 | keys 47%, parquet decode 30%, scan filters / late decoding 10%
+     4220   1.0 | keys 55%, parquet decode 27%, scan filters / late decoding 10%
+     4230   1.0 | keys 50%, parquet decode 32%, scan filters / late decoding 7%
+     4240   1.0 | keys 55%, parquet decode 15%, libc (memcpy/malloc/...) 10%
+     4250   1.0 | keys 47%, parquet decode 32%, scan filters / late decoding 7%
+     4260   1.0 | keys 55%, parquet decode 25%, scan filters / late decoding 7%
+     4270   1.0 | keys 50%, parquet decode 30%, expressions 5%
+     4280   1.0 | keys 45%, parquet decode 22%, scan filters / late decoding 15%
+     4290   1.0 | keys 40%, parquet decode 37%, scan filters / late decoding 12%
+     4300   1.0 | keys 47%, parquet decode 32%, scan filters / late decoding 10%
+     4310   1.0 | keys 50%, parquet decode 37%, vectors 2%
+     4320   1.0 | keys 47%, parquet decode 22%, scan filters / late decoding 17%
+     4330   1.0 | keys 45%, parquet decode 27%, aggregate 10%
+     4340   1.0 | keys 52%, parquet decode 30%, scan filters / late decoding 7%
+     4350   1.0 | keys 45%, parquet decode 27%, scan filters / late decoding 10%
+     4360   1.0 | keys 47%, parquet decode 30%, aggregate 7%
+     4370   1.0 | keys 47%, parquet decode 27%, aggregate 10%
+     4380   1.0 | keys 55%, parquet decode 22%, aggregate 5%
+     4390   1.0 | keys 50%, parquet decode 27%, scan filters / late decoding 7%
+     4400   1.0 | keys 50%, parquet decode 32%, aggregate 7%
+     4410   1.0 | keys 50%, parquet decode 27%, scan filters / late decoding 10%
+     4420   1.0 | keys 57%, parquet decode 22%, scan filters / late decoding 10%
+     4430   1.0 | keys 47%, parquet decode 20%, scan filters / late decoding 17%
+     4440   1.0 | keys 47%, parquet decode 32%, scan filters / late decoding 7%
+     4450   1.0 | keys 55%, parquet decode 20%, aggregate 10%
+     4460   1.0 | keys 52%, parquet decode 22%, scan filters / late decoding 12%
+     4470   1.0 | keys 50%, parquet decode 22%, expressions 7%
+     4480   1.0 | keys 50%, parquet decode 25%, aggregate 12%
+     4490   1.0 | keys 52%, parquet decode 27%, scan filters / late decoding 10%
+     4500   1.0 | keys 50%, parquet decode 32%, scan filters / late decoding 10%
+     4510   1.0 | keys 55%, parquet decode 30%, scan filters / late decoding 10%
+     4520   1.0 | keys 52%, parquet decode 25%, scan filters / late decoding 12%
+     4530   1.0 | keys 55%, parquet decode 20%, scan filters / late decoding 7%
+     4540   1.0 | keys 57%, parquet decode 25%, scan filters / late decoding 10%
+     4550   1.0 | keys 47%, parquet decode 27%, scan filters / late decoding 10%
+     4560   1.0 | keys 60%, parquet decode 25%, other duckdb 5%
+     4570   1.0 | keys 45%, parquet decode 32%, scan filters / late decoding 10%
+     4580   1.0 | keys 50%, parquet decode 22%, scan filters / late decoding 12%
+     4590   1.0 | keys 50%, parquet decode 22%, scan filters / late decoding 15%
+     4600   1.0 | keys 57%, parquet decode 22%, scan filters / late decoding 12%
+     4610   1.0 | keys 50%, parquet decode 22%, other duckdb 7%
+     4620   1.0 | keys 50%, parquet decode 22%, aggregate 7%
+     4630   1.0 | keys 47%, parquet decode 20%, scan filters / late decoding 10%
+     4640   1.0 | keys 50%, parquet decode 25%, expressions 7%
+     4650   1.0 | keys 47%, parquet decode 25%, scan filters / late decoding 10%
+     4660   1.0 | keys 50%, parquet decode 22%, other duckdb 7%
+     4670   1.0 | keys 52%, parquet decode 25%, scan filters / late decoding 12%
+     4680   1.0 | keys 52%, parquet decode 27%, scan filters / late decoding 7%
+     4690   1.0 | keys 52%, parquet decode 27%, scan filters / late decoding 10%
+     4700   1.0 | keys 47%, parquet decode 25%, scan filters / late decoding 15%
+     4710   1.0 | keys 55%, parquet decode 20%, aggregate 7%
+     4720   1.0 | keys 55%, parquet decode 22%, scan filters / late decoding 10%
+     4730   1.0 | keys 50%, parquet decode 25%, scan filters / late decoding 7%
+     4740   1.0 | keys 47%, parquet decode 22%, scan filters / late decoding 12%
+     4750   1.0 | keys 47%, scan filters / late decoding 15%, parquet decode 15%
+     4760   1.0 | keys 50%, parquet decode 25%, scan filters / late decoding 10%
+     4770   1.0 | keys 50%, parquet decode 27%, scan filters / late decoding 7%
+     4780   1.0 | keys 47%, parquet decode 25%, scan filters / late decoding 10%
+     4790   1.0 | keys 50%, parquet decode 30%, expressions 5%
+     4800   1.0 | keys 50%, parquet decode 30%, scan filters / late decoding 5%
+     4810   1.0 | keys 62%, parquet decode 17%, scan filters / late decoding 5%
+     4820   1.0 | keys 47%, parquet decode 30%, scan filters / late decoding 7%
+     4830   1.0 | keys 47%, parquet decode 30%, scan filters / late decoding 10%
+     4840   1.0 | keys 47%, parquet decode 30%, scan filters / late decoding 7%
+     4850   1.0 | keys 55%, parquet decode 22%, scan filters / late decoding 10%
+     4860   1.0 | keys 52%, parquet decode 20%, scan filters / late decoding 10%
+     4870   1.0 | keys 47%, parquet decode 25%, vectors 5%
+     4880   1.0 | keys 62%, parquet decode 17%, scan filters / late decoding 7%
+     4890   1.0 | keys 47%, parquet decode 27%, scan filters / late decoding 10%
+     4900   1.0 | keys 47%, parquet decode 27%, scan filters / late decoding 12%
+     4910   1.0 | keys 55%, parquet decode 22%, vectors 12%
+     4920   1.0 | keys 47%, parquet decode 27%, kernel 5%
+     4930   1.0 | keys 52%, parquet decode 25%, scan filters / late decoding 7%
+     4940   1.0 | keys 45%, parquet decode 22%, scan filters / late decoding 7%
+     4950   1.0 | keys 47%, parquet decode 32%, scan filters / late decoding 10%
+     4960   1.0 | keys 47%, parquet decode 20%, scan filters / late decoding 17%
+     4970   1.0 | keys 55%, parquet decode 20%, scan filters / late decoding 7%
+     4980   1.0 | keys 50%, parquet decode 22%, other duckdb 7%
+     4990   1.0 | keys 50%, parquet decode 25%, scan filters / late decoding 10%
+     5000   1.0 | keys 57%, parquet decode 25%, scan filters / late decoding 5%
+     5010   1.0 | keys 52%, parquet decode 20%, scan filters / late decoding 10%
+     5020   1.0 | keys 55%, parquet decode 22%, scan filters / late decoding 10%
+     5030   1.0 | keys 52%, parquet decode 22%, scan filters / late decoding 12%
+     5040   1.0 | keys 42%, parquet decode 32%, scan filters / late decoding 7%
+     5050   1.0 | keys 57%, parquet decode 22%, scan filters / late decoding 12%
+     5060   1.0 | keys 55%, parquet decode 20%, scan filters / late decoding 12%
+     5070   1.0 | keys 47%, parquet decode 25%, libc (memcpy/malloc/...) 7%
+     5080   1.0 | keys 50%, parquet decode 30%, vectors 7%
+     5090   1.0 | keys 55%, parquet decode 30%, scan filters / late decoding 7%
+     5100   1.0 | keys 50%, parquet decode 27%, aggregate 7%
+     5110   1.0 | keys 45%, parquet decode 25%, scan filters / late decoding 15%
+     5120   1.0 | keys 52%, parquet decode 20%, aggregate 7%
+     5130   1.0 | keys 55%, parquet decode 30%, scan filters / late decoding 7%
+     5140   1.0 | keys 52%, parquet decode 27%, scan filters / late decoding 10%
+     5150   1.0 | keys 52%, parquet decode 25%, aggregate 7%
+     5160   1.0 | keys 57%, parquet decode 22%, expressions 5%
+     5170   1.0 | keys 52%, parquet decode 22%, scan filters / late decoding 7%
+     5180   1.0 | keys 50%, parquet decode 30%, vectors 7%
+     5190   1.0 | keys 55%, parquet decode 25%, scan filters / late decoding 10%
+     5200   1.0 | keys 47%, parquet decode 27%, scan filters / late decoding 10%
+     5210   1.0 | keys 52%, parquet decode 20%, scan filters / late decoding 10%
+     5220   1.0 | keys 52%, parquet decode 25%, scan filters / late decoding 10%
+     5230   1.0 | keys 47%, parquet decode 32%, aggregate 5%
+     5240   1.0 | keys 45%, parquet decode 27%, scan filters / late decoding 10%
+     5250   1.0 | keys 50%, parquet decode 25%, scan filters / late decoding 10%
+     5260   1.0 | keys 55%, parquet decode 27%, scan filters / late decoding 7%
+     5270   1.0 | keys 55%, parquet decode 25%, scan filters / late decoding 7%
+     5280   1.0 | keys 52%, parquet decode 25%, scan filters / late decoding 7%
+     5290   1.0 | keys 55%, parquet decode 25%, scan filters / late decoding 5%
+     5300   1.0 | keys 50%, parquet decode 27%, aggregate 7%
+     5310   1.0 | keys 45%, parquet decode 22%, scan filters / late decoding 7%
+     5320   1.0 | keys 47%, parquet decode 30%, scan filters / late decoding 7%
+     5330   1.0 | keys 50%, parquet decode 22%, kernel 12%
+     5340   1.0 | keys 47%, parquet decode 20%, kernel 15%
+     5350   1.0 | keys 42%, parquet decode 22%, kernel 12%
+     5360   1.0 | keys 42%, parquet decode 22%, kernel 15%
+     5370   1.0 | keys 42%, kernel 27%, parquet decode 12%
+     5380   1.0 | keys 47%, kernel 20%, parquet decode 17%
+     5390   1.0 | keys 55%, parquet decode 25%, scan filters / late decoding 7%
+     5400   1.0 | keys 50%, parquet decode 20%, kernel 15%
+     5410   1.0 | keys 55%, parquet decode 12%, other duckdb 10%
+     5420   1.0 | keys 47%, parquet decode 22%, other duckdb 7%
+     5430   1.0 | keys 52%, parquet decode 25%, scan filters / late decoding 12%
+     5440   1.0 | keys 47%, parquet decode 20%, other duckdb 7%
+     5450   1.0 | keys 55%, parquet decode 20%, scan filters / late decoding 15%
+     5460   1.0 | keys 52%, parquet decode 25%, scan filters / late decoding 10%
+     5470   1.0 | keys 52%, parquet decode 25%, aggregate 7%
+     5480   1.0 | keys 45%, parquet decode 30%, scan filters / late decoding 17%
+     5490   1.0 | keys 60%, parquet decode 22%, scan filters / late decoding 5%
+     5500   1.0 | keys 47%, parquet decode 30%, aggregate 7%
+     5510   1.0 | keys 50%, parquet decode 25%, scan filters / late decoding 10%
+     5520   1.0 | keys 50%, parquet decode 25%, scan filters / late decoding 15%
+     5530   1.0 | keys 47%, parquet decode 27%, scan filters / late decoding 15%
+     5540   1.0 | keys 55%, parquet decode 15%, scan filters / late decoding 10%
+     5550   1.0 | keys 50%, parquet decode 22%, scan filters / late decoding 7%
+     5560   1.0 | keys 52%, parquet decode 25%, vectors 10%
+     5570   1.0 | keys 50%, parquet decode 20%, scan filters / late decoding 10%
+     5580   1.0 | keys 52%, parquet decode 22%, scan filters / late decoding 15%
+     5590   1.0 | keys 50%, parquet decode 35%, scan filters / late decoding 7%
+     5600   1.0 | keys 47%, parquet decode 32%, aggregate 7%
+     5610   1.0 | keys 45%, parquet decode 22%, scan filters / late decoding 15%
+     5620   1.0 | keys 52%, parquet decode 25%, scan filters / late decoding 10%
+     5630   1.0 | keys 52%, parquet decode 25%, scan filters / late decoding 10%
+     5640   1.0 | keys 55%, parquet decode 25%, expressions 10%
+     5650   1.0 | keys 55%, parquet decode 27%, aggregate 5%
+     5660   1.0 | keys 57%, parquet decode 20%, aggregate 10%
+     5670   1.0 | keys 55%, parquet decode 20%, aggregate 7%
+     5680   1.0 | keys 52%, parquet decode 25%, aggregate 12%
+     5690   1.0 | keys 52%, parquet decode 22%, scan filters / late decoding 10%
+     5700   1.0 | keys 55%, parquet decode 22%, vectors 7%
+     5710   1.0 | keys 52%, parquet decode 27%, scan filters / late decoding 7%
+     5720   1.0 | keys 52%, parquet decode 25%, scan filters / late decoding 10%
+     5730   1.0 | keys 50%, parquet decode 27%, scan filters / late decoding 10%
+     5740   1.0 | keys 45%, parquet decode 22%, scan filters / late decoding 10%
+     5750   1.0 | keys 42%, parquet decode 30%, vectors 10%
+     5760   1.0 | keys 50%, parquet decode 22%, scan filters / late decoding 7%
+     5770   1.0 | keys 57%, parquet decode 22%, other duckdb 5%
+     5780   1.0 | keys 45%, parquet decode 25%, scan filters / late decoding 12%
+     5790   1.0 | keys 50%, parquet decode 25%, scan filters / late decoding 10%
+     5800   1.0 | keys 55%, parquet decode 22%, expressions 7%
+     5810   1.0 | keys 55%, parquet decode 27%, other duckdb 5%
+     5820   1.0 | keys 60%, parquet decode 17%, aggregate 10%
+     5830   1.0 | keys 47%, parquet decode 22%, scan filters / late decoding 12%
+     5840   1.0 | keys 57%, scan filters / late decoding 10%, parquet decode 10%
+     5850   1.0 | keys 50%, parquet decode 25%, scan filters / late decoding 7%
+     5860   1.0 | keys 50%, parquet decode 32%, scan filters / late decoding 10%
+     5870   1.0 | keys 50%, parquet decode 22%, scan filters / late decoding 12%
+     5880   1.0 | keys 50%, parquet decode 22%, libc (memcpy/malloc/...) 7%
+     5890   1.0 | keys 47%, parquet decode 25%, scan filters / late decoding 12%
+     5900   1.0 | keys 50%, parquet decode 22%, vectors 7%
+     5910   1.0 | keys 45%, parquet decode 17%, scan filters / late decoding 12%
+     5920   1.0 | keys 45%, parquet decode 22%, aggregate 10%
+     5930   1.0 | keys 57%, parquet decode 22%, scan filters / late decoding 7%
+     5940   1.0 | keys 55%, parquet decode 22%, other duckdb 7%
+     5950   1.0 | keys 45%, parquet decode 30%, scan filters / late decoding 10%
+     5960   1.0 | keys 60%, parquet decode 20%, scan filters / late decoding 7%
+     5970   1.0 | keys 50%, parquet decode 30%, vectors 5%
+     5980   1.0 | keys 60%, parquet decode 22%, scan filters / late decoding 7%
+     5990   1.0 | keys 47%, parquet decode 27%, aggregate 7%
+     6000   1.0 | keys 55%, parquet decode 17%, scan filters / late decoding 10%
+     6010   1.0 | keys 52%, parquet decode 27%, vectors 5%
+     6020   1.0 | keys 45%, parquet decode 25%, scan filters / late decoding 15%
+     6030   1.0 | keys 45%, parquet decode 35%, other duckdb 10%
+     6040   1.0 | keys 55%, parquet decode 17%, scan filters / late decoding 7%
+     6050   1.0 | keys 45%, parquet decode 30%, scan filters / late decoding 12%
+     6060   1.0 | keys 40%, parquet decode 30%, other duckdb 12%
+     6070   1.0 | keys 50%, parquet decode 17%, other duckdb 10%
+     6080   1.0 | keys 50%, parquet decode 22%, scan filters / late decoding 15%
+     6090   1.0 | keys 42%, parquet decode 27%, other duckdb 7%
+     6100   1.0 | keys 50%, parquet decode 25%, scan filters / late decoding 10%
+     6110   1.0 | keys 50%, parquet decode 17%, scan filters / late decoding 12%
+     6120   1.0 | keys 42%, parquet decode 27%, vectors 7%
+     6130   1.0 | keys 47%, parquet decode 27%, scan filters / late decoding 12%
+     6140   1.0 | keys 50%, parquet decode 17%, other duckdb 12%
+     6150   1.0 | keys 57%, parquet decode 22%, scan filters / late decoding 7%
+     6160   1.0 | keys 50%, parquet decode 22%, scan filters / late decoding 15%
+     6170   1.0 | keys 55%, parquet decode 20%, scan filters / late decoding 10%
+     6180   1.0 | keys 50%, parquet decode 27%, scan filters / late decoding 10%
+     6190   1.0 | keys 52%, parquet decode 20%, scan filters / late decoding 10%
+     6200   1.0 | keys 45%, parquet decode 30%, scan filters / late decoding 10%
+     6210   1.0 | keys 57%, parquet decode 25%, scan filters / late decoding 12%
+     6220   1.0 | keys 47%, parquet decode 27%, scan filters / late decoding 10%
+     6230   1.0 | keys 42%, parquet decode 32%, vectors 10%
+     6240   1.0 | keys 57%, parquet decode 17%, scan filters / late decoding 10%
+     6250   1.0 | keys 55%, parquet decode 17%, other duckdb 10%
+     6260   1.0 | keys 45%, parquet decode 25%, scan filters / late decoding 10%
+     6270   1.0 | keys 55%, parquet decode 20%, scan filters / late decoding 10%
+     6280   1.0 | keys 50%, parquet decode 22%, aggregate 10%
+     6290   1.0 | keys 55%, parquet decode 20%, scan filters / late decoding 10%
+     6300   1.0 | keys 57%, parquet decode 22%, scan filters / late decoding 7%
+     6310   1.0 | keys 55%, parquet decode 20%, aggregate 7%
+     6320   1.0 | keys 50%, parquet decode 25%, scan filters / late decoding 12%
+     6330   1.0 | keys 50%, parquet decode 25%, scan filters / late decoding 12%
+     6340   1.0 | keys 50%, parquet decode 22%, aggregate 10%
+     6350   1.0 | keys 52%, parquet decode 30%, vectors 5%
+     6360   1.0 | keys 50%, parquet decode 30%, scan filters / late decoding 7%
+     6370   1.0 | keys 55%, parquet decode 22%, scan filters / late decoding 10%
+     6380   1.0 | keys 45%, parquet decode 30%, scan filters / late decoding 10%
+     6390   1.0 | keys 47%, parquet decode 32%, scan filters / late decoding 7%
+     6400   1.0 | keys 47%, parquet decode 27%, scan filters / late decoding 7%
+     6410   1.0 | keys 55%, parquet decode 20%, scan filters / late decoding 10%
+     6420   1.0 | keys 52%, parquet decode 22%, aggregate 7%
+     6430   1.0 | keys 55%, parquet decode 22%, aggregate 7%
+     6440   1.0 | keys 60%, parquet decode 17%, expressions 5%
+     6450   1.0 | keys 55%, parquet decode 22%, scan filters / late decoding 10%
+     6460   1.0 | keys 45%, parquet decode 25%, scan filters / late decoding 12%
+     6470   1.0 | keys 52%, parquet decode 27%, scan filters / late decoding 7%
+     6480   1.0 | keys 52%, parquet decode 30%, scan filters / late decoding 10%
+     6490   1.0 | keys 52%, parquet decode 27%, scan filters / late decoding 7%
+     6500   1.0 | keys 60%, parquet decode 30%, scan filters / late decoding 7%
+     6510   1.0 | keys 47%, parquet decode 30%, vectors 10%
+     6520   1.0 | keys 57%, parquet decode 22%, kernel 5%
+     6530   1.0 | keys 55%, parquet decode 25%, scan filters / late decoding 7%
+     6540   1.0 | keys 45%, parquet decode 22%, other duckdb 12%
+     6550   1.0 | keys 50%, parquet decode 35%, expressions 5%
+     6560   1.0 | keys 55%, parquet decode 22%, scan filters / late decoding 7%
+     6570   1.0 | keys 55%, parquet decode 17%, scan filters / late decoding 10%
+     6580   1.0 | keys 45%, parquet decode 32%, scan filters / late decoding 12%
+     6590   1.0 | keys 50%, parquet decode 20%, scan filters / late decoding 10%
+     6600   1.0 | keys 57%, parquet decode 25%, scan filters / late decoding 5%
+     6610   1.0 | keys 50%, parquet decode 27%, scan filters / late decoding 10%
+     6620   1.0 | keys 45%, parquet decode 27%, scan filters / late decoding 12%
+     6630   1.0 | keys 47%, parquet decode 25%, other duckdb 7%
+     6640   1.0 | keys 50%, parquet decode 27%, scan filters / late decoding 10%
+     6650   1.0 | keys 50%, parquet decode 25%, scan filters / late decoding 12%
+     6660   1.0 | keys 62%, parquet decode 15%, expressions 7%
+     6670   1.0 | keys 55%, parquet decode 22%, scan filters / late decoding 5%
+     6680   1.0 | keys 45%, parquet decode 30%, other duckdb 10%
+     6690   1.0 | keys 50%, parquet decode 20%, scan filters / late decoding 7%
+     6700   1.0 | keys 55%, parquet decode 25%, other duckdb 7%
+     6710   1.0 | keys 57%, parquet decode 27%, expressions 5%
+     6720   1.0 | keys 47%, parquet decode 27%, other duckdb 7%
+     6730   1.0 | keys 50%, parquet decode 20%, scan filters / late decoding 12%
+     6740   1.0 | keys 50%, parquet decode 22%, scan filters / late decoding 10%
+     6750   1.0 | keys 47%, parquet decode 27%, scan filters / late decoding 7%
+     6760   1.0 | keys 62%, parquet decode 25%, scan filters / late decoding 7%
+     6770   1.0 | keys 47%, parquet decode 22%, scan filters / late decoding 12%
+     6780   1.0 | keys 55%, parquet decode 25%, scan filters / late decoding 7%
+     6790   1.0 | keys 47%, parquet decode 37%, scan filters / late decoding 7%
+     6800   1.0 | keys 47%, parquet decode 27%, scan filters / late decoding 10%
+     6810   1.0 | keys 57%, parquet decode 25%, expressions 7%
+     6820   1.0 | keys 47%, parquet decode 27%, vectors 7%
+     6830   1.0 | keys 52%, parquet decode 32%, scan filters / late decoding 7%
+     6840   1.0 | keys 42%, parquet decode 32%, scan filters / late decoding 10%
+     6850   1.0 | keys 47%, parquet decode 25%, libc (memcpy/malloc/...) 7%
+     6860   1.0 | keys 50%, parquet decode 22%, scan filters / late decoding 15%
+     6870   1.0 | keys 55%, parquet decode 17%, other duckdb 12%
+     6880   1.0 | keys 52%, parquet decode 27%, scan filters / late decoding 7%
+     6890   1.0 | keys 55%, parquet decode 25%, aggregate 7%
+     6900   1.0 | keys 52%, parquet decode 25%, scan filters / late decoding 10%
+     6910   1.0 | keys 45%, parquet decode 25%, scan filters / late decoding 15%
+     6920   1.0 | keys 52%, parquet decode 20%, scan filters / late decoding 15%
+     6930   1.0 | keys 55%, parquet decode 22%, other duckdb 7%
+     6940   1.0 | keys 45%, parquet decode 30%, scan filters / late decoding 7%
+     6950   1.0 | keys 50%, parquet decode 25%, expressions 10%
+     6960   1.0 | keys 45%, parquet decode 25%, scan filters / late decoding 10%
+     6970   1.0 | keys 50%, parquet decode 22%, vectors 7%
+     6980   1.0 | keys 42%, parquet decode 30%, scan filters / late decoding 12%
+     6990   1.0 | keys 46%, parquet decode 33%, aggregate 5%
+     7000   1.0 | keys 48%, parquet decode 24%, scan filters / late decoding 14%
+     7010   1.0 | keys 50%, parquet decode 25%, aggregate 10%
+     7020   1.0 | keys 50%, parquet decode 27%, expressions 5%
+     7030   1.0 | keys 60%, parquet decode 20%, scan filters / late decoding 10%
+     7040   1.0 | keys 52%, parquet decode 15%, vectors 12%
+     7050   1.0 | keys 55%, parquet decode 27%, scan filters / late decoding 7%
+     7060   1.0 | keys 55%, parquet decode 20%, other duckdb 7%
+     7070   1.0 | keys 45%, parquet decode 35%, aggregate 7%
+     7080   1.0 | keys 55%, other duckdb 12%, scan filters / late decoding 10%
+     7090   1.0 | keys 50%, parquet decode 25%, scan filters / late decoding 12%
+     7100   1.0 | keys 40%, parquet decode 32%, scan filters / late decoding 10%
+     7110   1.0 | keys 42%, parquet decode 30%, scan filters / late decoding 12%
+     7120   1.0 | keys 37%, parquet decode 30%, aggregate 7%
+     7130   1.0 | keys 55%, parquet decode 20%, scan filters / late decoding 10%
+     7140   1.0 | keys 47%, parquet decode 27%, scan filters / late decoding 7%
+     7150   1.0 | keys 52%, parquet decode 25%, scan filters / late decoding 12%
+     7160   1.0 | keys 45%, parquet decode 32%, scan filters / late decoding 10%
+     7170   1.0 | keys 52%, parquet decode 27%, libc (memcpy/malloc/...) 7%
+     7180   1.0 | keys 52%, parquet decode 22%, scan filters / late decoding 7%
+     7190   1.0 | keys 52%, parquet decode 22%, aggregate 10%
+     7200   1.0 | keys 50%, parquet decode 27%, vectors 5%
+     7210   1.0 | keys 47%, parquet decode 30%, scan filters / late decoding 10%
+     7220   1.0 | keys 50%, parquet decode 22%, scan filters / late decoding 12%
+     7230   1.0 | keys 50%, parquet decode 25%, aggregate 10%
+     7240   1.0 | keys 47%, parquet decode 32%, scan filters / late decoding 10%
+     7250   1.0 | keys 42%, parquet decode 35%, expressions 12%
+     7260   1.0 | keys 57%, parquet decode 27%, kernel 5%
+     7270   1.0 | keys 52%, parquet decode 32%, libc (memcpy/malloc/...) 5%
+     7280   1.0 | keys 55%, parquet decode 25%, scan filters / late decoding 7%
+     7290   1.0 | keys 45%, parquet decode 22%, scan filters / late decoding 10%
+     7300   1.0 | keys 47%, parquet decode 22%, scan filters / late decoding 15%
+     7310   1.0 | keys 50%, parquet decode 20%, aggregate 10%
+     7320   1.0 | keys 55%, parquet decode 17%, scan filters / late decoding 7%
+     7330   1.0 | keys 47%, parquet decode 30%, scan filters / late decoding 7%
+     7340   1.0 | keys 55%, parquet decode 20%, scan filters / late decoding 7%
+     7350   1.0 | keys 42%, parquet decode 30%, scan filters / late decoding 7%
+     7360   1.0 | keys 52%, parquet decode 32%, scan filters / late decoding 10%
+     7370   1.0 | keys 55%, parquet decode 22%, scan filters / late decoding 10%
+     7380   1.0 | keys 57%, parquet decode 22%, scan filters / late decoding 10%
+     7390   1.0 | keys 55%, parquet decode 17%, aggregate 7%
+     7400   1.0 | keys 55%, parquet decode 20%, vectors 7%
+     7410   1.0 | keys 50%, parquet decode 30%, aggregate 10%
+     7420   1.0 | keys 60%, parquet decode 25%, scan filters / late decoding 7%
+     7430   1.0 | keys 55%, parquet decode 22%, scan filters / late decoding 7%
+     7440   1.0 | keys 57%, parquet decode 22%, scan filters / late decoding 7%
+     7450   1.0 | keys 55%, parquet decode 25%, expressions 10%
+     7460   1.0 | keys 57%, parquet decode 20%, aggregate 10%
+     7470   1.0 | keys 50%, parquet decode 22%, expressions 7%
+     7480   1.0 | keys 40%, parquet decode 32%, scan filters / late decoding 10%
+     7490   1.0 | keys 45%, parquet decode 37%, scan filters / late decoding 7%
+     7500   1.0 | keys 50%, parquet decode 25%, scan filters / late decoding 7%
+     7510   1.0 | keys 57%, scan filters / late decoding 15%, parquet decode 15%
+     7520   1.0 | keys 45%, parquet decode 22%, scan filters / late decoding 10%
+     7530   1.0 | keys 52%, parquet decode 20%, scan filters / late decoding 10%
+     7540   1.0 | keys 47%, parquet decode 30%, scan filters / late decoding 10%
+     7550   1.0 | keys 52%, parquet decode 25%, scan filters / late decoding 7%
+     7560   1.0 | keys 57%, parquet decode 17%, expressions 7%
+     7570   1.0 | keys 50%, parquet decode 27%, aggregate 7%
+     7580   1.0 | keys 52%, parquet decode 25%, vectors 10%
+     7590   1.0 | keys 47%, parquet decode 22%, scan filters / late decoding 10%
+     7600   1.0 | keys 47%, parquet decode 27%, aggregate 7%
+     7610   1.0 | keys 50%, parquet decode 25%, scan filters / late decoding 7%
+     7620   1.0 | keys 50%, parquet decode 22%, vectors 10%
+     7630   1.0 | keys 55%, parquet decode 22%, vectors 7%
+     7640   1.0 | keys 52%, parquet decode 22%, vectors 10%
+     7650   1.0 | keys 57%, parquet decode 25%, scan filters / late decoding 7%
+     7660   1.0 | keys 55%, parquet decode 20%, scan filters / late decoding 7%
+     7670   1.0 | keys 40%, parquet decode 30%, scan filters / late decoding 10%
+     7680   1.0 | keys 57%, parquet decode 22%, aggregate 5%
+     7690   1.0 | keys 57%, parquet decode 27%, aggregate 5%
+     7700   1.0 | keys 47%, parquet decode 30%, scan filters / late decoding 10%
+     7710   1.0 | keys 57%, parquet decode 22%, aggregate 7%
+     7720   1.0 | keys 52%, parquet decode 27%, scan filters / late decoding 5%
+     7730   1.0 | keys 50%, parquet decode 20%, aggregate 7%
+     7740   1.0 | keys 45%, parquet decode 30%, scan filters / late decoding 12%
+     7750   1.0 | keys 45%, parquet decode 35%, scan filters / late decoding 12%
+     7760   1.0 | keys 50%, parquet decode 25%, scan filters / late decoding 12%
+     7770   1.0 | keys 45%, parquet decode 30%, scan filters / late decoding 12%
+     7780   1.0 | keys 40%, parquet decode 32%, scan filters / late decoding 12%
+     7790   1.0 | keys 55%, parquet decode 30%, other duckdb 5%
+     7800   1.0 | keys 57%, parquet decode 20%, scan filters / late decoding 10%
+     7810   1.0 | keys 45%, parquet decode 30%, vectors 7%
+     7820   1.0 | keys 50%, parquet decode 30%, scan filters / late decoding 10%
+     7830   1.0 | keys 57%, parquet decode 17%, other duckdb 10%
+     7840   1.0 | keys 57%, parquet decode 22%, scan filters / late decoding 10%
+     7850   1.0 | keys 50%, parquet decode 27%, scan filters / late decoding 7%
+     7860   1.0 | keys 45%, parquet decode 30%, scan filters / late decoding 15%
+     7870   1.0 | keys 47%, parquet decode 30%, scan filters / late decoding 7%
+     7880   1.0 | keys 55%, parquet decode 25%, expressions 7%
+     7890   1.0 | keys 52%, parquet decode 25%, vectors 7%
+     7900   1.0 | keys 52%, parquet decode 22%, aggregate 12%
+     7910   1.0 | keys 50%, parquet decode 22%, scan filters / late decoding 10%
+     7920   1.0 | keys 50%, parquet decode 30%, expressions 7%
+     7930   1.0 | keys 50%, parquet decode 20%, scan filters / late decoding 12%
+     7940   1.0 | keys 52%, parquet decode 25%, other duckdb 7%
+     7950   1.0 | keys 47%, parquet decode 25%, scan filters / late decoding 10%
+     7960   1.0 | keys 47%, parquet decode 20%, vectors 10%
+     7970   1.0 | keys 47%, parquet decode 27%, kernel 7%
+     7980   1.0 | keys 50%, parquet decode 25%, kernel 10%
+     7990   1.0 | keys 42%, parquet decode 22%, scan filters / late decoding 12%
+     8000   1.0 | keys 45%, parquet decode 20%, aggregate 10%
+     8010   1.0 | keys 40%, kernel 25%, parquet decode 17%
+     8020   1.0 | keys 40%, kernel 17%, parquet decode 15%
+     8030   1.0 | keys 42%, parquet decode 22%, kernel 12%
+     8040   1.0 | keys 47%, parquet decode 32%, scan filters / late decoding 15%
+     8050   1.0 | keys 57%, parquet decode 22%, expressions 5%
+     8060   1.0 | keys 45%, parquet decode 35%, kernel 7%
+     8070   1.0 | keys 47%, parquet decode 30%, aggregate 12%
+     8080   1.0 | keys 50%, parquet decode 25%, scan filters / late decoding 17%
+     8090   1.0 | keys 47%, parquet decode 37%, aggregate 5%
+     8100   1.0 | keys 50%, parquet decode 27%, scan filters / late decoding 7%
+     8110   1.0 | keys 55%, parquet decode 22%, scan filters / late decoding 7%
+     8120   1.0 | keys 52%, parquet decode 25%, scan filters / late decoding 10%
+     8130   1.0 | keys 52%, parquet decode 20%, aggregate 7%
+     8140   1.0 | keys 50%, parquet decode 22%, vectors 10%
+     8150   1.0 | keys 52%, parquet decode 25%, aggregate 10%
+     8160   1.0 | keys 57%, parquet decode 22%, aggregate 7%
+     8170   1.0 | keys 52%, scan filters / late decoding 17%, parquet decode 17%
+     8180   1.0 | keys 50%, parquet decode 25%, scan filters / late decoding 10%
+     8190   1.0 | keys 55%, parquet decode 25%, scan filters / late decoding 12%
+     8200   1.0 | keys 55%, parquet decode 25%, scan filters / late decoding 7%
+     8210   1.0 | keys 60%, parquet decode 22%, vectors 7%
+     8220   1.0 | keys 50%, parquet decode 25%, scan filters / late decoding 12%
+     8230   1.0 | keys 45%, parquet decode 17%, scan filters / late decoding 15%
+     8240   1.0 | keys 45%, parquet decode 17%, scan filters / late decoding 12%
+     8250   1.0 | keys 45%, parquet decode 25%, scan filters / late decoding 15%
+     8260   1.0 | keys 52%, parquet decode 25%, aggregate 10%
+     8270   1.0 | keys 45%, scan filters / late decoding 15%, parquet decode 15%
+     8280   1.0 | keys 52%, parquet decode 35%, expressions 5%
+     8290   1.0 | keys 52%, parquet decode 20%, vectors 7%
+     8300   1.0 | keys 35%, parquet decode 27%, scan filters / late decoding 17%
+     8310   1.0 | keys 52%, parquet decode 17%, scan filters / late decoding 10%
+     8320   1.0 | keys 55%, parquet decode 27%, scan filters / late decoding 7%
+     8330   1.0 | keys 57%, parquet decode 27%, vectors 10%
+     8340   1.0 | keys 47%, parquet decode 27%, scan filters / late decoding 10%
+     8350   1.0 | keys 57%, parquet decode 22%, other duckdb 7%
+     8360   1.0 | keys 50%, parquet decode 22%, scan filters / late decoding 10%
+     8370   1.0 | keys 45%, parquet decode 30%, vectors 7%
+     8380   1.0 | keys 50%, parquet decode 32%, vectors 7%
+     8390   1.0 | keys 37%, parquet decode 32%, vectors 10%
+     8400   1.0 | keys 47%, parquet decode 32%, scan filters / late decoding 7%
+     8410   1.0 | keys 47%, parquet decode 25%, scan filters / late decoding 10%
+     8420   1.0 | keys 52%, parquet decode 25%, aggregate 10%
+     8430   1.0 | keys 45%, parquet decode 27%, aggregate 10%
+     8440   1.0 | keys 50%, parquet decode 27%, scan filters / late decoding 7%
+     8450   1.0 | keys 42%, parquet decode 22%, libc (memcpy/malloc/...) 7%
+     8460   1.0 | keys 50%, parquet decode 22%, scan filters / late decoding 12%
+     8470   1.0 | keys 55%, parquet decode 25%, scan filters / late decoding 5%
+     8480   1.0 | keys 50%, parquet decode 17%, vectors 7%
+     8490   1.0 | keys 56%, parquet decode 25%, expressions 5%
+     8500   1.0 | keys 39%, parquet decode 31%, scan filters / late decoding 12%
+     8510   1.0 | keys 45%, parquet decode 30%, scan filters / late decoding 15%
+     8520   1.0 | keys 55%, parquet decode 27%, vectors 7%
+     8530   1.0 | keys 52%, parquet decode 30%, scan filters / late decoding 7%
+     8540   1.0 | keys 60%, parquet decode 15%, expressions 7%
+     8550   1.0 | keys 47%, parquet decode 22%, scan filters / late decoding 12%
+     8560   1.0 | keys 52%, parquet decode 25%, vectors 7%
+     8570   1.0 | keys 50%, parquet decode 25%, scan filters / late decoding 15%
+     8580   1.0 | keys 50%, parquet decode 30%, scan filters / late decoding 7%
+     8590   1.0 | keys 55%, parquet decode 22%, scan filters / late decoding 5%
+     8600   1.0 | keys 55%, parquet decode 20%, other duckdb 7%
+     8610   1.0 | keys 47%, parquet decode 22%, scan filters / late decoding 15%
+     8620   1.0 | keys 55%, parquet decode 22%, scan filters / late decoding 10%
+     8630   1.0 | keys 47%, parquet decode 27%, scan filters / late decoding 10%
+     8640   1.0 | keys 52%, parquet decode 32%, aggregate 7%
+     8650   1.0 | keys 47%, parquet decode 25%, aggregate 10%
+     8660   1.0 | keys 45%, parquet decode 20%, scan filters / late decoding 12%
+     8670   1.0 | keys 50%, parquet decode 30%, other duckdb 7%
+     8680   1.0 | keys 45%, parquet decode 35%, scan filters / late decoding 7%
+     8690   1.0 | keys 55%, parquet decode 22%, scan filters / late decoding 10%
+     8700   1.0 | keys 50%, parquet decode 20%, scan filters / late decoding 12%
+     8710   1.0 | keys 50%, parquet decode 32%, expressions 5%
+     8720   1.0 | keys 52%, parquet decode 22%, aggregate 7%
+     8730   1.0 | keys 40%, parquet decode 35%, vectors 10%
+     8740   1.0 | keys 52%, parquet decode 25%, scan filters / late decoding 7%
+     8750   1.0 | keys 52%, parquet decode 25%, vectors 10%
+     8760   1.0 | keys 50%, parquet decode 27%, scan filters / late decoding 10%
+     8770   1.0 | keys 52%, parquet decode 22%, scan filters / late decoding 7%
+     8780   1.0 | keys 55%, parquet decode 20%, aggregate 7%
+     8790   1.0 | keys 50%, parquet decode 25%, aggregate 7%
+     8800   1.0 | keys 50%, parquet decode 17%, scan filters / late decoding 12%
+     8810   1.0 | keys 47%, parquet decode 27%, aggregate 7%
+     8820   1.0 | keys 47%, parquet decode 25%, aggregate 10%
+     8830   1.0 | keys 45%, parquet decode 32%, scan filters / late decoding 10%
+     8840   1.0 | keys 57%, parquet decode 20%, vectors 10%
+     8850   1.0 | keys 47%, parquet decode 30%, scan filters / late decoding 12%
+     8860   1.0 | keys 60%, parquet decode 22%, scan filters / late decoding 10%
+     8870   1.0 | keys 57%, parquet decode 20%, expressions 7%
+     8880   1.0 | keys 50%, parquet decode 22%, expressions 7%
+     8890   1.0 | keys 45%, parquet decode 25%, scan filters / late decoding 12%
+     8900   1.0 | keys 50%, parquet decode 30%, scan filters / late decoding 7%
+     8910   1.0 | keys 47%, parquet decode 22%, vectors 7%
+     8920   1.0 | keys 47%, parquet decode 22%, aggregate 7%
+     8930   1.0 | keys 50%, parquet decode 35%, aggregate 10%
+     8940   1.0 | keys 52%, parquet decode 22%, expressions 7%
+     8950   1.0 | keys 55%, parquet decode 12%, libc (memcpy/malloc/...) 10%
+     8960   1.0 | keys 45%, parquet decode 25%, scan filters / late decoding 10%
+     8970   1.0 | keys 52%, parquet decode 17%, aggregate 7%
+     8980   1.0 | keys 50%, parquet decode 32%, scan filters / late decoding 5%
+     8990   1.0 | keys 55%, parquet decode 17%, scan filters / late decoding 12%
+     9000   1.0 | keys 52%, parquet decode 20%, scan filters / late decoding 10%
+     9010   1.0 | keys 62%, parquet decode 12%, scan filters / late decoding 10%
+     9020   1.0 | keys 52%, parquet decode 22%, vectors 7%
+     9030   1.0 | keys 55%, parquet decode 22%, scan filters / late decoding 7%
+     9040   1.0 | keys 52%, parquet decode 30%, scan filters / late decoding 7%
+     9050   1.0 | keys 52%, parquet decode 30%, scan filters / late decoding 10%
+     9060   1.0 | keys 45%, parquet decode 27%, scan filters / late decoding 12%
+     9070   1.0 | keys 42%, parquet decode 30%, scan filters / late decoding 12%
+     9080   1.0 | keys 47%, parquet decode 32%, scan filters / late decoding 10%
+     9090   1.0 | keys 57%, parquet decode 27%, aggregate 5%
+     9100   1.0 | keys 50%, parquet decode 20%, scan filters / late decoding 17%
+     9110   1.0 | keys 62%, parquet decode 15%, aggregate 15%
+     9120   1.0 | keys 50%, parquet decode 22%, scan filters / late decoding 12%
+     9130   1.0 | keys 50%, parquet decode 22%, other duckdb 10%
+     9140   1.0 | keys 57%, parquet decode 20%, scan filters / late decoding 10%
+     9150   1.0 | keys 50%, parquet decode 22%, vectors 5%
+     9160   1.0 | keys 55%, parquet decode 27%, scan filters / late decoding 10%
+     9170   1.0 | keys 52%, parquet decode 20%, scan filters / late decoding 10%
+     9180   1.0 | keys 55%, parquet decode 20%, aggregate 10%
+     9190   1.0 | keys 47%, parquet decode 32%, scan filters / late decoding 15%
+     9200   1.0 | keys 47%, parquet decode 27%, scan filters / late decoding 10%
+     9210   1.0 | keys 45%, parquet decode 25%, scan filters / late decoding 15%
+     9220   1.0 | keys 45%, parquet decode 32%, scan filters / late decoding 7%
+     9230   1.0 | keys 55%, parquet decode 20%, aggregate 7%
+     9240   1.0 | keys 55%, parquet decode 25%, scan filters / late decoding 5%
+     9250   1.0 | keys 57%, parquet decode 17%, other duckdb 10%
+     9260   1.0 | keys 55%, parquet decode 20%, scan filters / late decoding 7%
+     9270   1.0 | keys 47%, parquet decode 20%, scan filters / late decoding 15%
+     9280   1.0 | keys 42%, parquet decode 30%, scan filters / late decoding 15%
+     9290   1.0 | keys 60%, parquet decode 25%, aggregate 5%
+     9300   1.0 | keys 42%, parquet decode 27%, scan filters / late decoding 15%
+     9310   1.0 | keys 57%, parquet decode 25%, vectors 5%
+     9320   1.0 | keys 47%, parquet decode 32%, scan filters / late decoding 12%
+     9330   1.0 | keys 47%, parquet decode 30%, scan filters / late decoding 7%
+     9340   1.0 | keys 52%, parquet decode 17%, scan filters / late decoding 10%
+     9350   1.0 | keys 47%, parquet decode 25%, vectors 12%
+     9360   1.0 | keys 45%, parquet decode 22%, scan filters / late decoding 15%
+     9370   1.0 | keys 42%, parquet decode 35%, aggregate 7%
+     9380   1.0 | keys 47%, parquet decode 25%, scan filters / late decoding 12%
+     9390   1.0 | keys 47%, parquet decode 32%, vectors 5%
+     9400   1.0 | keys 55%, parquet decode 25%, scan filters / late decoding 5%
+     9410   1.0 | keys 52%, parquet decode 25%, aggregate 10%
+     9420   1.0 | keys 50%, parquet decode 22%, scan filters / late decoding 10%
+     9430   1.0 | keys 50%, parquet decode 22%, scan filters / late decoding 10%
+     9440   1.0 | keys 45%, parquet decode 22%, scan filters / late decoding 12%
+     9450   1.0 | keys 55%, parquet decode 17%, scan filters / late decoding 12%
+     9460   1.0 | keys 47%, parquet decode 27%, scan filters / late decoding 12%
+     9470   1.0 | keys 50%, parquet decode 17%, other duckdb 10%
+     9480   1.0 | keys 47%, parquet decode 32%, scan filters / late decoding 15%
+     9490   1.0 | keys 53%, parquet decode 23%, scan filters / late decoding 10%
+     9500   1.0 | keys 51%, other duckdb 12%, parquet decode 12%
+     9510   1.0 | keys 50%, parquet decode 25%, aggregate 7%
+     9520   1.0 | keys 50%, parquet decode 32%, scan filters / late decoding 7%
+     9530   1.0 | keys 52%, parquet decode 27%, aggregate 10%
+     9540   1.0 | keys 55%, parquet decode 27%, expressions 7%
+     9550   1.0 | keys 40%, parquet decode 27%, scan filters / late decoding 10%
+     9560   1.0 | keys 47%, parquet decode 22%, scan filters / late decoding 15%
+     9570   1.0 | keys 50%, parquet decode 32%, aggregate 7%
+     9580   1.0 | keys 50%, parquet decode 22%, other duckdb 10%
+     9590   1.0 | keys 50%, parquet decode 25%, vectors 5%
+     9600   1.0 | keys 50%, parquet decode 27%, kernel 7%
+     9610   1.0 | keys 50%, parquet decode 22%, vectors 7%
+     9620   1.0 | keys 45%, parquet decode 35%, aggregate 7%
+     9630   1.0 | keys 52%, parquet decode 22%, vectors 10%
+     9640   1.0 | keys 55%, parquet decode 17%, aggregate 10%
+     9650   1.0 | keys 57%, parquet decode 25%, scan filters / late decoding 7%
+     9660   1.0 | keys 55%, parquet decode 20%, scan filters / late decoding 7%
+     9670   1.0 | keys 47%, parquet decode 25%, scan filters / late decoding 10%
+     9680   1.0 | keys 42%, parquet decode 32%, vectors 5%
+     9690   1.0 | keys 52%, parquet decode 25%, aggregate 10%
+     9700   1.0 | keys 50%, parquet decode 27%, other duckdb 7%
+     9710   1.0 | keys 50%, parquet decode 17%, scan filters / late decoding 10%
+     9720   1.0 | keys 52%, parquet decode 27%, scan filters / late decoding 7%
+     9730   1.0 | keys 52%, parquet decode 25%, expressions 7%
+     9740   1.0 | keys 52%, parquet decode 17%, kernel 5%
+     9750   1.0 | keys 52%, parquet decode 32%, scan filters / late decoding 7%
+     9760   1.0 | keys 60%, parquet decode 15%, aggregate 7%
+     9770   1.0 | keys 47%, parquet decode 32%, expressions 7%
+     9780   1.0 | keys 45%, parquet decode 22%, scan filters / late decoding 12%
+     9790   1.0 | keys 45%, parquet decode 35%, scan filters / late decoding 10%
+     9800   1.0 | keys 45%, parquet decode 17%, aggregate 10%
+     9810   1.0 | keys 50%, parquet decode 27%, scan filters / late decoding 7%
+     9820   1.0 | keys 50%, parquet decode 27%, aggregate 10%
+     9830   1.0 | keys 42%, parquet decode 35%, vectors 10%
+     9840   1.0 | keys 52%, parquet decode 27%, scan filters / late decoding 5%
+     9850   1.0 | keys 50%, parquet decode 30%, scan filters / late decoding 7%
+     9860   1.0 | keys 45%, parquet decode 25%, scan filters / late decoding 12%
+     9870   1.0 | keys 52%, parquet decode 20%, scan filters / late decoding 7%
+     9880   1.0 | keys 42%, parquet decode 27%, scan filters / late decoding 7%
+     9890   1.0 | keys 57%, parquet decode 25%, other duckdb 10%
+     9900   1.0 | keys 52%, parquet decode 25%, scan filters / late decoding 7%
+     9910   1.0 | keys 47%, parquet decode 22%, scan filters / late decoding 7%
+     9920   1.0 | keys 43%, parquet decode 25%, scan filters / late decoding 7%
+     9930   1.0 | keys 58%, parquet decode 19%, scan filters / late decoding 7%
+     9940   1.0 | keys 60%, parquet decode 22%, scan filters / late decoding 7%
+     9950   1.0 | keys 50%, parquet decode 30%, expressions 7%
+     9960   1.0 | keys 50%, parquet decode 25%, kernel 5%
+     9970   1.0 | keys 45%, parquet decode 32%, vectors 7%
+     9980   1.0 | keys 60%, parquet decode 22%, expressions 5%
+     9990   1.0 | keys 52%, parquet decode 27%, scan filters / late decoding 10%
+    10000   1.0 | keys 52%, parquet decode 32%, scan filters / late decoding 7%
+    10010   1.0 | keys 47%, parquet decode 25%, scan filters / late decoding 7%
+    10020   1.0 | keys 55%, parquet decode 17%, scan filters / late decoding 7%
+    10030   1.0 | keys 47%, parquet decode 25%, scan filters / late decoding 10%
+    10040   1.0 | keys 60%, parquet decode 20%, aggregate 5%
+    10050   1.0 | keys 47%, parquet decode 20%, vectors 10%
+    10060   1.0 | keys 52%, parquet decode 17%, scan filters / late decoding 10%
+    10070   1.0 | keys 47%, parquet decode 25%, scan filters / late decoding 7%
+    10080   1.0 | keys 47%, parquet decode 20%, kernel 10%
+    10090   1.0 | keys 45%, parquet decode 25%, kernel 12%
+    10100   1.0 | keys 50%, parquet decode 22%, kernel 12%
+    10110   1.0 | keys 43%, parquet decode 25%, kernel 15%
+    10120   1.0 | keys 60%, parquet decode 20%, vectors 7%
+    10130   1.0 | keys 50%, parquet decode 25%, scan filters / late decoding 10%
+    10140   1.0 | keys 52%, parquet decode 25%, scan filters / late decoding 7%
+    10150   1.0 | keys 50%, parquet decode 25%, scan filters / late decoding 10%
+    10160   1.0 | keys 55%, parquet decode 20%, scan filters / late decoding 12%
+    10170   1.0 | keys 55%, parquet decode 22%, aggregate 10%
+    10180   1.0 | keys 47%, parquet decode 27%, scan filters / late decoding 10%
+    10190   1.0 | keys 45%, parquet decode 25%, scan filters / late decoding 12%
+    10200   1.0 | keys 50%, parquet decode 30%, expressions 7%
+    10210   1.0 | keys 52%, parquet decode 25%, scan filters / late decoding 10%
+    10220   1.0 | keys 50%, parquet decode 22%, scan filters / late decoding 10%
+    10230   1.0 | keys 47%, parquet decode 25%, vectors 5%
+    10240   1.0 | keys 52%, parquet decode 30%, scan filters / late decoding 7%
+    10250   1.0 | keys 57%, parquet decode 25%, scan filters / late decoding 10%
+    10260   1.0 | keys 55%, parquet decode 22%, scan filters / late decoding 12%
+    10270   1.0 | keys 47%, parquet decode 22%, aggregate 10%
+    10280   1.0 | keys 45%, parquet decode 32%, scan filters / late decoding 12%
+    10290   1.0 | keys 55%, parquet decode 25%, expressions 7%
+    10300   1.0 | keys 50%, parquet decode 20%, scan filters / late decoding 12%
+    10310   1.0 | keys 55%, parquet decode 15%, aggregate 10%
+    10320   1.0 | keys 42%, parquet decode 32%, scan filters / late decoding 7%
+    10330   1.0 | keys 50%, parquet decode 22%, scan filters / late decoding 10%
+    10340   1.0 | keys 55%, parquet decode 17%, expressions 7%
+    10350   1.0 | keys 55%, parquet decode 27%, scan filters / late decoding 5%
+    10360   1.0 | keys 47%, parquet decode 27%, aggregate 7%
+    10370   1.0 | keys 52%, parquet decode 20%, vectors 12%
+    10380   1.0 | keys 45%, parquet decode 27%, scan filters / late decoding 10%
+    10390   1.0 | keys 52%, parquet decode 22%, scan filters / late decoding 10%
+    10400   1.0 | keys 42%, parquet decode 30%, scan filters / late decoding 10%
+    10410   1.0 | keys 47%, parquet decode 35%, scan filters / late decoding 10%
+    10420   1.0 | keys 50%, parquet decode 32%, expressions 7%
+    10430   1.0 | keys 55%, parquet decode 20%, vectors 7%
+    10440   1.0 | keys 62%, parquet decode 20%, vectors 5%
+    10450   1.0 | keys 52%, parquet decode 22%, scan filters / late decoding 7%
+    10460   1.0 | keys 50%, parquet decode 25%, scan filters / late decoding 12%
+    10470   1.0 | keys 55%, parquet decode 25%, scan filters / late decoding 10%
+    10480   1.0 | keys 45%, parquet decode 30%, other duckdb 10%
+    10490   1.0 | keys 47%, parquet decode 27%, scan filters / late decoding 7%
+    10500   1.0 | keys 50%, parquet decode 15%, other duckdb 10%
+    10510   1.0 | keys 45%, parquet decode 30%, scan filters / late decoding 10%
+    10520   1.0 | keys 50%, parquet decode 25%, aggregate 10%
+    10530   1.0 | keys 55%, parquet decode 25%, scan filters / late decoding 12%
+    10540   1.0 | keys 50%, parquet decode 22%, scan filters / late decoding 10%
+    10550   1.0 | keys 57%, parquet decode 25%, scan filters / late decoding 10%
+    10560   1.0 | keys 45%, parquet decode 30%, scan filters / late decoding 7%
+    10570   1.0 | keys 47%, parquet decode 25%, scan filters / late decoding 15%
+    10580   1.0 | keys 50%, parquet decode 32%, expressions 5%
+    10590   1.0 | keys 52%, parquet decode 27%, aggregate 10%
+    10600   1.0 | keys 50%, parquet decode 27%, aggregate 7%
+    10610   1.0 | keys 52%, parquet decode 17%, scan filters / late decoding 12%
+    10620   1.0 | keys 47%, parquet decode 25%, scan filters / late decoding 12%
+    10630   1.0 | keys 42%, parquet decode 25%, scan filters / late decoding 7%
+    10640   1.0 | keys 50%, parquet decode 22%, other duckdb 10%
+    10650   1.0 | keys 52%, parquet decode 32%, scan filters / late decoding 10%
+    10660   1.0 | keys 42%, parquet decode 35%, scan filters / late decoding 12%
+    10670   1.0 | keys 62%, scan filters / late decoding 12%, parquet decode 10%
+    10680   1.0 | keys 52%, parquet decode 22%, scan filters / late decoding 5%
+    10690   1.0 | keys 40%, parquet decode 32%, scan filters / late decoding 12%
+    10700   1.0 | keys 55%, parquet decode 27%, vectors 5%
+    10710   1.0 | keys 65%, parquet decode 20%, aggregate 5%
+    10720   1.0 | keys 50%, parquet decode 25%, scan filters / late decoding 10%
+    10730   1.0 | keys 55%, parquet decode 20%, expressions 7%
+    10740   1.0 | keys 52%, parquet decode 25%, scan filters / late decoding 12%
+    10750   1.0 | keys 50%, parquet decode 25%, scan filters / late decoding 7%
+    10760   1.0 | keys 45%, parquet decode 25%, scan filters / late decoding 12%
+    10770   1.0 | keys 60%, parquet decode 17%, scan filters / late decoding 10%
+    10780   1.0 | keys 50%, parquet decode 35%, scan filters / late decoding 5%
+    10790   1.0 | keys 42%, parquet decode 22%, scan filters / late decoding 15%
+    10800   1.0 | keys 47%, parquet decode 25%, scan filters / late decoding 10%
+    10810   1.0 | keys 55%, parquet decode 25%, aggregate 7%
+    10820   1.0 | keys 47%, parquet decode 25%, vectors 10%
+    10830   1.0 | keys 55%, parquet decode 20%, scan filters / late decoding 10%
+    10840   1.0 | keys 50%, parquet decode 17%, scan filters / late decoding 12%
+    10850   1.0 | keys 55%, parquet decode 25%, expressions 7%
+    10860   1.0 | keys 42%, parquet decode 37%, expressions 5%
+    10870   1.0 | keys 55%, parquet decode 17%, scan filters / late decoding 7%
+    10880   1.0 | keys 50%, parquet decode 20%, other duckdb 10%
+    10890   1.0 | keys 60%, parquet decode 20%, scan filters / late decoding 7%
+    10900   1.0 | keys 52%, parquet decode 22%, scan filters / late decoding 10%
+    10910   1.0 | keys 52%, parquet decode 17%, vectors 7%
+    10920   1.0 | keys 50%, parquet decode 20%, scan filters / late decoding 10%
+    10930   1.0 | keys 42%, parquet decode 30%, scan filters / late decoding 12%
+    10940   1.0 | keys 45%, parquet decode 25%, scan filters / late decoding 15%
+    10950   1.0 | keys 47%, parquet decode 30%, other duckdb 7%
+    10960   1.0 | keys 50%, parquet decode 25%, scan filters / late decoding 10%
+    10970   1.0 | keys 55%, parquet decode 25%, expressions 7%
+    10980   1.0 | keys 45%, parquet decode 32%, scan filters / late decoding 7%
+    10990   1.0 | keys 47%, parquet decode 30%, libc (memcpy/malloc/...) 5%
+    11000   1.0 | keys 45%, parquet decode 25%, scan filters / late decoding 10%
+    11010   1.0 | keys 42%, parquet decode 30%, vectors 7%
+    11020   1.0 | keys 52%, parquet decode 22%, scan filters / late decoding 10%
+    11030   1.0 | keys 42%, parquet decode 30%, scan filters / late decoding 7%
+    11040   1.0 | keys 52%, parquet decode 25%, scan filters / late decoding 7%
+    11050   1.0 | keys 50%, parquet decode 22%, scan filters / late decoding 12%
+    11060   1.0 | keys 52%, parquet decode 20%, other duckdb 12%
+    11070   1.0 | keys 50%, parquet decode 22%, scan filters / late decoding 10%
+    11080   1.0 | keys 52%, parquet decode 20%, scan filters / late decoding 10%
+    11090   1.0 | keys 45%, parquet decode 27%, aggregate 7%
+    11100   1.0 | keys 55%, parquet decode 27%, aggregate 5%
+    11110   1.0 | keys 47%, parquet decode 30%, scan filters / late decoding 7%
+    11120   1.0 | keys 52%, parquet decode 25%, scan filters / late decoding 7%
+    11130   1.0 | keys 57%, parquet decode 15%, vectors 10%
+    11140   1.0 | keys 55%, parquet decode 25%, aggregate 12%
+    11150   1.0 | keys 57%, parquet decode 25%, scan filters / late decoding 10%
+    11160   1.0 | keys 55%, parquet decode 25%, scan filters / late decoding 5%
+    11170   1.0 | keys 57%, parquet decode 20%, aggregate 5%
+    11180   1.0 | keys 45%, parquet decode 25%, scan filters / late decoding 10%
+    11190   1.0 | keys 45%, parquet decode 35%, scan filters / late decoding 7%
+    11200   1.0 | keys 52%, parquet decode 25%, scan filters / late decoding 7%
+    11210   1.0 | keys 47%, parquet decode 27%, scan filters / late decoding 12%
+    11220   1.0 | keys 42%, parquet decode 30%, scan filters / late decoding 10%
+    11230   1.0 | keys 52%, parquet decode 22%, scan filters / late decoding 10%
+    11240   1.0 | keys 52%, parquet decode 22%, aggregate 7%
+    11250   1.0 | keys 57%, parquet decode 20%, scan filters / late decoding 10%
+    11260   1.0 | keys 50%, parquet decode 30%, vectors 12%
+    11270   1.0 | keys 50%, parquet decode 25%, scan filters / late decoding 15%
+    11280   1.0 | keys 52%, parquet decode 27%, scan filters / late decoding 7%
+    11290   1.0 | keys 55%, parquet decode 30%, vectors 5%
+    11300   1.0 | keys 52%, parquet decode 25%, other duckdb 7%
+    11310   1.0 | keys 55%, parquet decode 17%, vectors 7%
+    11320   1.0 | keys 47%, parquet decode 30%, scan filters / late decoding 10%
+    11330   1.0 | keys 47%, parquet decode 35%, aggregate 7%
+    11340   1.0 | keys 47%, parquet decode 30%, scan filters / late decoding 10%
+    11350   1.0 | keys 45%, parquet decode 17%, scan filters / late decoding 15%
+    11360   1.0 | keys 37%, parquet decode 27%, other duckdb 12%
+    11370   1.0 | keys 47%, parquet decode 20%, other duckdb 7%
+    11380   1.0 | keys 47%, parquet decode 32%, scan filters / late decoding 10%
+    11390   1.0 | keys 50%, parquet decode 20%, scan filters / late decoding 7%
+    11400   1.0 | keys 52%, parquet decode 22%, scan filters / late decoding 10%
+    11410   1.0 | keys 57%, parquet decode 20%, scan filters / late decoding 10%
+    11420   1.0 | keys 47%, parquet decode 32%, scan filters / late decoding 10%
+    11430   1.0 | keys 50%, parquet decode 22%, scan filters / late decoding 15%
+    11440   1.0 | keys 45%, parquet decode 27%, scan filters / late decoding 10%
+    11450   1.0 | keys 50%, parquet decode 25%, scan filters / late decoding 12%
+    11460   1.0 | keys 52%, parquet decode 25%, vectors 10%
+    11470   1.0 | keys 55%, parquet decode 20%, scan filters / late decoding 10%
+    11480   1.0 | keys 60%, parquet decode 12%, scan filters / late decoding 7%
+    11490   1.0 | keys 45%, parquet decode 20%, scan filters / late decoding 15%
+    11500   1.0 | keys 47%, parquet decode 27%, scan filters / late decoding 7%
+    11510   1.0 | keys 50%, parquet decode 25%, scan filters / late decoding 10%
+    11520   1.0 | keys 52%, parquet decode 15%, scan filters / late decoding 15%
+    11530   1.0 | keys 45%, parquet decode 27%, scan filters / late decoding 10%
+    11540   1.0 | keys 40%, parquet decode 35%, scan filters / late decoding 12%
+    11550   1.0 | keys 45%, parquet decode 25%, vectors 10%
+    11560   1.0 | keys 45%, parquet decode 32%, scan filters / late decoding 7%
+    11570   1.0 | keys 50%, parquet decode 20%, scan filters / late decoding 12%
+    11580   1.0 | keys 52%, parquet decode 27%, scan filters / late decoding 12%
+    11590   1.0 | keys 50%, parquet decode 25%, scan filters / late decoding 10%
+    11600   1.0 | keys 50%, parquet decode 32%, vectors 7%
+    11610   1.0 | keys 47%, parquet decode 27%, other duckdb 12%
+    11620   1.0 | keys 50%, parquet decode 30%, scan filters / late decoding 7%
+    11630   1.0 | keys 45%, parquet decode 25%, scan filters / late decoding 12%
+    11640   1.0 | keys 55%, parquet decode 30%, scan filters / late decoding 7%
+    11650   1.0 | keys 50%, parquet decode 27%, scan filters / late decoding 7%
+    11660   1.0 | keys 52%, parquet decode 22%, scan filters / late decoding 10%
+    11670   1.0 | keys 42%, parquet decode 30%, scan filters / late decoding 17%
+    11680   1.0 | keys 57%, parquet decode 15%, scan filters / late decoding 10%
+    11690   1.0 | keys 55%, parquet decode 17%, scan filters / late decoding 7%
+    11700   1.0 | keys 42%, parquet decode 32%, scan filters / late decoding 15%
+    11710   1.0 | keys 57%, parquet decode 25%, scan filters / late decoding 7%
+    11720   1.0 | keys 50%, parquet decode 30%, other duckdb 12%
+    11730   1.0 | keys 50%, parquet decode 22%, scan filters / late decoding 10%
+    11740   1.0 | keys 52%, parquet decode 25%, aggregate 7%
+    11750   1.0 | keys 52%, parquet decode 32%, scan filters / late decoding 7%
+    11760   1.0 | keys 50%, parquet decode 27%, scan filters / late decoding 7%
+    11770   1.0 | keys 47%, parquet decode 27%, scan filters / late decoding 7%
+    11780   1.0 | keys 55%, parquet decode 22%, scan filters / late decoding 7%
+    11790   1.0 | keys 47%, parquet decode 20%, scan filters / late decoding 12%
+    11800   1.0 | keys 60%, parquet decode 22%, scan filters / late decoding 7%
+    11810   1.0 | keys 52%, parquet decode 17%, scan filters / late decoding 12%
+    11820   1.0 | keys 50%, parquet decode 30%, aggregate 7%
+    11830   1.0 | keys 50%, parquet decode 22%, scan filters / late decoding 12%
+    11840   1.0 | keys 57%, parquet decode 25%, scan filters / late decoding 7%
+    11850   1.0 | keys 62%, parquet decode 22%, expressions 5%
+    11860   1.0 | keys 47%, parquet decode 25%, scan filters / late decoding 7%
+    11870   1.0 | keys 52%, parquet decode 25%, scan filters / late decoding 7%
+    11880   1.0 | keys 55%, parquet decode 22%, scan filters / late decoding 10%
+    11890   1.0 | keys 47%, parquet decode 27%, vectors 7%
+    11900   1.0 | keys 52%, parquet decode 30%, scan filters / late decoding 10%
+    11910   1.0 | keys 57%, parquet decode 25%, scan filters / late decoding 7%
+    11920   1.0 | keys 52%, parquet decode 27%, scan filters / late decoding 7%
+    11930   1.0 | keys 45%, parquet decode 30%, scan filters / late decoding 10%
+    11940   1.0 | keys 50%, parquet decode 25%, scan filters / late decoding 12%
+    11950   1.0 | keys 47%, parquet decode 32%, scan filters / late decoding 15%
+    11960   1.0 | keys 52%, parquet decode 22%, scan filters / late decoding 12%
+    11970   1.0 | keys 45%, parquet decode 25%, scan filters / late decoding 12%
+    11980   1.0 | keys 47%, parquet decode 27%, scan filters / late decoding 12%
+    11990   1.0 | keys 50%, parquet decode 20%, scan filters / late decoding 15%
+    12000   1.0 | keys 52%, parquet decode 17%, aggregate 10%
+    12010   1.0 | keys 55%, parquet decode 20%, scan filters / late decoding 10%
+    12020   1.0 | keys 45%, parquet decode 25%, scan filters / late decoding 12%
+    12030   1.0 | keys 57%, parquet decode 22%, aggregate 7%
+    12040   1.0 | keys 55%, parquet decode 30%, other duckdb 7%
+    12050   1.0 | keys 30%, libc (memcpy/malloc/...) 22%, kernel 15%
+    12060   2.2 | kernel 62%, libc (memcpy/malloc/...) 23%, other duckdb 11%

@@ -1,0 +1,1937 @@
+threads=1  wall 19240 ms, CPU 19498 ms, average busy threads 1.0
+  CPU ms per category:  expressions 7950, parquet decode 3380, list assembly 2051, other duckdb 2021, libc (memcpy/malloc/...) 1498, unnest 1302, kernel 650, vectors 266, aggregate 225, scheduler 72, other 55, scan filters / late decoding 26, parquet levels/skip 2
+  hottest functions:
+      3807 ms  duckdb::ValidityMask::CopySel(duckdb::ValidityMask const&, duckdb::SelectionVector const&, unsigned long, unsi
+      3314 ms  duckdb::VectorStringBuffer::CopyInternal(duckdb::Vector const&, duckdb::SelectionVector const&, unsigned long,
+      1672 ms  unsigned long duckdb::ListColumnReader::ReadInternal<duckdb::TemplatedListReader>(duckdb::ColumnReaderInput&, 
+      1432 ms  libc.so.6
+      1307 ms  duckdb::DictionaryDecoder::GetValidValues(unsigned char*, unsigned long, unsigned long)
+      1146 ms  duckdb::PhysicalUnnest::ExecuteInternal(duckdb::ExecutionContext&, duckdb::DataChunk&, duckdb::DataChunk&, duc
+       880 ms  void duckdb::RleBpDecoder::GetBatch<unsigned int>(unsigned char*, unsigned int)
+       650 ms  [kernel.kallsyms]
+  timeline (10 ms): busy threads | main categories
+        0   1.0 | parquet decode 85%, libc (memcpy/malloc/...) 10%, other duckdb 2%
+       10   1.0 | parquet decode 60%, libc (memcpy/malloc/...) 19%, other duckdb 14%
+       20   1.0 | parquet decode 77%, libc (memcpy/malloc/...) 15%, expressions 5%
+       30   1.0 | other duckdb 45%, parquet decode 35%, libc (memcpy/malloc/...) 12%
+       40   1.1 | other duckdb 45%, expressions 16%, parquet decode 9%
+       50   1.0 | expressions 45%, libc (memcpy/malloc/...) 22%, parquet decode 17%
+       60   1.0 | list assembly 25%, expressions 25%, other duckdb 15%
+       70   1.0 | expressions 45%, parquet decode 20%, list assembly 17%
+       80   1.0 | expressions 37%, other duckdb 30%, parquet decode 15%
+       90   1.1 | expressions 41%, parquet decode 16%, list assembly 9%
+      100   1.0 | expressions 25%, parquet decode 20%, other duckdb 20%
+      110   1.0 | expressions 29%, kernel 21%, parquet decode 12%
+      120   1.0 | expressions 45%, parquet decode 15%, libc (memcpy/malloc/...) 12%
+      130   1.0 | expressions 31%, parquet decode 24%, unnest 12%
+      140   1.1 | expressions 30%, parquet decode 23%, other duckdb 14%
+      150   1.0 | expressions 55%, other duckdb 12%, parquet decode 12%
+      160   1.0 | expressions 39%, list assembly 14%, parquet decode 12%
+      170   1.0 | expressions 47%, libc (memcpy/malloc/...) 12%, parquet decode 10%
+      180   1.1 | expressions 52%, list assembly 11%, other duckdb 7%
+      190   1.0 | expressions 39%, parquet decode 19%, other duckdb 12%
+      200   1.0 | expressions 47%, other duckdb 22%, list assembly 10%
+      210   1.1 | expressions 36%, parquet decode 17%, list assembly 10%
+      220   1.0 | expressions 42%, parquet decode 15%, list assembly 12%
+      230   1.0 | expressions 34%, other duckdb 14%, parquet decode 14%
+      240   1.0 | expressions 40%, libc (memcpy/malloc/...) 20%, parquet decode 15%
+      250   1.0 | expressions 32%, list assembly 17%, other duckdb 12%
+      260   1.0 | expressions 48%, other duckdb 12%, list assembly 9%
+      270   1.0 | expressions 55%, other duckdb 10%, list assembly 10%
+      280   1.1 | expressions 32%, parquet decode 18%, kernel 13%
+      290   1.0 | expressions 40%, unnest 17%, parquet decode 17%
+      300   1.0 | expressions 47%, parquet decode 12%, list assembly 12%
+      310   1.0 | expressions 24%, other duckdb 19%, list assembly 19%
+      320   1.0 | expressions 51%, parquet decode 19%, list assembly 12%
+      330   1.0 | expressions 41%, other duckdb 14%, parquet decode 14%
+      340   1.0 | expressions 45%, list assembly 15%, parquet decode 12%
+      350   1.1 | expressions 45%, parquet decode 21%, libc (memcpy/malloc/...) 9%
+      360   1.0 | expressions 45%, other duckdb 17%, parquet decode 12%
+      370   1.0 | expressions 40%, parquet decode 25%, other duckdb 12%
+      380   1.0 | expressions 43%, parquet decode 26%, libc (memcpy/malloc/...) 9%
+      390   1.0 | expressions 42%, other duckdb 15%, parquet decode 15%
+      400   1.1 | expressions 39%, parquet decode 16%, libc (memcpy/malloc/...) 13%
+      410   1.0 | expressions 52%, parquet decode 12%, libc (memcpy/malloc/...) 12%
+      420   1.0 | expressions 31%, parquet decode 14%, libc (memcpy/malloc/...) 14%
+      430   1.0 | expressions 40%, parquet decode 22%, libc (memcpy/malloc/...) 12%
+      440   1.1 | expressions 39%, parquet decode 20%, other duckdb 9%
+      450   1.1 | expressions 40%, parquet decode 14%, other duckdb 11%
+      460   1.0 | expressions 32%, other duckdb 20%, parquet decode 17%
+      470   1.1 | expressions 26%, parquet decode 21%, libc (memcpy/malloc/...) 14%
+      480   1.0 | expressions 46%, parquet decode 17%, list assembly 14%
+      490   1.0 | expressions 42%, parquet decode 15%, list assembly 15%
+      500   1.0 | expressions 32%, parquet decode 22%, other duckdb 20%
+      510   1.0 | expressions 37%, parquet decode 17%, other duckdb 15%
+      520   1.0 | expressions 34%, parquet decode 24%, other duckdb 12%
+      530   1.0 | expressions 35%, other duckdb 20%, parquet decode 17%
+      540   1.1 | expressions 45%, parquet decode 14%, other duckdb 11%
+      550   1.0 | expressions 40%, other duckdb 12%, parquet decode 10%
+      560   1.1 | expressions 40%, parquet decode 14%, list assembly 9%
+      570   1.0 | expressions 36%, other duckdb 21%, parquet decode 12%
+      580   1.0 | expressions 40%, parquet decode 15%, libc (memcpy/malloc/...) 12%
+      590   1.0 | expressions 42%, kernel 15%, parquet decode 12%
+      600   1.0 | expressions 47%, parquet decode 15%, other duckdb 12%
+      610   1.1 | expressions 27%, parquet decode 20%, list assembly 18%
+      620   1.0 | expressions 38%, other duckdb 23%, parquet decode 15%
+      630   1.0 | expressions 40%, other duckdb 22%, list assembly 12%
+      640   1.0 | expressions 41%, other duckdb 19%, parquet decode 17%
+      650   1.0 | expressions 45%, list assembly 20%, other duckdb 17%
+      660   1.0 | expressions 29%, list assembly 17%, parquet decode 12%
+      670   1.0 | expressions 35%, parquet decode 17%, list assembly 15%
+      680   1.0 | expressions 35%, list assembly 25%, other duckdb 12%
+      690   1.1 | expressions 40%, parquet decode 23%, list assembly 9%
+      700   1.0 | expressions 52%, parquet decode 17%, list assembly 10%
+      710   1.0 | expressions 26%, libc (memcpy/malloc/...) 19%, parquet decode 19%
+      720   1.0 | expressions 40%, list assembly 17%, parquet decode 12%
+      730   1.0 | expressions 37%, parquet decode 17%, unnest 10%
+      740   1.0 | expressions 24%, parquet decode 19%, list assembly 17%
+      750   1.0 | expressions 41%, parquet decode 20%, unnest 15%
+      760   1.1 | expressions 38%, parquet decode 21%, libc (memcpy/malloc/...) 11%
+      770   1.0 | expressions 40%, parquet decode 20%, list assembly 12%
+      780   1.1 | expressions 30%, parquet decode 14%, libc (memcpy/malloc/...) 14%
+      790   1.0 | expressions 32%, parquet decode 17%, libc (memcpy/malloc/...) 17%
+      800   1.0 | expressions 34%, parquet decode 19%, other duckdb 9%
+      810   1.1 | expressions 27%, parquet decode 18%, other duckdb 16%
+      820   1.0 | expressions 48%, parquet decode 14%, unnest 12%
+      830   1.0 | expressions 47%, parquet decode 17%, list assembly 12%
+      840   1.0 | expressions 45%, other duckdb 15%, parquet decode 12%
+      850   1.0 | expressions 46%, unnest 14%, list assembly 9%
+      860   1.0 | expressions 52%, parquet decode 17%, other duckdb 12%
+      870   1.0 | expressions 46%, parquet decode 12%, list assembly 9%
+      880   1.1 | parquet decode 45%, expressions 26%, unnest 7%
+      890   1.0 | expressions 42%, parquet decode 17%, list assembly 15%
+      900   1.0 | expressions 36%, parquet decode 14%, libc (memcpy/malloc/...) 14%
+      910   1.0 | expressions 50%, parquet decode 20%, list assembly 12%
+      920   1.1 | expressions 47%, parquet decode 15%, list assembly 11%
+      930   1.0 | expressions 35%, parquet decode 17%, libc (memcpy/malloc/...) 12%
+      940   1.0 | expressions 35%, parquet decode 22%, list assembly 15%
+      950   1.0 | expressions 27%, parquet decode 25%, other duckdb 12%
+      960   1.0 | expressions 42%, parquet decode 17%, other duckdb 15%
+      970   1.1 | expressions 33%, other duckdb 14%, libc (memcpy/malloc/...) 14%
+      980   1.0 | expressions 42%, parquet decode 17%, other duckdb 10%
+      990   1.0 | expressions 50%, libc (memcpy/malloc/...) 12%, parquet decode 12%
+     1000   1.0 | expressions 45%, parquet decode 17%, libc (memcpy/malloc/...) 10%
+     1010   1.0 | parquet decode 27%, expressions 27%, other duckdb 15%
+     1020   1.0 | expressions 41%, list assembly 12%, parquet decode 12%
+     1030   1.0 | expressions 35%, parquet decode 22%, list assembly 17%
+     1040   1.1 | expressions 37%, parquet decode 20%, libc (memcpy/malloc/...) 11%
+     1050   1.0 | expressions 52%, parquet decode 15%, list assembly 10%
+     1060   1.0 | expressions 45%, parquet decode 20%, list assembly 17%
+     1070   1.0 | expressions 32%, parquet decode 15%, unnest 12%
+     1080   1.0 | expressions 50%, list assembly 17%, parquet decode 12%
+     1090   1.0 | expressions 31%, parquet decode 21%, libc (memcpy/malloc/...) 9%
+     1100   1.0 | expressions 42%, parquet decode 20%, list assembly 20%
+     1110   1.1 | expressions 28%, parquet decode 21%, libc (memcpy/malloc/...) 14%
+     1120   1.0 | expressions 32%, parquet decode 17%, other duckdb 17%
+     1130   1.0 | expressions 50%, libc (memcpy/malloc/...) 15%, parquet decode 12%
+     1140   1.0 | expressions 42%, parquet decode 22%, list assembly 12%
+     1150   1.0 | expressions 55%, other duckdb 17%, parquet decode 15%
+     1160   1.1 | expressions 45%, other duckdb 16%, kernel 9%
+     1170   1.0 | expressions 51%, unnest 12%, parquet decode 12%
+     1180   1.0 | expressions 35%, list assembly 22%, parquet decode 15%
+     1190   1.0 | parquet decode 36%, expressions 26%, libc (memcpy/malloc/...) 9%
+     1200   1.0 | expressions 50%, parquet decode 22%, libc (memcpy/malloc/...) 7%
+     1210   1.1 | expressions 35%, other duckdb 16%, parquet decode 16%
+     1220   1.0 | expressions 45%, list assembly 15%, libc (memcpy/malloc/...) 12%
+     1230   1.0 | expressions 30%, parquet decode 20%, libc (memcpy/malloc/...) 15%
+     1240   1.0 | expressions 29%, parquet decode 24%, other duckdb 14%
+     1250   1.0 | expressions 40%, parquet decode 17%, kernel 15%
+     1260   1.0 | expressions 29%, parquet decode 17%, other duckdb 14%
+     1270   1.0 | expressions 45%, libc (memcpy/malloc/...) 15%, parquet decode 12%
+     1280   1.1 | other duckdb 23%, expressions 21%, parquet decode 14%
+     1290   1.0 | expressions 37%, parquet decode 17%, list assembly 15%
+     1300   1.0 | expressions 45%, other duckdb 15%, parquet decode 15%
+     1310   1.0 | expressions 47%, parquet decode 22%, unnest 12%
+     1320   1.0 | expressions 40%, list assembly 15%, parquet decode 15%
+     1330   1.1 | expressions 42%, parquet decode 14%, list assembly 11%
+     1340   1.0 | expressions 47%, parquet decode 22%, list assembly 10%
+     1350   1.1 | expressions 23%, parquet decode 16%, libc (memcpy/malloc/...) 11%
+     1360   1.0 | expressions 57%, list assembly 12%, unnest 7%
+     1370   1.0 | expressions 42%, parquet decode 15%, other duckdb 12%
+     1380   1.0 | expressions 34%, libc (memcpy/malloc/...) 19%, parquet decode 14%
+     1390   1.0 | expressions 42%, parquet decode 12%, list assembly 12%
+     1400   1.1 | expressions 30%, list assembly 16%, parquet decode 16%
+     1410   1.0 | expressions 42%, parquet decode 17%, list assembly 12%
+     1420   1.0 | expressions 43%, libc (memcpy/malloc/...) 14%, parquet decode 12%
+     1430   1.0 | expressions 40%, parquet decode 22%, unnest 12%
+     1440   1.0 | expressions 32%, list assembly 25%, parquet decode 12%
+     1450   1.0 | expressions 45%, parquet decode 20%, other duckdb 12%
+     1460   1.0 | expressions 70%, libc (memcpy/malloc/...) 7%, list assembly 7%
+     1470   1.0 | expressions 36%, parquet decode 24%, libc (memcpy/malloc/...) 9%
+     1480   1.0 | expressions 52%, parquet decode 12%, other duckdb 12%
+     1490   1.0 | expressions 34%, parquet decode 14%, list assembly 14%
+     1500   1.0 | expressions 53%, parquet decode 14%, list assembly 12%
+     1510   1.0 | expressions 40%, parquet decode 25%, other duckdb 17%
+     1520   1.1 | expressions 34%, list assembly 18%, other duckdb 13%
+     1530   1.0 | parquet decode 30%, expressions 30%, other duckdb 15%
+     1540   1.0 | expressions 24%, other duckdb 17%, parquet decode 14%
+     1550   1.0 | expressions 36%, parquet decode 26%, list assembly 17%
+     1560   1.0 | expressions 42%, parquet decode 25%, other duckdb 10%
+     1570   1.0 | expressions 46%, list assembly 14%, parquet decode 14%
+     1580   1.0 | expressions 52%, parquet decode 20%, unnest 7%
+     1590   1.0 | expressions 31%, parquet decode 29%, other duckdb 12%
+     1600   1.0 | expressions 47%, parquet decode 20%, list assembly 12%
+     1610   1.0 | expressions 37%, parquet decode 22%, libc (memcpy/malloc/...) 10%
+     1620   1.0 | expressions 36%, other duckdb 21%, parquet decode 19%
+     1630   1.0 | expressions 37%, list assembly 17%, parquet decode 15%
+     1640   1.1 | expressions 46%, other duckdb 11%, list assembly 11%
+     1650   1.0 | expressions 35%, list assembly 20%, other duckdb 17%
+     1660   1.1 | expressions 34%, parquet decode 23%, unnest 9%
+     1670   1.0 | expressions 35%, parquet decode 22%, other duckdb 17%
+     1680   1.0 | parquet decode 32%, expressions 22%, other duckdb 15%
+     1690   1.0 | expressions 46%, unnest 17%, other duckdb 12%
+     1700   1.0 | expressions 47%, parquet decode 20%, list assembly 10%
+     1710   1.0 | expressions 52%, libc (memcpy/malloc/...) 15%, parquet decode 10%
+     1720   1.0 | expressions 32%, parquet decode 17%, libc (memcpy/malloc/...) 15%
+     1730   1.1 | expressions 45%, parquet decode 16%, list assembly 9%
+     1740   1.0 | expressions 42%, other duckdb 20%, parquet decode 15%
+     1750   1.0 | expressions 36%, parquet decode 14%, libc (memcpy/malloc/...) 12%
+     1760   1.1 | expressions 28%, parquet decode 21%, libc (memcpy/malloc/...) 21%
+     1770   1.0 | expressions 42%, parquet decode 15%, list assembly 15%
+     1780   1.0 | parquet decode 27%, expressions 25%, libc (memcpy/malloc/...) 15%
+     1790   1.0 | expressions 47%, other duckdb 17%, parquet decode 12%
+     1800   1.0 | expressions 40%, parquet decode 17%, other duckdb 15%
+     1810   1.0 | expressions 36%, parquet decode 19%, other duckdb 17%
+     1820   1.0 | expressions 40%, parquet decode 20%, other duckdb 12%
+     1830   1.1 | expressions 35%, list assembly 16%, parquet decode 16%
+     1840   1.0 | expressions 43%, unnest 12%, other duckdb 12%
+     1850   1.0 | expressions 36%, parquet decode 21%, other duckdb 12%
+     1860   1.0 | expressions 47%, other duckdb 17%, parquet decode 17%
+     1870   1.0 | expressions 37%, parquet decode 15%, other duckdb 12%
+     1880   1.0 | expressions 39%, list assembly 21%, parquet decode 19%
+     1890   1.0 | expressions 35%, other duckdb 17%, parquet decode 15%
+     1900   1.1 | expressions 40%, other duckdb 19%, list assembly 11%
+     1910   1.0 | expressions 45%, list assembly 12%, parquet decode 12%
+     1920   1.0 | expressions 40%, parquet decode 17%, libc (memcpy/malloc/...) 15%
+     1930   1.0 | expressions 52%, unnest 17%, parquet decode 12%
+     1940   1.0 | expressions 50%, parquet decode 12%, other duckdb 10%
+     1950   1.0 | expressions 48%, parquet decode 19%, unnest 9%
+     1960   1.0 | expressions 29%, parquet decode 19%, list assembly 17%
+     1970   1.0 | expressions 55%, parquet decode 15%, list assembly 12%
+     1980   1.0 | expressions 52%, libc (memcpy/malloc/...) 10%, unnest 7%
+     1990   1.1 | expressions 28%, list assembly 19%, parquet decode 14%
+     2000   1.0 | expressions 55%, other duckdb 10%, parquet decode 10%
+     2010   1.0 | expressions 48%, list assembly 14%, parquet decode 9%
+     2020   1.0 | expressions 37%, parquet decode 20%, other duckdb 12%
+     2030   1.0 | expressions 47%, parquet decode 25%, unnest 7%
+     2040   1.0 | expressions 42%, parquet decode 15%, other duckdb 12%
+     2050   1.0 | expressions 47%, other duckdb 20%, list assembly 10%
+     2060   1.0 | expressions 36%, libc (memcpy/malloc/...) 17%, parquet decode 14%
+     2070   1.0 | expressions 45%, libc (memcpy/malloc/...) 12%, parquet decode 12%
+     2080   1.0 | expressions 43%, parquet decode 17%, list assembly 12%
+     2090   1.0 | expressions 46%, parquet decode 19%, other duckdb 12%
+     2100   1.0 | expressions 45%, parquet decode 20%, other duckdb 15%
+     2110   1.1 | expressions 41%, list assembly 16%, libc (memcpy/malloc/...) 11%
+     2120   1.0 | expressions 43%, libc (memcpy/malloc/...) 14%, parquet decode 14%
+     2130   1.1 | expressions 38%, list assembly 16%, parquet decode 11%
+     2140   1.0 | expressions 47%, parquet decode 17%, list assembly 17%
+     2150   1.0 | expressions 30%, libc (memcpy/malloc/...) 17%, list assembly 15%
+     2160   1.0 | expressions 42%, parquet decode 15%, list assembly 12%
+     2170   1.0 | expressions 52%, unnest 15%, list assembly 12%
+     2180   1.0 | parquet decode 31%, expressions 29%, libc (memcpy/malloc/...) 14%
+     2190   1.0 | expressions 41%, parquet decode 17%, libc (memcpy/malloc/...) 17%
+     2200   1.0 | expressions 42%, parquet decode 17%, list assembly 12%
+     2210   1.0 | expressions 43%, parquet decode 17%, unnest 10%
+     2220   1.0 | expressions 36%, parquet decode 17%, list assembly 9%
+     2230   1.0 | expressions 51%, unnest 17%, libc (memcpy/malloc/...) 9%
+     2240   1.0 | expressions 45%, parquet decode 20%, list assembly 10%
+     2250   1.0 | expressions 35%, parquet decode 17%, other duckdb 15%
+     2260   1.0 | expressions 45%, parquet decode 20%, list assembly 17%
+     2270   1.0 | expressions 31%, parquet decode 21%, other duckdb 12%
+     2280   1.1 | expressions 33%, list assembly 21%, parquet decode 14%
+     2290   1.0 | expressions 30%, parquet decode 20%, list assembly 15%
+     2300   1.0 | expressions 35%, other duckdb 20%, parquet decode 17%
+     2310   1.0 | expressions 40%, list assembly 17%, parquet decode 15%
+     2320   1.1 | expressions 35%, parquet decode 23%, libc (memcpy/malloc/...) 14%
+     2330   1.0 | expressions 52%, parquet decode 15%, other duckdb 10%
+     2340   1.0 | expressions 43%, other duckdb 14%, list assembly 14%
+     2350   1.1 | expressions 51%, libc (memcpy/malloc/...) 13%, parquet decode 11%
+     2360   1.0 | expressions 38%, parquet decode 17%, list assembly 15%
+     2370   1.0 | expressions 31%, parquet decode 26%, list assembly 14%
+     2380   1.0 | expressions 34%, list assembly 14%, parquet decode 12%
+     2390   1.0 | expressions 45%, parquet decode 17%, kernel 12%
+     2400   1.0 | expressions 35%, parquet decode 27%, list assembly 12%
+     2410   1.0 | expressions 31%, parquet decode 19%, list assembly 14%
+     2420   1.0 | expressions 37%, parquet decode 15%, list assembly 15%
+     2430   1.0 | expressions 47%, other duckdb 12%, parquet decode 12%
+     2440   1.0 | expressions 42%, parquet decode 17%, list assembly 17%
+     2450   1.0 | expressions 37%, unnest 15%, other duckdb 12%
+     2460   1.1 | expressions 50%, other duckdb 11%, libc (memcpy/malloc/...) 9%
+     2470   1.0 | expressions 47%, parquet decode 22%, other duckdb 15%
+     2480   1.0 | expressions 41%, parquet decode 17%, other duckdb 12%
+     2490   1.0 | expressions 31%, parquet decode 21%, libc (memcpy/malloc/...) 12%
+     2500   1.0 | expressions 45%, other duckdb 12%, parquet decode 10%
+     2510   1.0 | expressions 41%, other duckdb 14%, parquet decode 12%
+     2520   1.0 | expressions 40%, parquet decode 20%, libc (memcpy/malloc/...) 12%
+     2530   1.1 | expressions 35%, parquet decode 26%, list assembly 11%
+     2540   1.0 | expressions 60%, parquet decode 15%, list assembly 12%
+     2550   1.0 | expressions 39%, parquet decode 17%, other duckdb 14%
+     2560   1.0 | expressions 35%, parquet decode 25%, list assembly 15%
+     2570   1.0 | expressions 35%, parquet decode 25%, list assembly 15%
+     2580   1.1 | expressions 46%, other duckdb 13%, unnest 11%
+     2590   1.0 | expressions 47%, parquet decode 22%, unnest 10%
+     2600   1.0 | expressions 42%, list assembly 15%, other duckdb 12%
+     2610   1.0 | expressions 47%, parquet decode 17%, other duckdb 12%
+     2620   1.0 | expressions 47%, parquet decode 20%, libc (memcpy/malloc/...) 10%
+     2630   1.0 | expressions 40%, other duckdb 22%, libc (memcpy/malloc/...) 12%
+     2640   1.0 | expressions 40%, parquet decode 22%, other duckdb 10%
+     2650   1.0 | expressions 36%, parquet decode 14%, other duckdb 14%
+     2660   1.0 | expressions 60%, parquet decode 12%, libc (memcpy/malloc/...) 10%
+     2670   1.0 | expressions 46%, list assembly 14%, parquet decode 12%
+     2680   1.0 | expressions 52%, unnest 12%, parquet decode 10%
+     2690   1.0 | expressions 41%, parquet decode 26%, unnest 7%
+     2700   1.1 | expressions 42%, libc (memcpy/malloc/...) 16%, list assembly 14%
+     2710   1.0 | expressions 47%, parquet decode 12%, list assembly 12%
+     2720   1.0 | expressions 31%, other duckdb 24%, libc (memcpy/malloc/...) 9%
+     2730   1.0 | expressions 41%, unnest 17%, other duckdb 12%
+     2740   1.0 | expressions 31%, parquet decode 17%, other duckdb 14%
+     2750   1.0 | expressions 50%, libc (memcpy/malloc/...) 20%, list assembly 7%
+     2760   1.0 | expressions 42%, parquet decode 12%, other duckdb 12%
+     2770   1.0 | expressions 46%, parquet decode 14%, other duckdb 12%
+     2780   1.0 | expressions 42%, parquet decode 25%, unnest 15%
+     2790   1.0 | expressions 40%, parquet decode 15%, other duckdb 12%
+     2800   1.0 | expressions 32%, parquet decode 20%, list assembly 15%
+     2810   1.0 | expressions 31%, parquet decode 21%, other duckdb 19%
+     2820   1.0 | expressions 43%, list assembly 17%, parquet decode 12%
+     2830   1.0 | expressions 37%, parquet decode 22%, other duckdb 10%
+     2840   1.0 | expressions 37%, parquet decode 22%, list assembly 15%
+     2850   1.0 | expressions 50%, parquet decode 17%, list assembly 12%
+     2860   1.0 | expressions 36%, parquet decode 19%, list assembly 9%
+     2870   1.0 | expressions 43%, parquet decode 17%, list assembly 12%
+     2880   1.0 | expressions 48%, parquet decode 12%, list assembly 12%
+     2890   1.0 | expressions 43%, list assembly 12%, other duckdb 9%
+     2900   1.0 | expressions 40%, parquet decode 17%, libc (memcpy/malloc/...) 15%
+     2910   1.0 | expressions 47%, other duckdb 17%, parquet decode 10%
+     2920   1.0 | expressions 39%, parquet decode 19%, other duckdb 12%
+     2930   1.0 | expressions 45%, parquet decode 17%, other duckdb 12%
+     2940   1.0 | expressions 43%, parquet decode 17%, list assembly 14%
+     2950   1.0 | expressions 40%, other duckdb 17%, list assembly 15%
+     2960   1.1 | expressions 42%, parquet decode 23%, libc (memcpy/malloc/...) 9%
+     2970   1.0 | expressions 61%, other duckdb 10%, libc (memcpy/malloc/...) 7%
+     2980   1.1 | expressions 40%, other duckdb 16%, parquet decode 14%
+     2990   1.0 | expressions 37%, parquet decode 25%, list assembly 12%
+     3000   1.1 | expressions 40%, parquet decode 14%, other duckdb 11%
+     3010   1.0 | expressions 39%, other duckdb 21%, list assembly 12%
+     3020   1.0 | expressions 30%, parquet decode 17%, other duckdb 15%
+     3030   1.0 | expressions 34%, list assembly 19%, parquet decode 14%
+     3040   1.0 | expressions 30%, parquet decode 25%, libc (memcpy/malloc/...) 12%
+     3050   1.0 | expressions 43%, other duckdb 14%, parquet decode 12%
+     3060   1.0 | expressions 42%, other duckdb 20%, parquet decode 15%
+     3070   1.0 | expressions 41%, parquet decode 21%, list assembly 14%
+     3080   1.0 | expressions 41%, parquet decode 14%, list assembly 12%
+     3090   1.0 | expressions 37%, parquet decode 22%, list assembly 12%
+     3100   1.0 | expressions 47%, parquet decode 15%, list assembly 12%
+     3110   1.0 | expressions 37%, list assembly 22%, libc (memcpy/malloc/...) 17%
+     3120   1.0 | expressions 35%, parquet decode 15%, other duckdb 15%
+     3130   1.0 | expressions 41%, other duckdb 14%, list assembly 12%
+     3140   1.0 | expressions 29%, parquet decode 19%, other duckdb 14%
+     3150   1.0 | expressions 41%, libc (memcpy/malloc/...) 21%, unnest 14%
+     3160   1.0 | expressions 40%, parquet decode 15%, list assembly 12%
+     3170   1.0 | expressions 39%, libc (memcpy/malloc/...) 17%, parquet decode 17%
+     3180   1.0 | expressions 43%, other duckdb 12%, list assembly 12%
+     3190   1.0 | expressions 37%, parquet decode 25%, libc (memcpy/malloc/...) 10%
+     3200   1.0 | expressions 45%, libc (memcpy/malloc/...) 15%, parquet decode 12%
+     3210   1.0 | expressions 29%, parquet decode 26%, list assembly 17%
+     3220   1.0 | expressions 41%, parquet decode 14%, list assembly 14%
+     3230   1.0 | expressions 42%, parquet decode 17%, libc (memcpy/malloc/...) 10%
+     3240   1.0 | expressions 51%, parquet decode 19%, list assembly 9%
+     3250   1.0 | expressions 39%, parquet decode 17%, libc (memcpy/malloc/...) 12%
+     3260   1.0 | expressions 37%, list assembly 20%, other duckdb 15%
+     3270   1.0 | expressions 55%, list assembly 15%, parquet decode 12%
+     3280   1.0 | expressions 45%, parquet decode 17%, list assembly 10%
+     3290   1.1 | expressions 38%, parquet decode 19%, libc (memcpy/malloc/...) 14%
+     3300   1.0 | expressions 40%, other duckdb 17%, parquet decode 15%
+     3310   1.0 | expressions 39%, list assembly 21%, other duckdb 12%
+     3320   1.0 | expressions 43%, parquet decode 21%, list assembly 9%
+     3330   1.0 | expressions 47%, parquet decode 20%, other duckdb 15%
+     3340   1.0 | expressions 43%, parquet decode 21%, libc (memcpy/malloc/...) 12%
+     3350   1.0 | expressions 40%, parquet decode 17%, other duckdb 15%
+     3360   1.0 | expressions 46%, other duckdb 12%, unnest 12%
+     3370   1.0 | expressions 51%, parquet decode 17%, list assembly 7%
+     3380   1.0 | expressions 39%, parquet decode 17%, list assembly 12%
+     3390   1.0 | expressions 37%, list assembly 20%, parquet decode 15%
+     3400   1.0 | expressions 31%, parquet decode 21%, list assembly 12%
+     3410   1.1 | expressions 50%, parquet decode 19%, unnest 9%
+     3420   1.0 | expressions 37%, other duckdb 15%, unnest 10%
+     3430   1.0 | expressions 35%, parquet decode 20%, other duckdb 12%
+     3440   1.0 | expressions 35%, parquet decode 17%, libc (memcpy/malloc/...) 15%
+     3450   1.0 | expressions 41%, other duckdb 17%, parquet decode 14%
+     3460   1.0 | expressions 35%, parquet decode 20%, other duckdb 17%
+     3470   1.1 | expressions 33%, parquet decode 16%, vectors 11%
+     3480   1.0 | expressions 55%, parquet decode 25%, list assembly 7%
+     3490   1.0 | expressions 32%, list assembly 15%, other duckdb 15%
+     3500   1.0 | expressions 60%, other duckdb 7%, list assembly 7%
+     3510   1.0 | expressions 40%, other duckdb 20%, parquet decode 17%
+     3520   1.1 | expressions 34%, parquet decode 30%, list assembly 13%
+     3530   1.0 | expressions 50%, parquet decode 17%, list assembly 10%
+     3540   1.0 | expressions 32%, other duckdb 15%, parquet decode 12%
+     3550   1.0 | expressions 55%, parquet decode 15%, vectors 7%
+     3560   1.0 | expressions 45%, parquet decode 22%, list assembly 12%
+     3570   1.0 | expressions 30%, parquet decode 25%, libc (memcpy/malloc/...) 15%
+     3580   1.0 | expressions 39%, list assembly 14%, parquet decode 12%
+     3590   1.0 | expressions 34%, parquet decode 17%, list assembly 14%
+     3600   1.0 | expressions 50%, parquet decode 20%, list assembly 10%
+     3610   1.0 | expressions 48%, parquet decode 17%, other duckdb 12%
+     3620   1.0 | expressions 48%, parquet decode 19%, unnest 9%
+     3630   1.0 | expressions 42%, list assembly 20%, other duckdb 10%
+     3640   1.0 | expressions 51%, parquet decode 12%, kernel 7%
+     3650   1.0 | expressions 57%, other duckdb 12%, parquet decode 10%
+     3660   1.0 | expressions 39%, parquet decode 21%, list assembly 14%
+     3670   1.0 | expressions 36%, libc (memcpy/malloc/...) 21%, parquet decode 12%
+     3680   1.0 | expressions 34%, other duckdb 17%, list assembly 12%
+     3690   1.0 | expressions 51%, list assembly 21%, other duckdb 12%
+     3700   1.0 | expressions 42%, parquet decode 17%, list assembly 12%
+     3710   1.0 | expressions 24%, parquet decode 19%, other duckdb 19%
+     3720   1.0 | expressions 45%, parquet decode 20%, other duckdb 15%
+     3730   1.0 | expressions 39%, list assembly 17%, other duckdb 14%
+     3740   1.0 | expressions 32%, parquet decode 20%, other duckdb 20%
+     3750   1.0 | expressions 41%, other duckdb 19%, parquet decode 9%
+     3760   1.1 | expressions 48%, parquet decode 11%, list assembly 11%
+     3770   1.0 | expressions 40%, libc (memcpy/malloc/...) 20%, parquet decode 12%
+     3780   1.0 | expressions 40%, parquet decode 17%, unnest 12%
+     3790   1.0 | expressions 47%, other duckdb 20%, list assembly 12%
+     3800   1.0 | expressions 40%, parquet decode 15%, list assembly 12%
+     3810   1.0 | expressions 56%, parquet decode 17%, list assembly 7%
+     3820   1.0 | expressions 51%, unnest 10%, other duckdb 10%
+     3830   1.1 | expressions 42%, parquet decode 21%, libc (memcpy/malloc/...) 14%
+     3840   1.0 | expressions 40%, list assembly 15%, parquet decode 15%
+     3850   1.0 | expressions 32%, parquet decode 20%, libc (memcpy/malloc/...) 10%
+     3860   1.0 | expressions 51%, parquet decode 14%, other duckdb 9%
+     3870   1.0 | expressions 50%, parquet decode 15%, list assembly 10%
+     3880   1.1 | expressions 38%, parquet decode 21%, libc (memcpy/malloc/...) 14%
+     3890   1.0 | expressions 42%, parquet decode 17%, list assembly 12%
+     3900   1.0 | expressions 53%, list assembly 12%, parquet decode 12%
+     3910   1.0 | expressions 50%, parquet decode 15%, other duckdb 12%
+     3920   1.0 | expressions 33%, parquet decode 20%, other duckdb 17%
+     3930   1.0 | expressions 43%, parquet decode 19%, list assembly 12%
+     3940   1.0 | parquet decode 27%, expressions 20%, libc (memcpy/malloc/...) 12%
+     3950   1.0 | expressions 55%, parquet decode 15%, unnest 10%
+     3960   1.0 | expressions 37%, parquet decode 20%, libc (memcpy/malloc/...) 15%
+     3970   1.0 | expressions 41%, parquet decode 17%, unnest 12%
+     3980   1.0 | expressions 35%, parquet decode 30%, list assembly 10%
+     3990   1.1 | expressions 39%, other duckdb 18%, list assembly 13%
+     4000   1.0 | expressions 32%, parquet decode 27%, other duckdb 12%
+     4010   1.0 | expressions 42%, other duckdb 17%, parquet decode 10%
+     4020   1.0 | expressions 34%, parquet decode 21%, other duckdb 17%
+     4030   1.0 | expressions 52%, parquet decode 20%, unnest 10%
+     4040   1.1 | expressions 40%, parquet decode 16%, libc (memcpy/malloc/...) 11%
+     4050   1.0 | expressions 50%, list assembly 15%, parquet decode 15%
+     4060   1.0 | expressions 39%, kernel 14%, other duckdb 12%
+     4070   1.0 | expressions 34%, parquet decode 17%, libc (memcpy/malloc/...) 17%
+     4080   1.0 | expressions 41%, other duckdb 23%, list assembly 15%
+     4090   1.1 | expressions 47%, parquet decode 21%, kernel 9%
+     4100   1.0 | expressions 47%, parquet decode 25%, list assembly 12%
+     4110   1.1 | expressions 30%, list assembly 20%, parquet decode 18%
+     4120   1.0 | expressions 57%, list assembly 10%, unnest 10%
+     4130   1.0 | expressions 41%, parquet decode 24%, unnest 12%
+     4140   1.0 | expressions 37%, parquet decode 20%, list assembly 15%
+     4150   1.0 | expressions 35%, unnest 17%, parquet decode 17%
+     4160   1.1 | expressions 42%, parquet decode 14%, kernel 11%
+     4170   1.0 | expressions 30%, kernel 25%, parquet decode 17%
+     4180   1.0 | expressions 34%, kernel 12%, other duckdb 12%
+     4190   1.0 | expressions 52%, other duckdb 12%, list assembly 10%
+     4200   1.0 | expressions 37%, parquet decode 20%, libc (memcpy/malloc/...) 12%
+     4210   1.0 | parquet decode 31%, expressions 29%, list assembly 14%
+     4220   1.0 | expressions 45%, parquet decode 15%, unnest 12%
+     4230   1.0 | expressions 34%, parquet decode 21%, other duckdb 12%
+     4240   1.0 | expressions 42%, list assembly 15%, other duckdb 12%
+     4250   1.0 | expressions 36%, parquet decode 24%, other duckdb 17%
+     4260   1.0 | expressions 37%, parquet decode 20%, libc (memcpy/malloc/...) 15%
+     4270   1.0 | expressions 34%, parquet decode 26%, libc (memcpy/malloc/...) 9%
+     4280   1.0 | expressions 39%, parquet decode 29%, other duckdb 12%
+     4290   1.0 | expressions 52%, list assembly 12%, parquet decode 10%
+     4300   1.0 | expressions 45%, parquet decode 20%, other duckdb 7%
+     4310   1.0 | expressions 52%, parquet decode 20%, other duckdb 10%
+     4320   1.0 | expressions 34%, list assembly 19%, parquet decode 14%
+     4330   1.0 | expressions 37%, other duckdb 15%, parquet decode 12%
+     4340   1.0 | expressions 35%, parquet decode 22%, libc (memcpy/malloc/...) 17%
+     4350   1.1 | expressions 45%, other duckdb 16%, parquet decode 11%
+     4360   1.0 | expressions 55%, other duckdb 12%, unnest 10%
+     4370   1.0 | expressions 37%, other duckdb 15%, libc (memcpy/malloc/...) 15%
+     4380   1.0 | expressions 42%, list assembly 15%, parquet decode 12%
+     4390   1.0 | expressions 36%, other duckdb 12%, list assembly 12%
+     4400   1.0 | expressions 39%, other duckdb 14%, list assembly 12%
+     4410   1.0 | parquet decode 30%, expressions 25%, list assembly 20%
+     4420   1.1 | expressions 30%, parquet decode 19%, other duckdb 16%
+     4430   1.0 | expressions 42%, parquet decode 15%, libc (memcpy/malloc/...) 12%
+     4440   1.0 | expressions 40%, list assembly 15%, parquet decode 15%
+     4450   1.0 | expressions 34%, parquet decode 21%, list assembly 17%
+     4460   1.0 | expressions 32%, parquet decode 17%, unnest 12%
+     4470   1.0 | expressions 41%, parquet decode 24%, list assembly 9%
+     4480   1.0 | expressions 55%, parquet decode 12%, unnest 10%
+     4490   1.0 | expressions 46%, parquet decode 14%, other duckdb 14%
+     4500   1.0 | expressions 40%, parquet decode 15%, other duckdb 10%
+     4510   1.1 | expressions 38%, parquet decode 19%, list assembly 14%
+     4520   1.0 | expressions 45%, parquet decode 22%, other duckdb 12%
+     4530   1.0 | expressions 46%, list assembly 12%, parquet decode 10%
+     4540   1.0 | parquet decode 25%, expressions 25%, list assembly 15%
+     4550   1.0 | expressions 43%, parquet decode 12%, other duckdb 12%
+     4560   1.0 | expressions 57%, parquet decode 15%, list assembly 10%
+     4570   1.0 | expressions 37%, parquet decode 20%, list assembly 17%
+     4580   1.0 | expressions 31%, parquet decode 21%, other duckdb 19%
+     4590   1.1 | expressions 40%, parquet decode 19%, libc (memcpy/malloc/...) 11%
+     4600   1.0 | expressions 43%, parquet decode 17%, list assembly 15%
+     4610   1.0 | expressions 47%, parquet decode 25%, unnest 15%
+     4620   1.0 | expressions 50%, unnest 12%, other duckdb 12%
+     4630   1.0 | expressions 36%, other duckdb 17%, list assembly 14%
+     4640   1.0 | expressions 43%, list assembly 19%, other duckdb 14%
+     4650   1.0 | expressions 35%, parquet decode 20%, libc (memcpy/malloc/...) 15%
+     4660   1.0 | expressions 48%, other duckdb 14%, parquet decode 12%
+     4670   1.0 | expressions 42%, parquet decode 17%, other duckdb 10%
+     4680   1.0 | expressions 36%, parquet decode 19%, kernel 12%
+     4690   1.0 | expressions 35%, kernel 25%, parquet decode 15%
+     4700   1.1 | expressions 39%, parquet decode 18%, libc (memcpy/malloc/...) 11%
+     4710   1.0 | expressions 41%, parquet decode 21%, list assembly 14%
+     4720   1.0 | expressions 31%, parquet decode 19%, libc (memcpy/malloc/...) 12%
+     4730   1.0 | expressions 32%, parquet decode 17%, other duckdb 12%
+     4740   1.0 | expressions 42%, parquet decode 17%, unnest 10%
+     4750   1.0 | expressions 43%, parquet decode 17%, list assembly 17%
+     4760   1.0 | expressions 41%, parquet decode 25%, list assembly 17%
+     4770   1.0 | expressions 46%, parquet decode 17%, list assembly 14%
+     4780   1.0 | expressions 45%, parquet decode 32%, list assembly 7%
+     4790   1.0 | expressions 41%, parquet decode 12%, list assembly 9%
+     4800   1.0 | expressions 45%, parquet decode 15%, list assembly 15%
+     4810   1.0 | expressions 32%, other duckdb 17%, list assembly 12%
+     4820   1.1 | expressions 42%, parquet decode 14%, libc (memcpy/malloc/...) 11%
+     4830   1.0 | expressions 37%, libc (memcpy/malloc/...) 15%, parquet decode 15%
+     4840   1.0 | expressions 39%, list assembly 17%, parquet decode 14%
+     4850   1.0 | expressions 42%, list assembly 17%, parquet decode 17%
+     4860   1.0 | expressions 36%, parquet decode 29%, list assembly 14%
+     4870   1.0 | expressions 45%, parquet decode 15%, unnest 12%
+     4880   1.0 | expressions 38%, parquet decode 17%, list assembly 12%
+     4890   1.1 | expressions 42%, other duckdb 19%, libc (memcpy/malloc/...) 9%
+     4900   1.0 | expressions 35%, other duckdb 20%, parquet decode 12%
+     4910   1.0 | expressions 55%, list assembly 12%, parquet decode 7%
+     4920   1.0 | expressions 50%, other duckdb 10%, kernel 10%
+     4930   1.0 | expressions 46%, parquet decode 12%, unnest 9%
+     4940   1.0 | expressions 31%, parquet decode 19%, unnest 14%
+     4950   1.0 | expressions 55%, parquet decode 25%, libc (memcpy/malloc/...) 5%
+     4960   1.0 | expressions 42%, parquet decode 20%, list assembly 12%
+     4970   1.0 | expressions 40%, unnest 17%, parquet decode 15%
+     4980   1.1 | expressions 38%, parquet decode 16%, other duckdb 14%
+     4990   1.0 | expressions 32%, parquet decode 20%, list assembly 20%
+     5000   1.0 | expressions 31%, other duckdb 17%, parquet decode 14%
+     5010   1.0 | parquet decode 31%, expressions 26%, unnest 12%
+     5020   1.0 | expressions 40%, parquet decode 25%, list assembly 10%
+     5030   1.0 | expressions 39%, parquet decode 17%, list assembly 12%
+     5040   1.0 | expressions 45%, other duckdb 15%, parquet decode 15%
+     5050   1.0 | expressions 40%, parquet decode 27%, kernel 7%
+     5060   1.1 | expressions 27%, other duckdb 16%, libc (memcpy/malloc/...) 13%
+     5070   1.0 | expressions 37%, parquet decode 25%, other duckdb 15%
+     5080   1.0 | expressions 40%, list assembly 17%, other duckdb 15%
+     5090   1.0 | expressions 40%, parquet decode 17%, unnest 10%
+     5100   1.0 | expressions 43%, parquet decode 17%, unnest 12%
+     5110   1.0 | expressions 43%, parquet decode 21%, list assembly 9%
+     5120   1.0 | expressions 30%, parquet decode 20%, list assembly 12%
+     5130   1.0 | expressions 40%, parquet decode 25%, list assembly 12%
+     5140   1.0 | expressions 37%, other duckdb 12%, parquet decode 12%
+     5150   1.0 | expressions 41%, other duckdb 17%, list assembly 14%
+     5160   1.0 | expressions 52%, other duckdb 12%, parquet decode 12%
+     5170   1.1 | expressions 40%, parquet decode 16%, list assembly 11%
+     5180   1.0 | expressions 32%, other duckdb 17%, list assembly 15%
+     5190   1.0 | expressions 30%, parquet decode 22%, list assembly 12%
+     5200   1.0 | expressions 55%, parquet decode 17%, list assembly 10%
+     5210   1.0 | expressions 42%, list assembly 12%, parquet decode 12%
+     5220   1.0 | expressions 46%, parquet decode 19%, list assembly 9%
+     5230   1.0 | expressions 46%, unnest 14%, parquet decode 12%
+     5240   1.0 | expressions 46%, parquet decode 17%, other duckdb 14%
+     5250   1.0 | expressions 41%, libc (memcpy/malloc/...) 14%, unnest 12%
+     5260   1.0 | expressions 37%, parquet decode 20%, list assembly 15%
+     5270   1.0 | expressions 30%, parquet decode 30%, list assembly 15%
+     5280   1.0 | expressions 29%, parquet decode 24%, libc (memcpy/malloc/...) 12%
+     5290   1.0 | expressions 46%, parquet decode 21%, libc (memcpy/malloc/...) 12%
+     5300   1.0 | expressions 31%, parquet decode 21%, other duckdb 17%
+     5310   1.0 | expressions 50%, parquet decode 12%, list assembly 12%
+     5320   1.0 | expressions 36%, parquet decode 21%, other duckdb 14%
+     5330   1.0 | expressions 26%, parquet decode 19%, list assembly 17%
+     5340   1.0 | expressions 32%, parquet decode 20%, other duckdb 17%
+     5350   1.0 | expressions 48%, libc (memcpy/malloc/...) 12%, list assembly 12%
+     5360   1.1 | expressions 42%, parquet decode 19%, list assembly 11%
+     5370   1.0 | expressions 39%, parquet decode 21%, list assembly 14%
+     5380   1.0 | expressions 48%, other duckdb 9%, list assembly 9%
+     5390   1.0 | expressions 37%, parquet decode 15%, unnest 12%
+     5400   1.0 | expressions 36%, unnest 17%, other duckdb 14%
+     5410   1.1 | expressions 30%, parquet decode 23%, other duckdb 14%
+     5420   1.0 | expressions 43%, parquet decode 20%, unnest 10%
+     5430   1.1 | expressions 33%, parquet decode 33%, unnest 9%
+     5440   1.0 | expressions 40%, libc (memcpy/malloc/...) 15%, parquet decode 12%
+     5450   1.0 | expressions 32%, other duckdb 15%, libc (memcpy/malloc/...) 12%
+     5460   1.0 | expressions 46%, other duckdb 14%, list assembly 12%
+     5470   1.1 | expressions 40%, list assembly 19%, parquet decode 11%
+     5480   1.0 | expressions 46%, parquet decode 17%, other duckdb 12%
+     5490   1.0 | expressions 39%, parquet decode 24%, list assembly 9%
+     5500   1.0 | expressions 40%, parquet decode 17%, list assembly 10%
+     5510   1.0 | expressions 37%, parquet decode 20%, list assembly 20%
+     5520   1.0 | expressions 31%, parquet decode 24%, other duckdb 17%
+     5530   1.0 | expressions 39%, parquet decode 17%, list assembly 12%
+     5540   1.0 | expressions 53%, other duckdb 9%, parquet decode 9%
+     5550   1.0 | expressions 40%, parquet decode 20%, list assembly 12%
+     5560   1.0 | expressions 52%, unnest 15%, parquet decode 10%
+     5570   1.0 | expressions 40%, other duckdb 17%, parquet decode 15%
+     5580   1.0 | expressions 42%, parquet decode 27%, other duckdb 15%
+     5590   1.0 | parquet decode 32%, expressions 22%, libc (memcpy/malloc/...) 17%
+     5600   1.0 | expressions 47%, parquet decode 17%, list assembly 17%
+     5610   1.0 | expressions 42%, parquet decode 15%, other duckdb 12%
+     5620   1.0 | expressions 41%, parquet decode 17%, list assembly 14%
+     5630   1.0 | expressions 40%, parquet decode 15%, libc (memcpy/malloc/...) 15%
+     5640   1.1 | expressions 30%, parquet decode 23%, other duckdb 11%
+     5650   1.0 | expressions 27%, parquet decode 17%, libc (memcpy/malloc/...) 12%
+     5660   1.0 | expressions 45%, other duckdb 15%, kernel 10%
+     5670   1.0 | expressions 45%, parquet decode 20%, unnest 12%
+     5680   1.0 | expressions 32%, parquet decode 20%, other duckdb 17%
+     5690   1.0 | expressions 41%, other duckdb 17%, parquet decode 12%
+     5700   1.0 | expressions 47%, list assembly 15%, parquet decode 12%
+     5710   1.1 | expressions 38%, list assembly 14%, parquet decode 14%
+     5720   1.0 | expressions 37%, list assembly 20%, parquet decode 17%
+     5730   1.0 | expressions 41%, parquet decode 19%, list assembly 14%
+     5740   1.0 | expressions 45%, other duckdb 17%, parquet decode 17%
+     5750   1.0 | expressions 42%, parquet decode 12%, list assembly 12%
+     5760   1.0 | expressions 46%, other duckdb 17%, parquet decode 9%
+     5770   1.0 | expressions 42%, other duckdb 17%, libc (memcpy/malloc/...) 12%
+     5780   1.1 | parquet decode 26%, expressions 26%, other duckdb 11%
+     5790   1.0 | expressions 37%, parquet decode 27%, list assembly 10%
+     5800   1.0 | expressions 40%, parquet decode 15%, unnest 12%
+     5810   1.0 | expressions 36%, parquet decode 14%, libc (memcpy/malloc/...) 14%
+     5820   1.0 | expressions 32%, parquet decode 22%, list assembly 12%
+     5830   1.1 | expressions 45%, parquet decode 16%, other duckdb 9%
+     5840   1.0 | expressions 37%, parquet decode 20%, other duckdb 15%
+     5850   1.0 | expressions 39%, parquet decode 24%, libc (memcpy/malloc/...) 21%
+     5860   1.0 | expressions 34%, parquet decode 17%, unnest 12%
+     5870   1.0 | expressions 53%, parquet decode 19%, libc (memcpy/malloc/...) 9%
+     5880   1.0 | expressions 39%, parquet decode 14%, list assembly 14%
+     5890   1.0 | expressions 60%, list assembly 17%, other duckdb 12%
+     5900   1.0 | expressions 31%, parquet decode 21%, other duckdb 21%
+     5910   1.0 | expressions 37%, parquet decode 30%, unnest 10%
+     5920   1.0 | expressions 30%, parquet decode 17%, list assembly 15%
+     5930   1.1 | expressions 50%, parquet decode 14%, unnest 9%
+     5940   1.0 | expressions 36%, parquet decode 21%, other duckdb 14%
+     5950   1.0 | expressions 53%, libc (memcpy/malloc/...) 12%, list assembly 9%
+     5960   1.0 | expressions 50%, unnest 12%, parquet decode 12%
+     5970   1.0 | expressions 43%, parquet decode 17%, list assembly 17%
+     5980   1.0 | expressions 47%, parquet decode 20%, list assembly 12%
+     5990   1.0 | expressions 46%, list assembly 12%, libc (memcpy/malloc/...) 9%
+     6000   1.0 | expressions 34%, other duckdb 19%, libc (memcpy/malloc/...) 12%
+     6010   1.0 | expressions 32%, parquet decode 20%, libc (memcpy/malloc/...) 15%
+     6020   1.0 | expressions 27%, other duckdb 20%, libc (memcpy/malloc/...) 15%
+     6030   1.0 | expressions 46%, parquet decode 17%, libc (memcpy/malloc/...) 12%
+     6040   1.0 | expressions 36%, other duckdb 17%, list assembly 14%
+     6050   1.0 | expressions 43%, parquet decode 17%, unnest 12%
+     6060   1.0 | expressions 39%, parquet decode 24%, list assembly 9%
+     6070   1.0 | expressions 53%, parquet decode 15%, list assembly 12%
+     6080   1.0 | expressions 41%, other duckdb 17%, parquet decode 14%
+     6090   1.0 | expressions 40%, list assembly 22%, parquet decode 20%
+     6100   1.0 | expressions 47%, parquet decode 15%, list assembly 15%
+     6110   1.1 | expressions 40%, parquet decode 26%, other duckdb 16%
+     6120   1.0 | expressions 47%, parquet decode 17%, other duckdb 12%
+     6130   1.0 | expressions 40%, parquet decode 17%, unnest 12%
+     6140   1.0 | expressions 57%, other duckdb 12%, list assembly 10%
+     6150   1.0 | expressions 52%, other duckdb 15%, parquet decode 10%
+     6160   1.0 | expressions 40%, parquet decode 25%, unnest 15%
+     6170   1.0 | expressions 40%, parquet decode 15%, list assembly 12%
+     6180   1.0 | expressions 42%, parquet decode 17%, list assembly 10%
+     6190   1.0 | expressions 40%, parquet decode 20%, other duckdb 15%
+     6200   1.0 | expressions 39%, parquet decode 17%, libc (memcpy/malloc/...) 14%
+     6210   1.0 | expressions 45%, parquet decode 22%, libc (memcpy/malloc/...) 10%
+     6220   1.0 | expressions 35%, parquet decode 22%, list assembly 12%
+     6230   1.1 | expressions 40%, parquet decode 14%, kernel 11%
+     6240   1.0 | expressions 37%, parquet decode 25%, list assembly 20%
+     6250   1.0 | expressions 30%, libc (memcpy/malloc/...) 15%, other duckdb 15%
+     6260   1.0 | expressions 50%, parquet decode 22%, other duckdb 17%
+     6270   1.0 | expressions 41%, parquet decode 21%, kernel 9%
+     6280   1.0 | expressions 42%, list assembly 15%, other duckdb 15%
+     6290   1.0 | expressions 45%, parquet decode 20%, list assembly 10%
+     6300   1.0 | parquet decode 36%, expressions 26%, other duckdb 12%
+     6310   1.0 | expressions 42%, parquet decode 25%, unnest 10%
+     6320   1.0 | expressions 31%, parquet decode 19%, list assembly 12%
+     6330   1.0 | expressions 45%, parquet decode 20%, libc (memcpy/malloc/...) 10%
+     6340   1.0 | expressions 35%, parquet decode 17%, other duckdb 12%
+     6350   1.1 | expressions 33%, parquet decode 16%, list assembly 16%
+     6360   1.0 | expressions 47%, list assembly 15%, parquet decode 12%
+     6370   1.0 | expressions 41%, parquet decode 17%, other duckdb 12%
+     6380   1.0 | expressions 42%, parquet decode 15%, list assembly 12%
+     6390   1.0 | expressions 29%, parquet decode 17%, libc (memcpy/malloc/...) 14%
+     6400   1.0 | expressions 48%, parquet decode 14%, libc (memcpy/malloc/...) 9%
+     6410   1.0 | expressions 45%, other duckdb 15%, list assembly 12%
+     6420   1.0 | expressions 30%, other duckdb 15%, libc (memcpy/malloc/...) 15%
+     6430   1.0 | expressions 37%, list assembly 20%, parquet decode 15%
+     6440   1.0 | expressions 25%, parquet decode 20%, list assembly 17%
+     6450   1.0 | expressions 50%, parquet decode 20%, libc (memcpy/malloc/...) 12%
+     6460   1.0 | expressions 26%, parquet decode 17%, list assembly 12%
+     6470   1.0 | expressions 43%, parquet decode 14%, list assembly 12%
+     6480   1.0 | expressions 40%, parquet decode 22%, list assembly 12%
+     6490   1.0 | expressions 50%, parquet decode 30%, kernel 7%
+     6500   1.0 | expressions 37%, parquet decode 25%, libc (memcpy/malloc/...) 10%
+     6510   1.0 | expressions 29%, parquet decode 21%, libc (memcpy/malloc/...) 12%
+     6520   1.0 | expressions 50%, list assembly 17%, parquet decode 12%
+     6530   1.0 | expressions 46%, parquet decode 12%, kernel 9%
+     6540   1.0 | expressions 43%, parquet decode 19%, unnest 12%
+     6550   1.0 | expressions 47%, parquet decode 25%, list assembly 12%
+     6560   1.1 | expressions 39%, parquet decode 23%, kernel 11%
+     6570   1.0 | expressions 45%, libc (memcpy/malloc/...) 17%, parquet decode 12%
+     6580   1.1 | expressions 28%, list assembly 16%, other duckdb 16%
+     6590   1.0 | expressions 43%, other duckdb 19%, list assembly 14%
+     6600   1.0 | expressions 45%, parquet decode 17%, list assembly 12%
+     6610   1.0 | expressions 42%, parquet decode 15%, other duckdb 12%
+     6620   1.0 | expressions 35%, parquet decode 17%, list assembly 12%
+     6630   1.0 | expressions 29%, parquet decode 26%, other duckdb 14%
+     6640   1.0 | expressions 31%, parquet decode 19%, other duckdb 17%
+     6650   1.0 | expressions 35%, parquet decode 25%, other duckdb 10%
+     6660   1.0 | expressions 41%, list assembly 12%, kernel 9%
+     6670   1.0 | expressions 30%, parquet decode 20%, list assembly 15%
+     6680   1.0 | expressions 51%, parquet decode 12%, list assembly 9%
+     6690   1.0 | expressions 40%, parquet decode 17%, other duckdb 15%
+     6700   1.1 | expressions 35%, parquet decode 21%, libc (memcpy/malloc/...) 16%
+     6710   1.0 | expressions 40%, parquet decode 20%, other duckdb 12%
+     6720   1.0 | expressions 45%, other duckdb 15%, parquet decode 15%
+     6730   1.0 | expressions 50%, parquet decode 15%, other duckdb 12%
+     6740   1.0 | expressions 39%, parquet decode 17%, unnest 12%
+     6750   1.0 | expressions 46%, parquet decode 12%, list assembly 10%
+     6760   1.0 | expressions 36%, libc (memcpy/malloc/...) 14%, parquet decode 14%
+     6770   1.1 | expressions 54%, parquet decode 21%, unnest 7%
+     6780   1.0 | expressions 45%, other duckdb 15%, parquet decode 15%
+     6790   1.0 | expressions 35%, parquet decode 25%, list assembly 15%
+     6800   1.0 | expressions 43%, parquet decode 19%, other duckdb 12%
+     6810   1.0 | expressions 43%, parquet decode 15%, list assembly 12%
+     6820   1.1 | expressions 45%, list assembly 14%, libc (memcpy/malloc/...) 9%
+     6830   1.0 | expressions 46%, parquet decode 21%, other duckdb 14%
+     6840   1.0 | expressions 41%, parquet decode 14%, other duckdb 9%
+     6850   1.0 | expressions 35%, parquet decode 17%, other duckdb 15%
+     6860   1.0 | expressions 36%, parquet decode 21%, list assembly 14%
+     6870   1.0 | expressions 42%, parquet decode 20%, libc (memcpy/malloc/...) 10%
+     6880   1.0 | expressions 35%, parquet decode 22%, other duckdb 15%
+     6890   1.0 | expressions 41%, parquet decode 21%, kernel 9%
+     6900   1.0 | expressions 37%, parquet decode 20%, other duckdb 17%
+     6910   1.0 | expressions 43%, parquet decode 17%, other duckdb 12%
+     6920   1.0 | expressions 36%, list assembly 12%, libc (memcpy/malloc/...) 12%
+     6930   1.0 | expressions 40%, parquet decode 22%, other duckdb 15%
+     6940   1.0 | expressions 36%, other duckdb 17%, list assembly 17%
+     6950   1.0 | expressions 42%, parquet decode 17%, list assembly 12%
+     6960   1.0 | expressions 34%, parquet decode 17%, list assembly 14%
+     6970   1.0 | expressions 53%, parquet decode 12%, unnest 9%
+     6980   1.0 | expressions 48%, parquet decode 17%, other duckdb 12%
+     6990   1.0 | expressions 41%, other duckdb 17%, parquet decode 14%
+     7000   1.0 | expressions 37%, parquet decode 17%, list assembly 15%
+     7010   1.1 | expressions 40%, parquet decode 16%, list assembly 16%
+     7020   1.0 | expressions 42%, list assembly 22%, parquet decode 17%
+     7030   1.0 | expressions 55%, parquet decode 15%, other duckdb 12%
+     7040   1.0 | expressions 51%, other duckdb 17%, libc (memcpy/malloc/...) 12%
+     7050   1.0 | expressions 48%, parquet decode 17%, libc (memcpy/malloc/...) 12%
+     7060   1.0 | expressions 53%, parquet decode 17%, list assembly 12%
+     7070   1.0 | expressions 42%, parquet decode 20%, other duckdb 15%
+     7080   1.1 | expressions 33%, other duckdb 16%, parquet decode 16%
+     7090   1.0 | expressions 37%, other duckdb 17%, parquet decode 15%
+     7100   1.0 | expressions 47%, parquet decode 12%, list assembly 12%
+     7110   1.0 | expressions 36%, parquet decode 29%, other duckdb 9%
+     7120   1.0 | expressions 31%, parquet decode 19%, other duckdb 14%
+     7130   1.0 | expressions 42%, parquet decode 30%, list assembly 7%
+     7140   1.0 | expressions 55%, parquet decode 15%, unnest 12%
+     7150   1.0 | expressions 48%, parquet decode 14%, list assembly 14%
+     7160   1.0 | expressions 25%, parquet decode 25%, unnest 17%
+     7170   1.1 | expressions 35%, libc (memcpy/malloc/...) 23%, parquet decode 11%
+     7180   1.0 | expressions 32%, parquet decode 20%, libc (memcpy/malloc/...) 12%
+     7190   1.0 | expressions 42%, other duckdb 17%, list assembly 10%
+     7200   1.0 | expressions 46%, list assembly 19%, unnest 9%
+     7210   1.0 | expressions 57%, list assembly 12%, other duckdb 10%
+     7220   1.1 | expressions 47%, other duckdb 14%, parquet decode 11%
+     7230   1.0 | expressions 35%, parquet decode 25%, list assembly 15%
+     7240   1.0 | expressions 41%, parquet decode 17%, libc (memcpy/malloc/...) 12%
+     7250   1.0 | expressions 55%, list assembly 12%, other duckdb 10%
+     7260   1.0 | expressions 35%, parquet decode 20%, list assembly 17%
+     7270   1.0 | expressions 40%, other duckdb 17%, parquet decode 12%
+     7280   1.0 | expressions 37%, parquet decode 17%, unnest 12%
+     7290   1.1 | expressions 39%, parquet decode 20%, libc (memcpy/malloc/...) 16%
+     7300   1.0 | expressions 39%, parquet decode 26%, list assembly 9%
+     7310   1.0 | expressions 31%, parquet decode 21%, other duckdb 17%
+     7320   1.0 | expressions 52%, parquet decode 15%, other duckdb 12%
+     7330   1.0 | expressions 57%, other duckdb 12%, list assembly 10%
+     7340   1.0 | expressions 36%, parquet decode 21%, unnest 12%
+     7350   1.0 | expressions 27%, list assembly 25%, parquet decode 20%
+     7360   1.0 | expressions 52%, parquet decode 22%, other duckdb 15%
+     7370   1.0 | expressions 48%, parquet decode 17%, other duckdb 9%
+     7380   1.0 | expressions 39%, parquet decode 29%, unnest 9%
+     7390   1.0 | expressions 35%, parquet decode 20%, unnest 15%
+     7400   1.0 | expressions 40%, parquet decode 20%, unnest 12%
+     7410   1.0 | expressions 36%, parquet decode 21%, libc (memcpy/malloc/...) 17%
+     7420   1.0 | expressions 43%, list assembly 17%, parquet decode 12%
+     7430   1.1 | expressions 35%, parquet decode 26%, list assembly 9%
+     7440   1.0 | expressions 43%, parquet decode 21%, list assembly 9%
+     7450   1.0 | expressions 48%, parquet decode 21%, kernel 14%
+     7460   1.0 | expressions 39%, other duckdb 19%, libc (memcpy/malloc/...) 12%
+     7470   1.0 | expressions 38%, parquet decode 28%, list assembly 12%
+     7480   1.1 | expressions 33%, parquet decode 21%, other duckdb 11%
+     7490   1.0 | expressions 42%, parquet decode 20%, unnest 10%
+     7500   1.0 | expressions 39%, parquet decode 17%, libc (memcpy/malloc/...) 14%
+     7510   1.0 | expressions 34%, other duckdb 24%, parquet decode 19%
+     7520   1.0 | expressions 39%, libc (memcpy/malloc/...) 14%, other duckdb 12%
+     7530   1.0 | expressions 46%, parquet decode 17%, list assembly 9%
+     7540   1.0 | expressions 40%, parquet decode 15%, other duckdb 15%
+     7550   1.1 | expressions 40%, parquet decode 19%, other duckdb 9%
+     7560   1.0 | expressions 47%, parquet decode 20%, list assembly 10%
+     7570   1.1 | expressions 38%, parquet decode 16%, list assembly 9%
+     7580   1.0 | expressions 50%, other duckdb 17%, list assembly 15%
+     7590   1.0 | expressions 42%, parquet decode 27%, other duckdb 10%
+     7600   1.0 | expressions 36%, parquet decode 17%, other duckdb 12%
+     7610   1.0 | expressions 47%, libc (memcpy/malloc/...) 15%, list assembly 12%
+     7620   1.0 | expressions 45%, list assembly 20%, parquet decode 7%
+     7630   1.0 | expressions 52%, parquet decode 15%, libc (memcpy/malloc/...) 7%
+     7640   1.1 | expressions 35%, parquet decode 19%, libc (memcpy/malloc/...) 16%
+     7650   1.0 | expressions 55%, parquet decode 10%, other duckdb 10%
+     7660   1.0 | expressions 55%, parquet decode 15%, other duckdb 10%
+     7670   1.0 | expressions 36%, parquet decode 24%, other duckdb 17%
+     7680   1.0 | expressions 45%, parquet decode 17%, list assembly 7%
+     7690   1.0 | expressions 37%, parquet decode 17%, unnest 10%
+     7700   1.0 | expressions 30%, parquet decode 27%, list assembly 15%
+     7710   1.0 | expressions 34%, other duckdb 19%, parquet decode 17%
+     7720   1.0 | expressions 57%, other duckdb 12%, parquet decode 10%
+     7730   1.0 | expressions 34%, parquet decode 17%, list assembly 12%
+     7740   1.0 | expressions 47%, parquet decode 20%, other duckdb 12%
+     7750   1.0 | expressions 47%, parquet decode 17%, list assembly 10%
+     7760   1.1 | expressions 47%, parquet decode 16%, unnest 9%
+     7770   1.1 | expressions 35%, parquet decode 16%, list assembly 14%
+     7780   1.0 | expressions 37%, list assembly 15%, parquet decode 12%
+     7790   1.0 | expressions 51%, other duckdb 14%, parquet decode 14%
+     7800   1.0 | expressions 40%, list assembly 17%, parquet decode 15%
+     7810   1.0 | expressions 41%, list assembly 19%, parquet decode 14%
+     7820   1.0 | expressions 48%, parquet decode 19%, unnest 12%
+     7830   1.0 | expressions 41%, parquet decode 14%, list assembly 12%
+     7840   1.0 | expressions 45%, unnest 12%, parquet decode 10%
+     7850   1.0 | expressions 48%, unnest 12%, list assembly 9%
+     7860   1.0 | expressions 51%, parquet decode 17%, list assembly 12%
+     7870   1.0 | expressions 47%, parquet decode 15%, other duckdb 12%
+     7880   1.1 | expressions 38%, parquet decode 16%, other duckdb 14%
+     7890   1.0 | expressions 47%, list assembly 12%, other duckdb 12%
+     7900   1.0 | expressions 47%, parquet decode 17%, other duckdb 15%
+     7910   1.0 | parquet decode 24%, expressions 24%, other duckdb 19%
+     7920   1.0 | expressions 39%, list assembly 19%, parquet decode 12%
+     7930   1.0 | expressions 45%, parquet decode 22%, other duckdb 15%
+     7940   1.0 | expressions 47%, parquet decode 17%, other duckdb 15%
+     7950   1.0 | expressions 41%, parquet decode 21%, other duckdb 12%
+     7960   1.0 | expressions 50%, parquet decode 12%, libc (memcpy/malloc/...) 10%
+     7970   1.0 | expressions 35%, parquet decode 17%, other duckdb 12%
+     7980   1.0 | expressions 34%, parquet decode 19%, list assembly 14%
+     7990   1.0 | expressions 35%, parquet decode 15%, list assembly 12%
+     8000   1.1 | expressions 51%, unnest 16%, libc (memcpy/malloc/...) 9%
+     8010   1.0 | parquet decode 30%, expressions 30%, other duckdb 20%
+     8020   1.0 | expressions 39%, parquet decode 24%, list assembly 14%
+     8030   1.0 | expressions 42%, parquet decode 20%, other duckdb 10%
+     8040   1.0 | expressions 40%, parquet decode 20%, libc (memcpy/malloc/...) 12%
+     8050   1.0 | expressions 37%, list assembly 20%, parquet decode 15%
+     8060   1.0 | expressions 43%, list assembly 17%, parquet decode 12%
+     8070   1.0 | expressions 39%, parquet decode 19%, libc (memcpy/malloc/...) 12%
+     8080   1.0 | expressions 42%, parquet decode 20%, list assembly 17%
+     8090   1.0 | expressions 37%, other duckdb 20%, parquet decode 15%
+     8100   1.0 | expressions 36%, other duckdb 19%, list assembly 17%
+     8110   1.0 | expressions 34%, list assembly 14%, other duckdb 14%
+     8120   1.1 | parquet decode 25%, expressions 25%, unnest 11%
+     8130   1.0 | expressions 37%, parquet decode 17%, libc (memcpy/malloc/...) 12%
+     8140   1.0 | expressions 36%, parquet decode 21%, list assembly 17%
+     8150   1.0 | expressions 30%, parquet decode 27%, other duckdb 12%
+     8160   1.1 | expressions 23%, parquet decode 19%, libc (memcpy/malloc/...) 19%
+     8170   1.0 | expressions 48%, other duckdb 14%, parquet decode 12%
+     8180   1.0 | expressions 41%, parquet decode 15%, list assembly 12%
+     8190   1.0 | expressions 58%, list assembly 15%, unnest 12%
+     8200   1.0 | expressions 43%, parquet decode 29%, libc (memcpy/malloc/...) 9%
+     8210   1.0 | expressions 43%, parquet decode 17%, other duckdb 12%
+     8220   1.0 | expressions 42%, parquet decode 17%, list assembly 12%
+     8230   1.1 | expressions 42%, parquet decode 23%, other duckdb 16%
+     8240   1.0 | expressions 35%, parquet decode 20%, other duckdb 12%
+     8250   1.0 | expressions 22%, parquet decode 15%, other duckdb 15%
+     8260   1.0 | expressions 40%, parquet decode 22%, libc (memcpy/malloc/...) 12%
+     8270   1.0 | expressions 52%, list assembly 12%, parquet decode 12%
+     8280   1.0 | expressions 31%, parquet decode 21%, list assembly 12%
+     8290   1.0 | expressions 35%, parquet decode 30%, other duckdb 15%
+     8300   1.0 | expressions 39%, parquet decode 24%, libc (memcpy/malloc/...) 12%
+     8310   1.0 | expressions 43%, parquet decode 14%, list assembly 12%
+     8320   1.0 | expressions 37%, parquet decode 22%, libc (memcpy/malloc/...) 10%
+     8330   1.0 | expressions 45%, other duckdb 17%, parquet decode 15%
+     8340   1.0 | expressions 47%, parquet decode 20%, list assembly 12%
+     8350   1.1 | expressions 34%, parquet decode 30%, libc (memcpy/malloc/...) 13%
+     8360   1.0 | expressions 35%, parquet decode 20%, other duckdb 17%
+     8370   1.0 | expressions 46%, other duckdb 17%, parquet decode 14%
+     8380   1.0 | expressions 45%, parquet decode 17%, other duckdb 12%
+     8390   1.0 | expressions 42%, other duckdb 20%, list assembly 10%
+     8400   1.0 | expressions 37%, other duckdb 22%, parquet decode 12%
+     8410   1.0 | expressions 43%, parquet decode 17%, list assembly 12%
+     8420   1.0 | expressions 46%, parquet decode 21%, list assembly 12%
+     8430   1.0 | expressions 41%, parquet decode 19%, other duckdb 14%
+     8440   1.0 | expressions 39%, other duckdb 19%, parquet decode 12%
+     8450   1.0 | expressions 43%, parquet decode 17%, unnest 12%
+     8460   1.0 | expressions 37%, parquet decode 25%, other duckdb 12%
+     8470   1.0 | expressions 41%, parquet decode 12%, other duckdb 12%
+     8480   1.0 | expressions 25%, parquet decode 20%, kernel 15%
+     8490   1.0 | expressions 39%, other duckdb 17%, parquet decode 17%
+     8500   1.0 | expressions 37%, parquet decode 20%, unnest 12%
+     8510   1.0 | expressions 41%, parquet decode 21%, unnest 12%
+     8520   1.0 | expressions 40%, parquet decode 17%, unnest 12%
+     8530   1.0 | expressions 40%, parquet decode 12%, other duckdb 12%
+     8540   1.0 | expressions 35%, parquet decode 20%, list assembly 15%
+     8550   1.0 | expressions 55%, parquet decode 15%, unnest 7%
+     8560   1.1 | expressions 33%, list assembly 19%, parquet decode 11%
+     8570   1.0 | expressions 34%, parquet decode 26%, list assembly 14%
+     8580   1.0 | expressions 27%, libc (memcpy/malloc/...) 17%, parquet decode 17%
+     8590   1.0 | expressions 39%, parquet decode 19%, libc (memcpy/malloc/...) 14%
+     8600   1.0 | expressions 50%, parquet decode 17%, other duckdb 10%
+     8610   1.0 | expressions 36%, parquet decode 29%, list assembly 7%
+     8620   1.0 | expressions 55%, list assembly 17%, parquet decode 10%
+     8630   1.0 | expressions 35%, parquet decode 22%, other duckdb 15%
+     8640   1.0 | expressions 30%, parquet decode 25%, other duckdb 15%
+     8650   1.0 | expressions 43%, parquet decode 17%, other duckdb 17%
+     8660   1.0 | expressions 50%, other duckdb 17%, list assembly 10%
+     8670   1.0 | expressions 40%, list assembly 20%, parquet decode 17%
+     8680   1.0 | expressions 31%, parquet decode 26%, list assembly 12%
+     8690   1.0 | expressions 36%, other duckdb 17%, parquet decode 14%
+     8700   1.0 | expressions 46%, parquet decode 12%, unnest 9%
+     8710   1.0 | expressions 32%, parquet decode 25%, libc (memcpy/malloc/...) 12%
+     8720   1.0 | expressions 39%, libc (memcpy/malloc/...) 17%, other duckdb 17%
+     8730   1.0 | expressions 46%, other duckdb 15%, parquet decode 12%
+     8740   1.0 | expressions 35%, parquet decode 25%, list assembly 15%
+     8750   1.0 | expressions 29%, parquet decode 17%, libc (memcpy/malloc/...) 14%
+     8760   1.0 | expressions 34%, parquet decode 17%, list assembly 12%
+     8770   1.0 | expressions 42%, list assembly 15%, parquet decode 12%
+     8780   1.0 | expressions 39%, parquet decode 29%, other duckdb 12%
+     8790   1.0 | expressions 45%, parquet decode 20%, list assembly 10%
+     8800   1.0 | expressions 46%, parquet decode 20%, other duckdb 12%
+     8810   1.0 | expressions 35%, parquet decode 20%, other duckdb 17%
+     8820   1.1 | expressions 35%, other duckdb 19%, parquet decode 11%
+     8830   1.0 | expressions 30%, parquet decode 22%, libc (memcpy/malloc/...) 15%
+     8840   1.0 | expressions 50%, list assembly 12%, parquet decode 12%
+     8850   1.0 | expressions 41%, other duckdb 17%, unnest 12%
+     8860   1.0 | expressions 52%, unnest 15%, list assembly 10%
+     8870   1.0 | expressions 32%, list assembly 20%, other duckdb 15%
+     8880   1.0 | expressions 55%, parquet decode 17%, libc (memcpy/malloc/...) 10%
+     8890   1.0 | expressions 29%, parquet decode 17%, other duckdb 17%
+     8900   1.0 | expressions 30%, other duckdb 22%, list assembly 17%
+     8910   1.0 | expressions 47%, parquet decode 20%, unnest 7%
+     8920   1.1 | expressions 41%, parquet decode 18%, list assembly 13%
+     8930   1.0 | expressions 40%, other duckdb 15%, parquet decode 12%
+     8940   1.0 | expressions 34%, unnest 17%, list assembly 12%
+     8950   1.0 | expressions 60%, parquet decode 15%, libc (memcpy/malloc/...) 7%
+     8960   1.0 | expressions 26%, parquet decode 21%, libc (memcpy/malloc/...) 17%
+     8970   1.0 | expressions 48%, parquet decode 12%, other duckdb 12%
+     8980   1.0 | expressions 47%, parquet decode 12%, list assembly 12%
+     8990   1.1 | expressions 40%, parquet decode 19%, unnest 11%
+     9000   1.0 | expressions 37%, parquet decode 20%, list assembly 12%
+     9010   1.0 | expressions 50%, parquet decode 15%, list assembly 10%
+     9020   1.0 | expressions 55%, list assembly 15%, unnest 10%
+     9030   1.1 | expressions 42%, parquet decode 30%, list assembly 7%
+     9040   1.0 | expressions 47%, list assembly 15%, libc (memcpy/malloc/...) 12%
+     9050   1.0 | expressions 51%, other duckdb 14%, list assembly 14%
+     9060   1.1 | expressions 45%, libc (memcpy/malloc/...) 16%, parquet decode 14%
+     9070   1.0 | expressions 52%, other duckdb 10%, list assembly 10%
+     9080   1.0 | expressions 36%, parquet decode 17%, list assembly 14%
+     9090   1.0 | expressions 35%, list assembly 17%, parquet decode 15%
+     9100   1.0 | expressions 27%, parquet decode 17%, other duckdb 15%
+     9110   1.0 | expressions 41%, other duckdb 14%, libc (memcpy/malloc/...) 14%
+     9120   1.0 | expressions 37%, other duckdb 17%, list assembly 15%
+     9130   1.0 | expressions 46%, parquet decode 9%, list assembly 7%
+     9140   1.0 | expressions 37%, parquet decode 30%, libc (memcpy/malloc/...) 10%
+     9150   1.1 | expressions 33%, parquet decode 23%, other duckdb 14%
+     9160   1.0 | expressions 50%, other duckdb 15%, list assembly 12%
+     9170   1.0 | expressions 40%, parquet decode 22%, other duckdb 12%
+     9180   1.1 | expressions 45%, list assembly 16%, other duckdb 11%
+     9190   1.0 | expressions 60%, parquet decode 10%, unnest 10%
+     9200   1.0 | parquet decode 31%, expressions 26%, other duckdb 14%
+     9210   1.0 | expressions 35%, parquet decode 25%, other duckdb 10%
+     9220   1.0 | expressions 42%, parquet decode 17%, libc (memcpy/malloc/...) 17%
+     9230   1.0 | expressions 35%, parquet decode 17%, other duckdb 15%
+     9240   1.0 | expressions 42%, parquet decode 15%, libc (memcpy/malloc/...) 12%
+     9250   1.0 | expressions 43%, parquet decode 17%, list assembly 12%
+     9260   1.0 | expressions 57%, parquet decode 10%, other duckdb 10%
+     9270   1.0 | parquet decode 39%, list assembly 19%, expressions 14%
+     9280   1.0 | expressions 42%, parquet decode 25%, list assembly 10%
+     9290   1.0 | expressions 43%, parquet decode 14%, aggregate 9%
+     9300   1.1 | expressions 25%, other duckdb 20%, parquet decode 18%
+     9310   1.0 | expressions 32%, parquet decode 22%, list assembly 17%
+     9320   1.0 | expressions 47%, list assembly 15%, parquet decode 12%
+     9330   1.0 | expressions 37%, parquet decode 20%, other duckdb 15%
+     9340   1.0 | expressions 22%, other duckdb 20%, list assembly 20%
+     9350   1.0 | expressions 50%, parquet decode 25%, aggregate 7%
+     9360   1.0 | expressions 26%, parquet decode 24%, other duckdb 17%
+     9370   1.0 | expressions 48%, parquet decode 19%, list assembly 9%
+     9380   1.0 | expressions 37%, libc (memcpy/malloc/...) 15%, parquet decode 12%
+     9390   1.0 | expressions 46%, parquet decode 14%, other duckdb 14%
+     9400   1.0 | expressions 35%, parquet decode 30%, libc (memcpy/malloc/...) 10%
+     9410   1.1 | expressions 47%, libc (memcpy/malloc/...) 14%, parquet decode 14%
+     9420   1.0 | expressions 34%, libc (memcpy/malloc/...) 17%, parquet decode 17%
+     9430   1.0 | expressions 43%, parquet decode 12%, kernel 10%
+     9440   1.1 | expressions 40%, other duckdb 19%, parquet decode 16%
+     9450   1.0 | expressions 30%, list assembly 22%, parquet decode 15%
+     9460   1.0 | expressions 41%, other duckdb 19%, parquet decode 12%
+     9470   1.0 | expressions 52%, parquet decode 15%, list assembly 12%
+     9480   1.0 | expressions 39%, parquet decode 24%, other duckdb 12%
+     9490   1.0 | expressions 30%, other duckdb 20%, parquet decode 17%
+     9500   1.0 | expressions 47%, parquet decode 17%, list assembly 10%
+     9510   1.0 | expressions 39%, other duckdb 21%, list assembly 12%
+     9520   1.0 | expressions 45%, libc (memcpy/malloc/...) 15%, list assembly 12%
+     9530   1.0 | expressions 36%, parquet decode 21%, libc (memcpy/malloc/...) 14%
+     9540   1.0 | expressions 60%, other duckdb 10%, list assembly 7%
+     9550   1.0 | expressions 41%, parquet decode 19%, unnest 14%
+     9560   1.0 | expressions 52%, list assembly 15%, libc (memcpy/malloc/...) 10%
+     9570   1.0 | expressions 32%, parquet decode 25%, list assembly 12%
+     9580   1.0 | expressions 35%, parquet decode 20%, other duckdb 15%
+     9590   1.0 | expressions 52%, list assembly 12%, parquet decode 12%
+     9600   1.0 | expressions 24%, list assembly 19%, other duckdb 19%
+     9610   1.0 | expressions 45%, parquet decode 20%, unnest 10%
+     9620   1.0 | expressions 31%, parquet decode 21%, list assembly 14%
+     9630   1.0 | expressions 55%, parquet decode 17%, other duckdb 10%
+     9640   1.0 | expressions 35%, parquet decode 17%, list assembly 15%
+     9650   1.1 | expressions 28%, parquet decode 23%, other duckdb 19%
+     9660   1.0 | expressions 37%, unnest 12%, other duckdb 12%
+     9670   1.0 | expressions 29%, parquet decode 17%, other duckdb 12%
+     9680   1.0 | expressions 40%, list assembly 17%, other duckdb 17%
+     9690   1.0 | expressions 39%, parquet decode 19%, unnest 12%
+     9700   1.0 | expressions 35%, parquet decode 25%, other duckdb 10%
+     9710   1.0 | expressions 42%, parquet decode 15%, other duckdb 10%
+     9720   1.1 | expressions 30%, other duckdb 19%, parquet decode 14%
+     9730   1.0 | expressions 43%, parquet decode 20%, list assembly 10%
+     9740   1.1 | expressions 35%, parquet decode 23%, list assembly 11%
+     9750   1.0 | expressions 41%, parquet decode 14%, list assembly 12%
+     9760   1.0 | expressions 34%, libc (memcpy/malloc/...) 17%, parquet decode 17%
+     9770   1.1 | expressions 40%, parquet decode 19%, list assembly 9%
+     9780   1.0 | expressions 41%, parquet decode 15%, list assembly 10%
+     9790   1.0 | expressions 41%, parquet decode 21%, list assembly 12%
+     9800   1.0 | expressions 35%, parquet decode 15%, libc (memcpy/malloc/...) 12%
+     9810   1.0 | parquet decode 33%, expressions 33%, other duckdb 7%
+     9820   1.0 | expressions 43%, parquet decode 19%, other duckdb 9%
+     9830   1.0 | expressions 34%, parquet decode 21%, unnest 12%
+     9840   1.0 | expressions 52%, list assembly 15%, unnest 10%
+     9850   1.0 | expressions 50%, list assembly 10%, other duckdb 7%
+     9860   1.0 | expressions 32%, parquet decode 25%, list assembly 12%
+     9870   1.0 | expressions 53%, parquet decode 17%, other duckdb 9%
+     9880   1.1 | expressions 30%, parquet decode 19%, libc (memcpy/malloc/...) 16%
+     9890   1.0 | expressions 35%, parquet decode 15%, list assembly 15%
+     9900   1.0 | expressions 22%, parquet decode 20%, list assembly 17%
+     9910   1.0 | expressions 30%, parquet decode 20%, libc (memcpy/malloc/...) 17%
+     9920   1.0 | expressions 52%, parquet decode 20%, other duckdb 12%
+     9930   1.0 | expressions 34%, other duckdb 21%, parquet decode 19%
+     9940   1.0 | expressions 45%, list assembly 15%, parquet decode 15%
+     9950   1.0 | expressions 34%, parquet decode 26%, other duckdb 14%
+     9960   1.0 | expressions 36%, parquet decode 21%, other duckdb 19%
+     9970   1.0 | expressions 34%, parquet decode 14%, list assembly 9%
+     9980   1.0 | expressions 50%, parquet decode 15%, other duckdb 12%
+     9990   1.0 | expressions 47%, parquet decode 12%, list assembly 12%
+    10000   1.0 | expressions 41%, parquet decode 21%, unnest 14%
+    10010   1.0 | expressions 52%, parquet decode 10%, other duckdb 10%
+    10020   1.0 | expressions 53%, parquet decode 14%, libc (memcpy/malloc/...) 9%
+    10030   1.0 | expressions 40%, list assembly 20%, libc (memcpy/malloc/...) 12%
+    10040   1.0 | expressions 36%, parquet decode 17%, libc (memcpy/malloc/...) 14%
+    10050   1.0 | expressions 41%, parquet decode 26%, unnest 9%
+    10060   1.0 | expressions 34%, parquet decode 19%, libc (memcpy/malloc/...) 12%
+    10070   1.0 | expressions 42%, other duckdb 17%, parquet decode 12%
+    10080   1.0 | expressions 62%, parquet decode 22%, list assembly 7%
+    10090   1.0 | expressions 24%, list assembly 19%, parquet decode 19%
+    10100   1.0 | expressions 58%, parquet decode 19%, unnest 7%
+    10110   1.0 | expressions 37%, parquet decode 20%, other duckdb 12%
+    10120   1.1 | expressions 30%, parquet decode 28%, libc (memcpy/malloc/...) 11%
+    10130   1.0 | expressions 50%, parquet decode 15%, list assembly 7%
+    10140   1.0 | expressions 38%, parquet decode 20%, other duckdb 15%
+    10150   1.0 | expressions 37%, list assembly 17%, parquet decode 17%
+    10160   1.0 | expressions 46%, parquet decode 17%, list assembly 9%
+    10170   1.0 | expressions 41%, parquet decode 19%, other duckdb 9%
+    10180   1.0 | expressions 35%, parquet decode 22%, libc (memcpy/malloc/...) 10%
+    10190   1.0 | expressions 46%, parquet decode 21%, other duckdb 17%
+    10200   1.0 | expressions 60%, parquet decode 15%, list assembly 7%
+    10210   1.0 | expressions 40%, parquet decode 17%, list assembly 15%
+    10220   1.0 | expressions 46%, parquet decode 21%, libc (memcpy/malloc/...) 12%
+    10230   1.0 | expressions 30%, unnest 20%, other duckdb 17%
+    10240   1.0 | expressions 46%, parquet decode 17%, other duckdb 12%
+    10250   1.0 | expressions 42%, parquet decode 17%, list assembly 12%
+    10260   1.1 | expressions 35%, parquet decode 26%, list assembly 21%
+    10270   1.0 | expressions 37%, parquet decode 15%, other duckdb 12%
+    10280   1.0 | parquet decode 29%, expressions 26%, list assembly 9%
+    10290   1.0 | expressions 31%, list assembly 17%, other duckdb 17%
+    10300   1.0 | expressions 45%, parquet decode 20%, other duckdb 12%
+    10310   1.0 | expressions 42%, list assembly 20%, parquet decode 15%
+    10320   1.0 | expressions 50%, parquet decode 15%, list assembly 12%
+    10330   1.0 | expressions 46%, parquet decode 19%, list assembly 12%
+    10340   1.0 | expressions 46%, parquet decode 17%, other duckdb 14%
+    10350   1.1 | expressions 35%, other duckdb 19%, parquet decode 11%
+    10360   1.0 | expressions 43%, parquet decode 24%, list assembly 9%
+    10370   1.0 | expressions 40%, libc (memcpy/malloc/...) 17%, parquet decode 15%
+    10380   1.0 | list assembly 27%, expressions 25%, parquet decode 22%
+    10390   1.0 | expressions 55%, list assembly 10%, parquet decode 10%
+    10400   1.0 | expressions 41%, other duckdb 19%, parquet decode 12%
+    10410   1.0 | expressions 42%, parquet decode 20%, libc (memcpy/malloc/...) 15%
+    10420   1.0 | expressions 35%, parquet decode 20%, other duckdb 12%
+    10430   1.0 | expressions 46%, other duckdb 19%, libc (memcpy/malloc/...) 12%
+    10440   1.0 | expressions 32%, other duckdb 17%, parquet decode 15%
+    10450   1.0 | expressions 41%, parquet decode 19%, unnest 12%
+    10460   1.0 | expressions 30%, kernel 27%, parquet decode 17%
+    10470   1.0 | expressions 48%, parquet decode 14%, libc (memcpy/malloc/...) 14%
+    10480   1.0 | expressions 55%, parquet decode 15%, list assembly 10%
+    10490   1.0 | expressions 30%, parquet decode 22%, other duckdb 12%
+    10500   1.0 | expressions 58%, parquet decode 12%, list assembly 7%
+    10510   1.0 | expressions 46%, parquet decode 14%, other duckdb 9%
+    10520   1.0 | expressions 32%, parquet decode 22%, libc (memcpy/malloc/...) 10%
+    10530   1.0 | expressions 32%, parquet decode 20%, list assembly 15%
+    10540   1.0 | expressions 34%, parquet decode 21%, list assembly 17%
+    10550   1.0 | expressions 45%, parquet decode 17%, list assembly 15%
+    10560   1.0 | expressions 40%, parquet decode 27%, list assembly 12%
+    10570   1.0 | expressions 47%, list assembly 20%, parquet decode 15%
+    10580   1.0 | expressions 39%, parquet decode 17%, list assembly 12%
+    10590   1.0 | expressions 34%, parquet decode 29%, list assembly 14%
+    10600   1.0 | expressions 40%, parquet decode 22%, list assembly 12%
+    10610   1.0 | expressions 46%, list assembly 14%, parquet decode 14%
+    10620   1.0 | expressions 43%, parquet decode 17%, other duckdb 14%
+    10630   1.0 | parquet decode 25%, expressions 22%, list assembly 17%
+    10640   1.1 | expressions 38%, list assembly 16%, parquet decode 16%
+    10650   1.0 | expressions 48%, parquet decode 14%, libc (memcpy/malloc/...) 9%
+    10660   1.0 | expressions 35%, parquet decode 22%, list assembly 15%
+    10670   1.0 | expressions 37%, other duckdb 25%, list assembly 12%
+    10680   1.0 | expressions 34%, parquet decode 24%, unnest 14%
+    10690   1.0 | expressions 32%, parquet decode 22%, list assembly 17%
+    10700   1.0 | expressions 32%, parquet decode 15%, kernel 12%
+    10710   1.1 | expressions 47%, other duckdb 21%, parquet decode 7%
+    10720   1.0 | expressions 42%, other duckdb 20%, list assembly 12%
+    10730   1.0 | expressions 41%, parquet decode 19%, other duckdb 9%
+    10740   1.0 | expressions 57%, parquet decode 15%, libc (memcpy/malloc/...) 10%
+    10750   1.0 | expressions 39%, parquet decode 21%, libc (memcpy/malloc/...) 12%
+    10760   1.0 | expressions 40%, other duckdb 22%, parquet decode 12%
+    10770   1.0 | expressions 30%, other duckdb 17%, parquet decode 17%
+    10780   1.0 | expressions 43%, parquet decode 21%, list assembly 14%
+    10790   1.0 | expressions 47%, other duckdb 12%, list assembly 12%
+    10800   1.0 | parquet decode 34%, expressions 21%, list assembly 9%
+    10810   1.0 | expressions 43%, other duckdb 14%, parquet decode 14%
+    10820   1.0 | expressions 46%, parquet decode 19%, unnest 9%
+    10830   1.1 | expressions 38%, other duckdb 14%, list assembly 14%
+    10840   1.0 | expressions 45%, parquet decode 12%, other duckdb 10%
+    10850   1.0 | expressions 46%, other duckdb 14%, parquet decode 12%
+    10860   1.0 | expressions 47%, parquet decode 15%, other duckdb 10%
+    10870   1.0 | expressions 34%, other duckdb 14%, parquet decode 14%
+    10880   1.0 | expressions 53%, parquet decode 14%, other duckdb 7%
+    10890   1.0 | expressions 43%, parquet decode 14%, other duckdb 12%
+    10900   1.0 | expressions 41%, kernel 23%, parquet decode 10%
+    10910   1.0 | expressions 41%, other duckdb 17%, libc (memcpy/malloc/...) 9%
+    10920   1.0 | parquet decode 33%, expressions 30%, other duckdb 15%
+    10930   1.0 | expressions 30%, parquet decode 27%, list assembly 15%
+    10940   1.1 | expressions 35%, parquet decode 19%, list assembly 16%
+    10950   1.0 | expressions 30%, parquet decode 22%, libc (memcpy/malloc/...) 15%
+    10960   1.0 | expressions 39%, parquet decode 19%, kernel 14%
+    10970   1.0 | expressions 48%, other duckdb 14%, parquet decode 12%
+    10980   1.0 | expressions 36%, parquet decode 17%, list assembly 12%
+    10990   1.0 | expressions 30%, other duckdb 25%, list assembly 20%
+    11000   1.0 | expressions 55%, list assembly 15%, parquet decode 10%
+    11010   1.0 | parquet decode 30%, expressions 25%, list assembly 17%
+    11020   1.0 | expressions 41%, parquet decode 24%, other duckdb 12%
+    11030   1.0 | expressions 31%, parquet decode 24%, list assembly 9%
+    11040   1.0 | expressions 45%, other duckdb 17%, list assembly 12%
+    11050   1.0 | expressions 35%, parquet decode 17%, list assembly 12%
+    11060   1.0 | expressions 43%, parquet decode 9%, other duckdb 9%
+    11070   1.0 | expressions 27%, parquet decode 17%, list assembly 12%
+    11080   1.0 | expressions 39%, parquet decode 19%, libc (memcpy/malloc/...) 12%
+    11090   1.0 | expressions 43%, parquet decode 19%, list assembly 12%
+    11100   1.0 | expressions 40%, parquet decode 22%, list assembly 12%
+    11110   1.0 | expressions 50%, parquet decode 15%, list assembly 12%
+    11120   1.0 | expressions 45%, list assembly 17%, parquet decode 12%
+    11130   1.0 | expressions 32%, libc (memcpy/malloc/...) 12%, list assembly 12%
+    11140   1.0 | expressions 40%, parquet decode 17%, list assembly 15%
+    11150   1.1 | expressions 30%, parquet decode 16%, list assembly 14%
+    11160   1.0 | expressions 51%, other duckdb 14%, parquet decode 14%
+    11170   1.0 | expressions 34%, parquet decode 19%, list assembly 17%
+    11180   1.0 | expressions 46%, other duckdb 14%, parquet decode 12%
+    11190   1.0 | expressions 40%, list assembly 12%, libc (memcpy/malloc/...) 12%
+    11200   1.0 | expressions 42%, parquet decode 25%, list assembly 10%
+    11210   1.0 | expressions 52%, list assembly 20%, parquet decode 15%
+    11220   1.0 | expressions 38%, list assembly 12%, parquet decode 10%
+    11230   1.0 | expressions 53%, parquet decode 14%, list assembly 9%
+    11240   1.0 | expressions 41%, parquet decode 24%, unnest 9%
+    11250   1.0 | expressions 50%, parquet decode 32%, libc (memcpy/malloc/...) 7%
+    11260   1.0 | expressions 42%, parquet decode 27%, other duckdb 10%
+    11270   1.0 | expressions 39%, parquet decode 21%, list assembly 14%
+    11280   1.0 | expressions 42%, parquet decode 25%, libc (memcpy/malloc/...) 10%
+    11290   1.0 | expressions 47%, list assembly 15%, other duckdb 12%
+    11300   1.1 | expressions 35%, unnest 16%, parquet decode 16%
+    11310   1.0 | expressions 32%, list assembly 17%, unnest 15%
+    11320   1.0 | expressions 36%, parquet decode 19%, unnest 12%
+    11330   1.0 | expressions 40%, parquet decode 20%, list assembly 12%
+    11340   1.0 | expressions 36%, parquet decode 26%, other duckdb 12%
+    11350   1.0 | expressions 45%, list assembly 15%, other duckdb 12%
+    11360   1.0 | expressions 35%, other duckdb 17%, kernel 12%
+    11370   1.0 | expressions 40%, other duckdb 15%, parquet decode 15%
+    11380   1.0 | expressions 55%, parquet decode 12%, libc (memcpy/malloc/...) 10%
+    11390   1.0 | expressions 42%, parquet decode 17%, list assembly 12%
+    11400   1.0 | expressions 42%, parquet decode 20%, unnest 10%
+    11410   1.0 | expressions 34%, other duckdb 14%, parquet decode 14%
+    11420   1.0 | expressions 39%, parquet decode 14%, libc (memcpy/malloc/...) 12%
+    11430   1.0 | expressions 37%, parquet decode 22%, libc (memcpy/malloc/...) 10%
+    11440   1.1 | expressions 38%, parquet decode 19%, other duckdb 11%
+    11450   1.0 | expressions 32%, parquet decode 22%, other duckdb 15%
+    11460   1.0 | expressions 35%, parquet decode 17%, list assembly 15%
+    11470   1.0 | expressions 42%, parquet decode 17%, list assembly 15%
+    11480   1.0 | expressions 41%, parquet decode 21%, libc (memcpy/malloc/...) 9%
+    11490   1.0 | expressions 40%, parquet decode 17%, libc (memcpy/malloc/...) 12%
+    11500   1.0 | expressions 42%, parquet decode 20%, other duckdb 15%
+    11510   1.1 | expressions 35%, parquet decode 19%, unnest 16%
+    11520   1.0 | expressions 42%, parquet decode 17%, list assembly 10%
+    11530   1.0 | expressions 43%, list assembly 17%, parquet decode 17%
+    11540   1.0 | expressions 32%, parquet decode 25%, unnest 10%
+    11550   1.0 | expressions 41%, parquet decode 17%, other duckdb 14%
+    11560   1.0 | expressions 34%, parquet decode 24%, list assembly 19%
+    11570   1.0 | expressions 55%, parquet decode 12%, list assembly 10%
+    11580   1.0 | expressions 51%, parquet decode 17%, libc (memcpy/malloc/...) 14%
+    11590   1.0 | expressions 53%, libc (memcpy/malloc/...) 9%, parquet decode 9%
+    11600   1.0 | expressions 45%, parquet decode 20%, libc (memcpy/malloc/...) 10%
+    11610   1.0 | expressions 55%, list assembly 15%, unnest 10%
+    11620   1.0 | expressions 34%, parquet decode 26%, list assembly 19%
+    11630   1.0 | expressions 53%, parquet decode 19%, list assembly 7%
+    11640   1.0 | expressions 35%, parquet decode 20%, libc (memcpy/malloc/...) 12%
+    11650   1.0 | expressions 34%, parquet decode 24%, list assembly 12%
+    11660   1.0 | expressions 50%, libc (memcpy/malloc/...) 12%, other duckdb 7%
+    11670   1.0 | expressions 47%, parquet decode 15%, list assembly 12%
+    11680   1.0 | expressions 42%, parquet decode 15%, other duckdb 15%
+    11690   1.0 | expressions 42%, parquet decode 15%, other duckdb 15%
+    11700   1.1 | expressions 40%, parquet decode 19%, other duckdb 11%
+    11710   1.0 | expressions 42%, parquet decode 20%, list assembly 12%
+    11720   1.0 | expressions 41%, list assembly 12%, other duckdb 9%
+    11730   1.0 | expressions 43%, list assembly 19%, other duckdb 17%
+    11740   1.1 | expressions 40%, other duckdb 19%, list assembly 11%
+    11750   1.0 | expressions 34%, libc (memcpy/malloc/...) 17%, list assembly 12%
+    11760   1.0 | expressions 35%, other duckdb 17%, list assembly 15%
+    11770   1.1 | parquet decode 33%, expressions 30%, libc (memcpy/malloc/...) 11%
+    11780   1.0 | expressions 50%, parquet decode 12%, libc (memcpy/malloc/...) 12%
+    11790   1.0 | expressions 50%, parquet decode 15%, other duckdb 10%
+    11800   1.0 | expressions 40%, parquet decode 22%, libc (memcpy/malloc/...) 15%
+    11810   1.0 | expressions 39%, parquet decode 24%, libc (memcpy/malloc/...) 12%
+    11820   1.1 | expressions 47%, other duckdb 19%, libc (memcpy/malloc/...) 9%
+    11830   1.0 | expressions 40%, parquet decode 30%, libc (memcpy/malloc/...) 7%
+    11840   1.0 | expressions 48%, parquet decode 12%, other duckdb 12%
+    11850   1.0 | expressions 35%, list assembly 22%, parquet decode 17%
+    11860   1.0 | expressions 50%, other duckdb 17%, parquet decode 12%
+    11870   1.0 | expressions 37%, parquet decode 25%, list assembly 12%
+    11880   1.0 | parquet decode 34%, expressions 21%, list assembly 14%
+    11890   1.1 | expressions 47%, parquet decode 11%, list assembly 11%
+    11900   1.0 | expressions 40%, other duckdb 17%, parquet decode 17%
+    11910   1.1 | expressions 33%, parquet decode 21%, unnest 11%
+    11920   1.0 | expressions 32%, parquet decode 22%, list assembly 20%
+    11930   1.0 | expressions 31%, other duckdb 21%, parquet decode 17%
+    11940   1.0 | expressions 42%, parquet decode 20%, unnest 12%
+    11950   1.0 | expressions 35%, parquet decode 20%, list assembly 12%
+    11960   1.1 | expressions 50%, parquet decode 19%, other duckdb 11%
+    11970   1.0 | expressions 35%, parquet decode 22%, other duckdb 15%
+    11980   1.0 | expressions 37%, parquet decode 22%, other duckdb 15%
+    11990   1.0 | expressions 47%, other duckdb 17%, parquet decode 10%
+    12000   1.1 | expressions 33%, parquet decode 16%, other duckdb 16%
+    12010   1.0 | expressions 45%, parquet decode 25%, libc (memcpy/malloc/...) 10%
+    12020   1.0 | expressions 37%, parquet decode 22%, other duckdb 12%
+    12030   1.0 | expressions 46%, other duckdb 24%, parquet decode 12%
+    12040   1.0 | expressions 48%, parquet decode 12%, other duckdb 12%
+    12050   1.0 | expressions 34%, parquet decode 14%, other duckdb 12%
+    12060   1.0 | expressions 35%, parquet decode 27%, other duckdb 10%
+    12070   1.0 | expressions 39%, parquet decode 19%, libc (memcpy/malloc/...) 9%
+    12080   1.0 | expressions 67%, parquet decode 10%, libc (memcpy/malloc/...) 7%
+    12090   1.0 | expressions 45%, parquet decode 17%, libc (memcpy/malloc/...) 15%
+    12100   1.1 | expressions 32%, parquet decode 23%, libc (memcpy/malloc/...) 11%
+    12110   1.0 | expressions 47%, parquet decode 17%, list assembly 15%
+    12120   1.1 | expressions 35%, parquet decode 21%, other duckdb 11%
+    12130   1.0 | expressions 48%, libc (memcpy/malloc/...) 14%, parquet decode 14%
+    12140   1.0 | expressions 35%, parquet decode 25%, other duckdb 10%
+    12150   1.0 | expressions 51%, parquet decode 19%, libc (memcpy/malloc/...) 14%
+    12160   1.0 | expressions 60%, parquet decode 12%, other duckdb 10%
+    12170   1.0 | expressions 32%, list assembly 17%, parquet decode 15%
+    12180   1.0 | expressions 52%, list assembly 12%, parquet decode 10%
+    12190   1.0 | expressions 42%, parquet decode 20%, list assembly 10%
+    12200   1.0 | expressions 40%, parquet decode 25%, unnest 12%
+    12210   1.0 | expressions 41%, other duckdb 12%, list assembly 10%
+    12220   1.0 | expressions 27%, libc (memcpy/malloc/...) 17%, parquet decode 15%
+    12230   1.0 | expressions 30%, list assembly 22%, parquet decode 17%
+    12240   1.1 | expressions 26%, parquet decode 19%, list assembly 14%
+    12250   1.0 | expressions 42%, parquet decode 15%, libc (memcpy/malloc/...) 12%
+    12260   1.0 | expressions 35%, list assembly 15%, parquet decode 12%
+    12270   1.0 | expressions 42%, parquet decode 17%, list assembly 10%
+    12280   1.0 | expressions 29%, parquet decode 19%, other duckdb 12%
+    12290   1.0 | expressions 36%, parquet decode 26%, other duckdb 9%
+    12300   1.0 | expressions 42%, list assembly 15%, parquet decode 12%
+    12310   1.0 | expressions 46%, parquet decode 19%, kernel 12%
+    12320   1.0 | expressions 52%, list assembly 15%, unnest 12%
+    12330   1.0 | expressions 33%, parquet decode 17%, kernel 10%
+    12340   1.0 | expressions 45%, parquet decode 15%, list assembly 10%
+    12350   1.0 | expressions 42%, parquet decode 12%, unnest 12%
+    12360   1.1 | expressions 30%, parquet decode 18%, list assembly 13%
+    12370   1.0 | expressions 42%, parquet decode 12%, libc (memcpy/malloc/...) 10%
+    12380   1.0 | expressions 39%, parquet decode 26%, list assembly 9%
+    12390   1.0 | expressions 37%, parquet decode 22%, list assembly 15%
+    12400   1.0 | expressions 26%, parquet decode 24%, list assembly 12%
+    12410   1.0 | expressions 48%, parquet decode 14%, libc (memcpy/malloc/...) 9%
+    12420   1.0 | expressions 45%, list assembly 15%, parquet decode 12%
+    12430   1.1 | expressions 30%, parquet decode 23%, libc (memcpy/malloc/...) 14%
+    12440   1.0 | expressions 42%, parquet decode 17%, list assembly 12%
+    12450   1.0 | expressions 46%, parquet decode 24%, libc (memcpy/malloc/...) 7%
+    12460   1.0 | expressions 41%, other duckdb 19%, list assembly 17%
+    12470   1.0 | expressions 32%, parquet decode 27%, list assembly 12%
+    12480   1.0 | expressions 42%, parquet decode 25%, other duckdb 12%
+    12490   1.0 | expressions 35%, kernel 25%, parquet decode 12%
+    12500   1.1 | expressions 37%, parquet decode 23%, libc (memcpy/malloc/...) 9%
+    12510   1.0 | expressions 45%, unnest 12%, parquet decode 12%
+    12520   1.0 | expressions 34%, parquet decode 12%, list assembly 12%
+    12530   1.0 | expressions 50%, parquet decode 15%, other duckdb 10%
+    12540   1.0 | expressions 35%, parquet decode 15%, list assembly 15%
+    12550   1.1 | expressions 50%, parquet decode 11%, other duckdb 11%
+    12560   1.0 | expressions 42%, parquet decode 17%, list assembly 12%
+    12570   1.0 | expressions 53%, parquet decode 19%, kernel 9%
+    12580   1.0 | parquet decode 31%, expressions 26%, other duckdb 12%
+    12590   1.0 | expressions 48%, parquet decode 12%, kernel 7%
+    12600   1.0 | expressions 39%, parquet decode 29%, other duckdb 9%
+    12610   1.0 | expressions 32%, parquet decode 20%, other duckdb 12%
+    12620   1.0 | expressions 60%, parquet decode 15%, list assembly 7%
+    12630   1.0 | expressions 37%, parquet decode 25%, list assembly 12%
+    12640   1.0 | expressions 32%, list assembly 20%, libc (memcpy/malloc/...) 12%
+    12650   1.0 | expressions 40%, parquet decode 30%, other duckdb 10%
+    12660   1.0 | expressions 31%, list assembly 24%, parquet decode 19%
+    12670   1.0 | expressions 34%, parquet decode 19%, libc (memcpy/malloc/...) 17%
+    12680   1.0 | expressions 35%, parquet decode 22%, unnest 10%
+    12690   1.0 | expressions 43%, unnest 17%, parquet decode 14%
+    12700   1.0 | expressions 35%, list assembly 22%, parquet decode 20%
+    12710   1.1 | expressions 52%, libc (memcpy/malloc/...) 14%, other duckdb 11%
+    12720   1.0 | expressions 43%, parquet decode 19%, list assembly 14%
+    12730   1.1 | expressions 47%, parquet decode 23%, kernel 7%
+    12740   1.0 | expressions 47%, other duckdb 17%, list assembly 10%
+    12750   1.0 | expressions 35%, parquet decode 15%, other duckdb 15%
+    12760   1.0 | expressions 46%, parquet decode 17%, list assembly 12%
+    12770   1.0 | expressions 40%, parquet decode 15%, libc (memcpy/malloc/...) 12%
+    12780   1.0 | expressions 30%, parquet decode 23%, libc (memcpy/malloc/...) 15%
+    12790   1.0 | expressions 34%, parquet decode 26%, list assembly 12%
+    12800   1.0 | expressions 37%, parquet decode 15%, libc (memcpy/malloc/...) 12%
+    12810   1.0 | expressions 42%, parquet decode 15%, list assembly 12%
+    12820   1.0 | expressions 41%, parquet decode 20%, list assembly 10%
+    12830   1.0 | expressions 39%, parquet decode 19%, other duckdb 12%
+    12840   1.0 | expressions 41%, parquet decode 19%, other duckdb 12%
+    12850   1.0 | expressions 38%, parquet decode 23%, other duckdb 12%
+    12860   1.0 | expressions 32%, parquet decode 25%, other duckdb 17%
+    12870   1.0 | expressions 41%, parquet decode 19%, list assembly 9%
+    12880   1.0 | expressions 50%, list assembly 17%, other duckdb 12%
+    12890   1.0 | expressions 37%, parquet decode 22%, libc (memcpy/malloc/...) 15%
+    12900   1.0 | expressions 48%, other duckdb 19%, parquet decode 12%
+    12910   1.0 | expressions 50%, other duckdb 12%, aggregate 7%
+    12920   1.0 | expressions 40%, parquet decode 17%, unnest 10%
+    12930   1.1 | expressions 45%, unnest 14%, list assembly 11%
+    12940   1.1 | expressions 42%, libc (memcpy/malloc/...) 16%, list assembly 7%
+    12950   1.0 | expressions 51%, parquet decode 14%, libc (memcpy/malloc/...) 12%
+    12960   1.0 | expressions 37%, parquet decode 25%, list assembly 12%
+    12970   1.1 | expressions 38%, parquet decode 23%, list assembly 16%
+    12980   1.0 | expressions 51%, parquet decode 17%, other duckdb 10%
+    12990   1.0 | expressions 39%, list assembly 17%, parquet decode 12%
+    13000   1.0 | expressions 57%, parquet decode 10%, unnest 10%
+    13010   1.0 | expressions 43%, parquet decode 21%, unnest 7%
+    13020   1.0 | expressions 42%, parquet decode 17%, list assembly 15%
+    13030   1.0 | expressions 37%, parquet decode 25%, libc (memcpy/malloc/...) 15%
+    13040   1.0 | expressions 39%, other duckdb 17%, list assembly 9%
+    13050   1.0 | expressions 37%, parquet decode 30%, libc (memcpy/malloc/...) 12%
+    13060   1.0 | expressions 46%, parquet decode 15%, list assembly 12%
+    13070   1.1 | expressions 35%, parquet decode 21%, list assembly 14%
+    13080   1.0 | expressions 41%, parquet decode 17%, list assembly 12%
+    13090   1.0 | expressions 40%, parquet decode 22%, list assembly 15%
+    13100   1.0 | expressions 35%, parquet decode 17%, other duckdb 15%
+    13110   1.0 | expressions 36%, parquet decode 19%, list assembly 14%
+    13120   1.0 | expressions 36%, parquet decode 21%, list assembly 12%
+    13130   1.0 | expressions 47%, parquet decode 20%, list assembly 12%
+    13140   1.0 | expressions 48%, parquet decode 17%, other duckdb 9%
+    13150   1.0 | expressions 41%, parquet decode 19%, list assembly 12%
+    13160   1.0 | expressions 42%, parquet decode 20%, other duckdb 12%
+    13170   1.0 | expressions 45%, other duckdb 15%, parquet decode 12%
+    13180   1.1 | expressions 40%, parquet decode 23%, list assembly 9%
+    13190   1.0 | expressions 47%, parquet decode 15%, other duckdb 12%
+    13200   1.0 | expressions 42%, parquet decode 17%, libc (memcpy/malloc/...) 15%
+    13210   1.0 | expressions 36%, parquet decode 14%, list assembly 14%
+    13220   1.0 | expressions 35%, other duckdb 20%, list assembly 12%
+    13230   1.0 | expressions 40%, parquet decode 15%, other duckdb 12%
+    13240   1.0 | expressions 50%, parquet decode 17%, libc (memcpy/malloc/...) 12%
+    13250   1.1 | expressions 35%, parquet decode 19%, other duckdb 14%
+    13260   1.0 | expressions 36%, parquet decode 17%, list assembly 14%
+    13270   1.0 | expressions 51%, parquet decode 12%, other duckdb 10%
+    13280   1.0 | expressions 34%, parquet decode 17%, list assembly 14%
+    13290   1.0 | expressions 37%, other duckdb 15%, kernel 15%
+    13300   1.1 | expressions 27%, parquet decode 23%, other duckdb 18%
+    13310   1.0 | expressions 35%, parquet decode 20%, list assembly 17%
+    13320   1.0 | expressions 30%, parquet decode 22%, list assembly 12%
+    13330   1.0 | expressions 51%, list assembly 19%, other duckdb 9%
+    13340   1.0 | expressions 27%, list assembly 17%, parquet decode 15%
+    13350   1.0 | expressions 43%, list assembly 19%, parquet decode 14%
+    13360   1.0 | expressions 42%, parquet decode 20%, list assembly 15%
+    13370   1.0 | expressions 31%, parquet decode 26%, other duckdb 12%
+    13380   1.0 | expressions 45%, parquet decode 20%, other duckdb 15%
+    13390   1.0 | expressions 41%, parquet decode 21%, unnest 12%
+    13400   1.0 | expressions 48%, parquet decode 17%, list assembly 12%
+    13410   1.0 | expressions 40%, unnest 12%, parquet decode 12%
+    13420   1.0 | expressions 48%, other duckdb 14%, parquet decode 12%
+    13430   1.0 | expressions 35%, parquet decode 22%, list assembly 15%
+    13440   1.0 | expressions 52%, parquet decode 12%, other duckdb 10%
+    13450   1.0 | expressions 46%, parquet decode 14%, list assembly 12%
+    13460   1.0 | expressions 43%, parquet decode 19%, other duckdb 9%
+    13470   1.0 | expressions 40%, parquet decode 20%, other duckdb 12%
+    13480   1.0 | expressions 47%, parquet decode 22%, other duckdb 7%
+    13490   1.0 | expressions 43%, list assembly 12%, unnest 12%
+    13500   1.0 | expressions 45%, parquet decode 17%, list assembly 12%
+    13510   1.0 | expressions 31%, parquet decode 21%, other duckdb 19%
+    13520   1.0 | expressions 36%, parquet decode 19%, other duckdb 12%
+    13530   1.0 | expressions 24%, other duckdb 19%, list assembly 17%
+    13540   1.0 | expressions 41%, libc (memcpy/malloc/...) 14%, parquet decode 12%
+    13550   1.0 | expressions 38%, libc (memcpy/malloc/...) 17%, parquet decode 10%
+    13560   1.0 | expressions 41%, parquet decode 19%, other duckdb 9%
+    13570   1.0 | expressions 30%, list assembly 20%, libc (memcpy/malloc/...) 15%
+    13580   1.0 | expressions 41%, parquet decode 12%, libc (memcpy/malloc/...) 12%
+    13590   1.0 | expressions 48%, parquet decode 21%, list assembly 12%
+    13600   1.0 | expressions 36%, parquet decode 21%, other duckdb 14%
+    13610   1.0 | expressions 55%, parquet decode 15%, list assembly 10%
+    13620   1.0 | expressions 47%, parquet decode 17%, other duckdb 12%
+    13630   1.0 | expressions 36%, parquet decode 29%, list assembly 14%
+    13640   1.0 | expressions 42%, list assembly 15%, parquet decode 15%
+    13650   1.1 | expressions 28%, parquet decode 19%, other duckdb 14%
+    13660   1.0 | expressions 39%, libc (memcpy/malloc/...) 17%, list assembly 9%
+    13670   1.0 | expressions 40%, parquet decode 20%, other duckdb 15%
+    13680   1.0 | expressions 42%, parquet decode 30%, other duckdb 10%
+    13690   1.0 | expressions 42%, parquet decode 20%, list assembly 12%
+    13700   1.0 | expressions 36%, parquet decode 19%, list assembly 17%
+    13710   1.0 | expressions 40%, parquet decode 20%, other duckdb 12%
+    13720   1.0 | expressions 43%, list assembly 19%, parquet decode 14%
+    13730   1.0 | expressions 32%, parquet decode 22%, other duckdb 17%
+    13740   1.0 | expressions 40%, parquet decode 22%, list assembly 10%
+    13750   1.0 | expressions 48%, other duckdb 17%, libc (memcpy/malloc/...) 14%
+    13760   1.0 | expressions 45%, parquet decode 17%, list assembly 10%
+    13770   1.0 | expressions 37%, parquet decode 25%, list assembly 12%
+    13780   1.0 | expressions 40%, parquet decode 17%, list assembly 15%
+    13790   1.0 | expressions 52%, parquet decode 20%, other duckdb 7%
+    13800   1.0 | expressions 43%, parquet decode 19%, unnest 7%
+    13810   1.0 | expressions 43%, parquet decode 19%, list assembly 9%
+    13820   1.0 | expressions 50%, list assembly 15%, unnest 12%
+    13830   1.0 | expressions 50%, libc (memcpy/malloc/...) 12%, parquet decode 10%
+    13840   1.0 | expressions 32%, parquet decode 25%, other duckdb 12%
+    13850   1.0 | expressions 47%, list assembly 12%, parquet decode 12%
+    13860   1.0 | expressions 56%, parquet decode 14%, unnest 7%
+    13870   1.0 | expressions 46%, parquet decode 17%, list assembly 9%
+    13880   1.0 | expressions 40%, parquet decode 17%, other duckdb 15%
+    13890   1.1 | expressions 52%, list assembly 11%, unnest 11%
+    13900   1.0 | expressions 42%, parquet decode 20%, other duckdb 12%
+    13910   1.0 | parquet decode 35%, expressions 22%, other duckdb 10%
+    13920   1.0 | expressions 40%, other duckdb 15%, list assembly 12%
+    13930   1.0 | expressions 40%, kernel 12%, list assembly 12%
+    13940   1.1 | expressions 35%, parquet decode 26%, unnest 11%
+    13950   1.0 | expressions 30%, parquet decode 20%, list assembly 12%
+    13960   1.1 | expressions 50%, list assembly 19%, unnest 9%
+    13970   1.0 | expressions 45%, parquet decode 22%, list assembly 10%
+    13980   1.0 | expressions 47%, list assembly 10%, parquet decode 10%
+    13990   1.0 | expressions 62%, parquet decode 17%, other duckdb 7%
+    14000   1.0 | expressions 35%, parquet decode 20%, libc (memcpy/malloc/...) 12%
+    14010   1.1 | expressions 41%, other duckdb 20%, libc (memcpy/malloc/...) 11%
+    14020   1.0 | expressions 50%, list assembly 10%, other duckdb 10%
+    14030   1.1 | expressions 45%, parquet decode 23%, unnest 9%
+    14040   1.0 | expressions 39%, parquet decode 17%, other duckdb 14%
+    14050   1.0 | expressions 37%, other duckdb 15%, parquet decode 15%
+    14060   1.0 | expressions 52%, parquet decode 20%, other duckdb 10%
+    14070   1.0 | parquet decode 26%, expressions 26%, other duckdb 14%
+    14080   1.0 | expressions 40%, list assembly 15%, parquet decode 15%
+    14090   1.0 | expressions 42%, parquet decode 15%, list assembly 15%
+    14100   1.0 | expressions 48%, parquet decode 26%, other duckdb 9%
+    14110   1.0 | expressions 42%, parquet decode 20%, unnest 10%
+    14120   1.0 | expressions 35%, parquet decode 17%, other duckdb 12%
+    14130   1.1 | expressions 52%, libc (memcpy/malloc/...) 9%, other duckdb 9%
+    14140   1.0 | expressions 34%, other duckdb 21%, parquet decode 19%
+    14150   1.0 | expressions 45%, parquet decode 17%, list assembly 15%
+    14160   1.0 | expressions 52%, parquet decode 15%, list assembly 10%
+    14170   1.0 | expressions 36%, parquet decode 21%, other duckdb 12%
+    14180   1.0 | expressions 41%, parquet decode 26%, list assembly 7%
+    14190   1.0 | expressions 27%, parquet decode 22%, libc (memcpy/malloc/...) 15%
+    14200   1.0 | expressions 47%, parquet decode 15%, unnest 12%
+    14210   1.0 | expressions 34%, parquet decode 29%, list assembly 9%
+    14220   1.0 | expressions 50%, parquet decode 17%, list assembly 15%
+    14230   1.0 | expressions 36%, parquet decode 17%, libc (memcpy/malloc/...) 14%
+    14240   1.0 | expressions 25%, other duckdb 22%, list assembly 15%
+    14250   1.0 | expressions 41%, parquet decode 24%, libc (memcpy/malloc/...) 14%
+    14260   1.0 | expressions 56%, parquet decode 9%, other duckdb 9%
+    14270   1.1 | expressions 33%, parquet decode 14%, list assembly 14%
+    14280   1.0 | expressions 35%, parquet decode 20%, other duckdb 12%
+    14290   1.0 | expressions 36%, list assembly 17%, other duckdb 14%
+    14300   1.0 | expressions 50%, other duckdb 15%, list assembly 12%
+    14310   1.0 | expressions 26%, parquet decode 21%, other duckdb 12%
+    14320   1.0 | expressions 48%, list assembly 12%, parquet decode 12%
+    14330   1.0 | expressions 34%, parquet decode 26%, list assembly 17%
+    14340   1.0 | expressions 41%, parquet decode 24%, other duckdb 9%
+    14350   1.0 | expressions 30%, parquet decode 22%, libc (memcpy/malloc/...) 20%
+    14360   1.1 | expressions 33%, libc (memcpy/malloc/...) 16%, parquet decode 16%
+    14370   1.0 | expressions 41%, list assembly 14%, other duckdb 14%
+    14380   1.0 | expressions 45%, parquet decode 17%, list assembly 12%
+    14390   1.0 | expressions 57%, parquet decode 12%, list assembly 12%
+    14400   1.0 | expressions 35%, libc (memcpy/malloc/...) 20%, parquet decode 17%
+    14410   1.0 | expressions 40%, parquet decode 22%, list assembly 15%
+    14420   1.0 | expressions 47%, parquet decode 20%, unnest 12%
+    14430   1.0 | expressions 43%, parquet decode 19%, list assembly 14%
+    14440   1.0 | expressions 37%, parquet decode 25%, libc (memcpy/malloc/...) 10%
+    14450   1.0 | expressions 36%, parquet decode 19%, other duckdb 9%
+    14460   1.0 | expressions 40%, parquet decode 17%, list assembly 12%
+    14470   1.0 | expressions 43%, list assembly 20%, kernel 10%
+    14480   1.0 | expressions 46%, parquet decode 14%, list assembly 14%
+    14490   1.0 | expressions 40%, parquet decode 17%, other duckdb 12%
+    14500   1.0 | expressions 30%, parquet decode 25%, other duckdb 15%
+    14510   1.0 | expressions 50%, parquet decode 12%, other duckdb 10%
+    14520   1.0 | expressions 41%, parquet decode 21%, other duckdb 12%
+    14530   1.0 | expressions 40%, parquet decode 15%, libc (memcpy/malloc/...) 12%
+    14540   1.0 | expressions 48%, list assembly 12%, parquet decode 7%
+    14550   1.0 | expressions 47%, parquet decode 12%, list assembly 12%
+    14560   1.0 | expressions 42%, other duckdb 17%, parquet decode 17%
+    14570   1.0 | expressions 31%, parquet decode 19%, list assembly 17%
+    14580   1.0 | expressions 37%, parquet decode 15%, other duckdb 15%
+    14590   1.1 | expressions 38%, other duckdb 14%, parquet decode 11%
+    14600   1.0 | expressions 34%, parquet decode 17%, list assembly 17%
+    14610   1.0 | expressions 40%, parquet decode 25%, other duckdb 10%
+    14620   1.0 | expressions 50%, other duckdb 17%, unnest 15%
+    14630   1.0 | expressions 47%, parquet decode 20%, list assembly 15%
+    14640   1.0 | expressions 35%, parquet decode 20%, other duckdb 17%
+    14650   1.0 | expressions 50%, other duckdb 15%, list assembly 10%
+    14660   1.0 | expressions 56%, parquet decode 14%, list assembly 12%
+    14670   1.0 | expressions 50%, parquet decode 17%, unnest 10%
+    14680   1.0 | expressions 45%, parquet decode 22%, other duckdb 12%
+    14690   1.0 | expressions 34%, parquet decode 26%, libc (memcpy/malloc/...) 14%
+    14700   1.0 | expressions 35%, parquet decode 17%, list assembly 15%
+    14710   1.0 | expressions 31%, parquet decode 26%, other duckdb 12%
+    14720   1.0 | expressions 45%, parquet decode 15%, other duckdb 10%
+    14730   1.0 | parquet decode 30%, expressions 27%, unnest 10%
+    14740   1.1 | expressions 52%, list assembly 14%, other duckdb 11%
+    14750   1.0 | expressions 37%, other duckdb 17%, kernel 12%
+    14760   1.0 | expressions 34%, list assembly 19%, libc (memcpy/malloc/...) 14%
+    14770   1.0 | expressions 32%, parquet decode 25%, other duckdb 17%
+    14780   1.0 | expressions 40%, parquet decode 22%, other duckdb 12%
+    14790   1.0 | expressions 42%, parquet decode 15%, list assembly 15%
+    14800   1.0 | expressions 43%, unnest 17%, parquet decode 17%
+    14810   1.0 | expressions 39%, libc (memcpy/malloc/...) 14%, unnest 12%
+    14820   1.0 | expressions 47%, parquet decode 15%, list assembly 10%
+    14830   1.1 | expressions 47%, unnest 14%, parquet decode 11%
+    14840   1.0 | expressions 53%, other duckdb 14%, parquet decode 9%
+    14850   1.0 | expressions 48%, other duckdb 9%, parquet decode 9%
+    14860   1.0 | expressions 37%, parquet decode 15%, libc (memcpy/malloc/...) 15%
+    14870   1.0 | expressions 31%, parquet decode 19%, other duckdb 12%
+    14880   1.0 | expressions 41%, parquet decode 26%, other duckdb 9%
+    14890   1.0 | expressions 50%, parquet decode 15%, unnest 7%
+    14900   1.1 | expressions 28%, libc (memcpy/malloc/...) 16%, other duckdb 16%
+    14910   1.0 | expressions 51%, list assembly 15%, unnest 10%
+    14920   1.0 | expressions 45%, libc (memcpy/malloc/...) 15%, parquet decode 10%
+    14930   1.0 | expressions 50%, parquet decode 22%, other duckdb 10%
+    14940   1.0 | expressions 29%, parquet decode 26%, other duckdb 14%
+    14950   1.1 | expressions 52%, parquet decode 21%, other duckdb 7%
+    14960   1.0 | expressions 40%, parquet decode 15%, libc (memcpy/malloc/...) 12%
+    14970   1.0 | expressions 41%, list assembly 17%, other duckdb 12%
+    14980   1.0 | expressions 39%, parquet decode 21%, list assembly 14%
+    14990   1.0 | expressions 37%, parquet decode 22%, list assembly 20%
+    15000   1.0 | expressions 47%, other duckdb 15%, parquet decode 12%
+    15010   1.0 | expressions 36%, list assembly 17%, parquet decode 17%
+    15020   1.0 | expressions 52%, list assembly 12%, parquet decode 10%
+    15030   1.0 | expressions 32%, list assembly 17%, other duckdb 12%
+    15040   1.1 | expressions 42%, other duckdb 16%, parquet decode 11%
+    15050   1.0 | expressions 26%, libc (memcpy/malloc/...) 17%, list assembly 17%
+    15060   1.0 | expressions 42%, list assembly 15%, other duckdb 10%
+    15070   1.0 | expressions 29%, parquet decode 17%, libc (memcpy/malloc/...) 14%
+    15080   1.0 | parquet decode 26%, expressions 24%, libc (memcpy/malloc/...) 14%
+    15090   1.0 | expressions 34%, other duckdb 21%, parquet decode 14%
+    15100   1.0 | expressions 42%, parquet decode 15%, other duckdb 12%
+    15110   1.1 | expressions 42%, parquet decode 21%, kernel 9%
+    15120   1.0 | expressions 32%, parquet decode 27%, unnest 17%
+    15130   1.0 | expressions 41%, list assembly 17%, other duckdb 14%
+    15140   1.0 | expressions 56%, libc (memcpy/malloc/...) 19%, parquet decode 12%
+    15150   1.0 | expressions 30%, parquet decode 27%, list assembly 12%
+    15160   1.0 | expressions 46%, other duckdb 10%, parquet decode 10%
+    15170   1.0 | expressions 32%, parquet decode 22%, list assembly 12%
+    15180   1.1 | expressions 23%, parquet decode 19%, list assembly 16%
+    15190   1.0 | expressions 42%, parquet decode 17%, list assembly 17%
+    15200   1.0 | expressions 55%, libc (memcpy/malloc/...) 15%, list assembly 12%
+    15210   1.0 | expressions 43%, parquet decode 26%, other duckdb 12%
+    15220   1.0 | expressions 37%, parquet decode 20%, list assembly 12%
+    15230   1.0 | expressions 40%, parquet decode 22%, list assembly 17%
+    15240   1.0 | expressions 45%, other duckdb 22%, parquet decode 10%
+    15250   1.1 | expressions 40%, parquet decode 19%, other duckdb 14%
+    15260   1.0 | expressions 43%, parquet decode 17%, unnest 14%
+    15270   1.0 | expressions 30%, list assembly 22%, parquet decode 15%
+    15280   1.0 | expressions 56%, other duckdb 17%, list assembly 9%
+    15290   1.0 | expressions 37%, unnest 15%, parquet decode 12%
+    15300   1.0 | expressions 39%, parquet decode 14%, list assembly 14%
+    15310   1.0 | expressions 40%, parquet decode 12%, list assembly 10%
+    15320   1.1 | expressions 40%, list assembly 14%, parquet decode 14%
+    15330   1.0 | expressions 47%, parquet decode 17%, unnest 10%
+    15340   1.0 | expressions 39%, parquet decode 31%, list assembly 9%
+    15350   1.0 | expressions 30%, parquet decode 22%, list assembly 17%
+    15360   1.0 | expressions 42%, other duckdb 17%, parquet decode 17%
+    15370   1.0 | expressions 45%, other duckdb 15%, parquet decode 15%
+    15380   1.0 | expressions 37%, parquet decode 15%, other duckdb 15%
+    15390   1.0 | expressions 26%, parquet decode 21%, list assembly 14%
+    15400   1.0 | expressions 42%, parquet decode 20%, libc (memcpy/malloc/...) 10%
+    15410   1.0 | expressions 45%, parquet decode 17%, list assembly 15%
+    15420   1.1 | expressions 33%, parquet decode 19%, list assembly 14%
+    15430   1.0 | expressions 40%, parquet decode 20%, unnest 12%
+    15440   1.0 | expressions 41%, other duckdb 17%, parquet decode 14%
+    15450   1.0 | expressions 42%, parquet decode 17%, other duckdb 12%
+    15460   1.0 | expressions 32%, parquet decode 20%, list assembly 12%
+    15470   1.0 | expressions 42%, parquet decode 20%, list assembly 17%
+    15480   1.0 | expressions 37%, other duckdb 22%, parquet decode 15%
+    15490   1.0 | expressions 41%, parquet decode 17%, list assembly 9%
+    15500   1.0 | expressions 32%, parquet decode 17%, libc (memcpy/malloc/...) 12%
+    15510   1.0 | expressions 51%, list assembly 14%, other duckdb 9%
+    15520   1.0 | expressions 35%, parquet decode 17%, list assembly 15%
+    15530   1.0 | expressions 37%, other duckdb 17%, parquet decode 10%
+    15540   1.0 | expressions 48%, parquet decode 12%, list assembly 12%
+    15550   1.0 | expressions 47%, parquet decode 25%, libc (memcpy/malloc/...) 7%
+    15560   1.0 | expressions 35%, list assembly 17%, other duckdb 17%
+    15570   1.0 | expressions 46%, parquet decode 19%, libc (memcpy/malloc/...) 14%
+    15580   1.0 | expressions 46%, other duckdb 14%, parquet decode 12%
+    15590   1.0 | expressions 31%, parquet decode 17%, other duckdb 17%
+    15600   1.0 | expressions 50%, parquet decode 20%, other duckdb 10%
+    15610   1.0 | expressions 43%, parquet decode 19%, other duckdb 9%
+    15620   1.0 | expressions 47%, other duckdb 10%, libc (memcpy/malloc/...) 10%
+    15630   1.0 | expressions 50%, parquet decode 15%, unnest 10%
+    15640   1.0 | expressions 55%, list assembly 17%, libc (memcpy/malloc/...) 7%
+    15650   1.1 | expressions 35%, parquet decode 19%, list assembly 14%
+    15660   1.0 | expressions 30%, parquet decode 20%, other duckdb 20%
+    15670   1.0 | expressions 30%, list assembly 20%, parquet decode 17%
+    15680   1.0 | expressions 32%, list assembly 20%, parquet decode 17%
+    15690   1.0 | expressions 50%, other duckdb 15%, parquet decode 15%
+    15700   1.0 | expressions 43%, parquet decode 12%, other duckdb 9%
+    15710   1.0 | expressions 45%, parquet decode 17%, list assembly 12%
+    15720   1.0 | expressions 29%, parquet decode 24%, other duckdb 17%
+    15730   1.0 | expressions 47%, parquet decode 15%, other duckdb 12%
+    15740   1.0 | expressions 35%, parquet decode 22%, list assembly 12%
+    15750   1.0 | expressions 43%, parquet decode 14%, other duckdb 12%
+    15760   1.0 | expressions 48%, parquet decode 17%, libc (memcpy/malloc/...) 10%
+    15770   1.1 | expressions 34%, parquet decode 27%, libc (memcpy/malloc/...) 11%
+    15780   1.0 | expressions 52%, parquet decode 15%, other duckdb 12%
+    15790   1.0 | expressions 51%, list assembly 9%, other duckdb 9%
+    15800   1.0 | expressions 53%, parquet decode 14%, libc (memcpy/malloc/...) 12%
+    15810   1.0 | expressions 40%, parquet decode 32%, other duckdb 10%
+    15820   1.0 | expressions 39%, parquet decode 17%, unnest 12%
+    15830   1.0 | expressions 55%, parquet decode 15%, list assembly 12%
+    15840   1.0 | expressions 41%, parquet decode 19%, unnest 9%
+    15850   1.0 | expressions 31%, parquet decode 19%, libc (memcpy/malloc/...) 17%
+    15860   1.0 | expressions 41%, parquet decode 17%, unnest 14%
+    15870   1.0 | expressions 41%, list assembly 17%, parquet decode 17%
+    15880   1.0 | expressions 52%, list assembly 17%, parquet decode 12%
+    15890   1.1 | expressions 48%, parquet decode 18%, unnest 6%
+    15900   1.0 | expressions 37%, parquet decode 17%, list assembly 12%
+    15910   1.0 | expressions 40%, parquet decode 17%, libc (memcpy/malloc/...) 15%
+    15920   1.0 | expressions 40%, list assembly 15%, parquet decode 12%
+    15930   1.0 | expressions 29%, parquet decode 21%, other duckdb 14%
+    15940   1.0 | expressions 63%, vectors 7%, parquet decode 7%
+    15950   1.0 | expressions 42%, unnest 12%, parquet decode 10%
+    15960   1.0 | expressions 42%, parquet decode 17%, other duckdb 10%
+    15970   1.0 | expressions 43%, list assembly 17%, parquet decode 14%
+    15980   1.0 | expressions 37%, list assembly 15%, unnest 10%
+    15990   1.0 | expressions 36%, list assembly 21%, parquet decode 14%
+    16000   1.0 | expressions 46%, parquet decode 14%, unnest 9%
+    16010   1.0 | expressions 29%, parquet decode 19%, list assembly 14%
+    16020   1.0 | expressions 55%, parquet decode 15%, list assembly 10%
+    16030   1.0 | expressions 42%, other duckdb 17%, unnest 12%
+    16040   1.0 | expressions 46%, parquet decode 17%, other duckdb 9%
+    16050   1.0 | parquet decode 27%, expressions 27%, unnest 17%
+    16060   1.0 | expressions 34%, parquet decode 19%, list assembly 12%
+    16070   1.1 | expressions 35%, parquet decode 16%, list assembly 14%
+    16080   1.0 | expressions 48%, parquet decode 17%, libc (memcpy/malloc/...) 9%
+    16090   1.0 | expressions 47%, list assembly 15%, libc (memcpy/malloc/...) 10%
+    16100   1.0 | expressions 32%, parquet decode 15%, other duckdb 15%
+    16110   1.0 | expressions 45%, parquet decode 25%, list assembly 15%
+    16120   1.0 | expressions 43%, other duckdb 14%, list assembly 12%
+    16130   1.0 | expressions 36%, libc (memcpy/malloc/...) 14%, parquet decode 14%
+    16140   1.0 | expressions 42%, parquet decode 30%, list assembly 12%
+    16150   1.0 | expressions 45%, other duckdb 12%, list assembly 10%
+    16160   1.0 | expressions 47%, parquet decode 15%, list assembly 12%
+    16170   1.0 | expressions 34%, parquet decode 24%, unnest 17%
+    16180   1.0 | expressions 41%, parquet decode 14%, libc (memcpy/malloc/...) 12%
+    16190   1.0 | expressions 35%, parquet decode 20%, other duckdb 15%
+    16200   1.0 | expressions 27%, parquet decode 25%, list assembly 15%
+    16210   1.0 | expressions 50%, parquet decode 22%, kernel 10%
+    16220   1.0 | expressions 35%, other duckdb 17%, parquet decode 15%
+    16230   1.0 | expressions 35%, libc (memcpy/malloc/...) 17%, list assembly 17%
+    16240   1.0 | expressions 40%, parquet decode 22%, list assembly 12%
+    16250   1.0 | expressions 34%, parquet decode 21%, libc (memcpy/malloc/...) 17%
+    16260   1.0 | expressions 39%, parquet decode 19%, other duckdb 17%
+    16270   1.0 | expressions 50%, unnest 15%, parquet decode 12%
+    16280   1.0 | expressions 45%, list assembly 15%, unnest 12%
+    16290   1.0 | expressions 40%, list assembly 22%, parquet decode 12%
+    16300   1.0 | expressions 45%, parquet decode 22%, list assembly 10%
+    16310   1.0 | expressions 31%, parquet decode 21%, list assembly 14%
+    16320   1.0 | expressions 45%, parquet decode 17%, other duckdb 10%
+    16330   1.0 | expressions 39%, other duckdb 17%, list assembly 12%
+    16340   1.0 | expressions 42%, parquet decode 20%, list assembly 17%
+    16350   1.0 | expressions 50%, parquet decode 20%, other duckdb 15%
+    16360   1.1 | expressions 42%, parquet decode 16%, libc (memcpy/malloc/...) 9%
+    16370   1.0 | expressions 43%, parquet decode 17%, list assembly 14%
+    16380   1.0 | expressions 39%, parquet decode 19%, other duckdb 17%
+    16390   1.0 | expressions 35%, parquet decode 20%, other duckdb 17%
+    16400   1.0 | expressions 53%, list assembly 9%, other duckdb 9%
+    16410   1.0 | expressions 52%, parquet decode 17%, libc (memcpy/malloc/...) 12%
+    16420   1.0 | expressions 43%, parquet decode 17%, list assembly 17%
+    16430   1.0 | expressions 43%, parquet decode 24%, list assembly 9%
+    16440   1.0 | expressions 47%, list assembly 17%, unnest 10%
+    16450   1.0 | expressions 40%, parquet decode 17%, other duckdb 12%
+    16460   1.0 | expressions 37%, parquet decode 22%, other duckdb 17%
+    16470   1.0 | expressions 46%, parquet decode 17%, other duckdb 12%
+    16480   1.0 | expressions 41%, parquet decode 21%, other duckdb 14%
+    16490   1.0 | expressions 45%, parquet decode 15%, list assembly 12%
+    16500   1.0 | expressions 40%, libc (memcpy/malloc/...) 12%, parquet decode 12%
+    16510   1.0 | expressions 51%, parquet decode 14%, list assembly 9%
+    16520   1.0 | expressions 41%, parquet decode 12%, other duckdb 12%
+    16530   1.0 | expressions 41%, other duckdb 17%, parquet decode 17%
+    16540   1.0 | expressions 48%, parquet decode 14%, unnest 12%
+    16550   1.0 | expressions 42%, other duckdb 12%, parquet decode 12%
+    16560   1.0 | expressions 47%, parquet decode 15%, unnest 10%
+    16570   1.0 | expressions 39%, parquet decode 21%, unnest 12%
+    16580   1.0 | expressions 37%, parquet decode 30%, list assembly 12%
+    16590   1.0 | expressions 37%, list assembly 17%, parquet decode 15%
+    16600   1.0 | expressions 51%, parquet decode 14%, other duckdb 9%
+    16610   1.0 | expressions 34%, parquet decode 24%, other duckdb 17%
+    16620   1.0 | expressions 29%, parquet decode 24%, unnest 12%
+    16630   1.0 | expressions 39%, parquet decode 19%, libc (memcpy/malloc/...) 12%
+    16640   1.0 | expressions 32%, list assembly 15%, other duckdb 15%
+    16650   1.0 | expressions 34%, parquet decode 19%, list assembly 12%
+    16660   1.0 | parquet decode 32%, expressions 32%, list assembly 10%
+    16670   1.0 | expressions 43%, list assembly 17%, parquet decode 15%
+    16680   1.0 | expressions 51%, parquet decode 12%, other duckdb 12%
+    16690   1.0 | expressions 37%, parquet decode 17%, list assembly 15%
+    16700   1.0 | expressions 48%, list assembly 17%, parquet decode 14%
+    16710   1.0 | expressions 48%, parquet decode 17%, other duckdb 7%
+    16720   1.0 | expressions 45%, other duckdb 20%, list assembly 12%
+    16730   1.0 | expressions 45%, parquet decode 17%, kernel 12%
+    16740   1.0 | expressions 40%, parquet decode 15%, list assembly 12%
+    16750   1.0 | expressions 37%, parquet decode 20%, other duckdb 12%
+    16760   1.0 | expressions 43%, parquet decode 19%, other duckdb 9%
+    16770   1.0 | expressions 43%, parquet decode 19%, list assembly 9%
+    16780   1.0 | expressions 62%, parquet decode 12%, list assembly 7%
+    16790   1.0 | expressions 43%, parquet decode 19%, other duckdb 14%
+    16800   1.0 | expressions 45%, parquet decode 15%, other duckdb 12%
+    16810   1.0 | expressions 29%, parquet decode 29%, other duckdb 24%
+    16820   1.0 | expressions 46%, list assembly 17%, libc (memcpy/malloc/...) 9%
+    16830   1.0 | expressions 29%, parquet decode 24%, unnest 12%
+    16840   1.0 | expressions 37%, parquet decode 17%, list assembly 15%
+    16850   1.0 | expressions 36%, parquet decode 19%, other duckdb 12%
+    16860   1.0 | expressions 37%, parquet decode 20%, list assembly 17%
+    16870   1.0 | expressions 45%, parquet decode 17%, list assembly 10%
+    16880   1.0 | expressions 46%, parquet decode 14%, list assembly 12%
+    16890   1.0 | expressions 40%, other duckdb 20%, parquet decode 12%
+    16900   1.0 | expressions 37%, parquet decode 32%, other duckdb 10%
+    16910   1.0 | expressions 35%, parquet decode 17%, other duckdb 17%
+    16920   1.0 | expressions 31%, parquet decode 24%, list assembly 17%
+    16930   1.0 | expressions 47%, list assembly 15%, other duckdb 10%
+    16940   1.0 | expressions 56%, unnest 10%, libc (memcpy/malloc/...) 10%
+    16950   1.0 | expressions 39%, parquet decode 19%, other duckdb 12%
+    16960   1.0 | expressions 48%, parquet decode 12%, list assembly 12%
+    16970   1.0 | expressions 25%, parquet decode 22%, list assembly 15%
+    16980   1.1 | expressions 40%, list assembly 19%, parquet decode 14%
+    16990   1.0 | expressions 30%, parquet decode 27%, list assembly 12%
+    17000   1.0 | expressions 55%, parquet decode 10%, unnest 10%
+    17010   1.0 | expressions 47%, parquet decode 17%, unnest 10%
+    17020   1.0 | expressions 29%, parquet decode 21%, other duckdb 14%
+    17030   1.0 | expressions 32%, parquet decode 17%, other duckdb 15%
+    17040   1.0 | expressions 29%, parquet decode 24%, libc (memcpy/malloc/...) 14%
+    17050   1.0 | expressions 35%, kernel 20%, parquet decode 15%
+    17060   1.0 | expressions 45%, kernel 22%, other duckdb 7%
+    17070   1.1 | expressions 50%, parquet decode 19%, list assembly 14%
+    17080   1.0 | expressions 46%, unnest 12%, other duckdb 12%
+    17090   1.0 | expressions 31%, list assembly 21%, parquet decode 14%
+    17100   1.0 | expressions 46%, parquet decode 21%, other duckdb 7%
+    17110   1.0 | expressions 39%, parquet decode 24%, list assembly 9%
+    17120   1.0 | expressions 40%, parquet decode 25%, list assembly 12%
+    17130   1.0 | expressions 32%, parquet decode 25%, list assembly 15%
+    17140   1.0 | expressions 48%, parquet decode 14%, list assembly 9%
+    17150   1.0 | expressions 47%, list assembly 15%, parquet decode 12%
+    17160   1.0 | expressions 36%, parquet decode 17%, other duckdb 12%
+    17170   1.0 | expressions 36%, other duckdb 19%, parquet decode 17%
+    17180   1.1 | expressions 39%, libc (memcpy/malloc/...) 13%, parquet decode 13%
+    17190   1.0 | expressions 40%, parquet decode 15%, unnest 12%
+    17200   1.0 | expressions 37%, libc (memcpy/malloc/...) 15%, other duckdb 12%
+    17210   1.0 | expressions 37%, other duckdb 27%, parquet decode 22%
+    17220   1.0 | expressions 37%, parquet decode 20%, list assembly 12%
+    17230   1.0 | expressions 52%, other duckdb 15%, parquet decode 12%
+    17240   1.0 | expressions 47%, parquet decode 17%, list assembly 12%
+    17250   1.0 | expressions 26%, parquet decode 24%, other duckdb 14%
+    17260   1.0 | expressions 43%, other duckdb 19%, libc (memcpy/malloc/...) 9%
+    17270   1.0 | expressions 32%, list assembly 20%, parquet decode 17%
+    17280   1.0 | expressions 32%, parquet decode 17%, list assembly 12%
+    17290   1.0 | expressions 52%, kernel 12%, parquet decode 10%
+    17300   1.0 | expressions 34%, parquet decode 24%, list assembly 12%
+    17310   1.0 | expressions 41%, parquet decode 14%, libc (memcpy/malloc/...) 14%
+    17320   1.0 | expressions 35%, parquet decode 30%, other duckdb 10%
+    17330   1.0 | expressions 43%, list assembly 14%, parquet decode 14%
+    17340   1.0 | expressions 32%, parquet decode 27%, libc (memcpy/malloc/...) 10%
+    17350   1.1 | parquet decode 30%, expressions 30%, list assembly 16%
+    17360   1.0 | expressions 51%, other duckdb 19%, parquet decode 12%
+    17370   1.0 | expressions 40%, parquet decode 30%, list assembly 7%
+    17380   1.0 | expressions 47%, parquet decode 22%, unnest 12%
+    17390   1.0 | expressions 36%, parquet decode 21%, other duckdb 12%
+    17400   1.0 | expressions 36%, parquet decode 19%, other duckdb 14%
+    17410   1.0 | expressions 47%, parquet decode 17%, libc (memcpy/malloc/...) 12%
+    17420   1.1 | expressions 25%, parquet decode 16%, libc (memcpy/malloc/...) 16%
+    17430   1.0 | expressions 40%, list assembly 20%, parquet decode 15%
+    17440   1.0 | expressions 51%, list assembly 12%, parquet decode 9%
+    17450   1.0 | expressions 58%, list assembly 12%, parquet decode 9%
+    17460   1.0 | kernel 25%, other duckdb 22%, expressions 17%
+    17470   1.0 | expressions 46%, parquet decode 19%, other duckdb 9%
+    17480   1.0 | expressions 60%, parquet decode 15%, list assembly 7%
+    17490   1.0 | expressions 45%, other duckdb 12%, parquet decode 12%
+    17500   1.0 | expressions 41%, parquet decode 17%, unnest 14%
+    17510   1.0 | expressions 29%, parquet decode 26%, list assembly 17%
+    17520   1.0 | expressions 26%, parquet decode 24%, list assembly 14%
+    17530   1.0 | expressions 42%, parquet decode 25%, list assembly 10%
+    17540   1.0 | expressions 42%, parquet decode 27%, list assembly 10%
+    17550   1.0 | expressions 42%, other duckdb 22%, list assembly 12%
+    17560   1.0 | expressions 41%, parquet decode 14%, libc (memcpy/malloc/...) 12%
+    17570   1.0 | expressions 45%, other duckdb 20%, list assembly 12%
+    17580   1.0 | expressions 50%, other duckdb 12%, kernel 10%
+    17590   1.0 | expressions 52%, parquet decode 12%, unnest 7%
+    17600   1.0 | expressions 50%, libc (memcpy/malloc/...) 12%, other duckdb 12%
+    17610   1.0 | expressions 37%, other duckdb 15%, parquet decode 15%
+    17620   1.0 | expressions 52%, list assembly 15%, parquet decode 12%
+    17630   1.0 | expressions 36%, parquet decode 21%, unnest 9%
+    17640   1.0 | expressions 57%, libc (memcpy/malloc/...) 12%, parquet decode 10%
+    17650   1.0 | expressions 46%, parquet decode 15%, libc (memcpy/malloc/...) 12%
+    17660   1.1 | expressions 47%, parquet decode 11%, list assembly 11%
+    17670   1.0 | expressions 47%, list assembly 17%, other duckdb 12%
+    17680   1.1 | expressions 40%, list assembly 14%, other duckdb 14%
+    17690   1.0 | expressions 45%, list assembly 15%, parquet decode 15%
+    17700   1.0 | expressions 35%, parquet decode 20%, list assembly 10%
+    17710   1.0 | expressions 31%, parquet decode 29%, list assembly 17%
+    17720   1.0 | expressions 40%, parquet decode 12%, list assembly 12%
+    17730   1.1 | expressions 42%, list assembly 16%, parquet decode 14%
+    17740   1.0 | expressions 32%, parquet decode 20%, libc (memcpy/malloc/...) 20%
+    17750   1.0 | expressions 42%, parquet decode 17%, list assembly 15%
+    17760   1.0 | expressions 50%, list assembly 20%, parquet decode 12%
+    17770   1.0 | expressions 36%, parquet decode 14%, list assembly 14%
+    17780   1.1 | expressions 33%, parquet decode 21%, list assembly 19%
+    17790   1.0 | expressions 32%, parquet decode 25%, libc (memcpy/malloc/...) 12%
+    17800   1.0 | expressions 36%, parquet decode 19%, list assembly 19%
+    17810   1.0 | expressions 46%, parquet decode 20%, unnest 7%
+    17820   1.0 | expressions 43%, parquet decode 14%, list assembly 9%
+    17830   1.0 | expressions 40%, parquet decode 20%, libc (memcpy/malloc/...) 12%
+    17840   1.0 | expressions 45%, parquet decode 17%, unnest 12%
+    17850   1.0 | expressions 48%, list assembly 17%, parquet decode 9%
+    17860   1.0 | expressions 45%, other duckdb 12%, parquet decode 12%
+    17870   1.0 | expressions 51%, parquet decode 9%, list assembly 9%
+    17880   1.0 | other duckdb 27%, expressions 20%, unnest 17%
+    17890   1.0 | expressions 46%, parquet decode 17%, other duckdb 14%
+    17900   1.0 | expressions 37%, parquet decode 20%, other duckdb 17%
+    17910   1.0 | expressions 41%, list assembly 19%, parquet decode 19%
+    17920   1.0 | expressions 52%, list assembly 15%, parquet decode 15%
+    17930   1.0 | expressions 42%, list assembly 15%, libc (memcpy/malloc/...) 12%
+    17940   1.0 | expressions 34%, parquet decode 19%, kernel 14%
+    17950   1.0 | expressions 50%, other duckdb 15%, kernel 7%
+    17960   1.0 | expressions 35%, list assembly 15%, other duckdb 10%
+    17970   1.0 | expressions 42%, parquet decode 17%, other duckdb 12%
+    17980   1.0 | expressions 31%, parquet decode 24%, other duckdb 14%
+    17990   1.0 | expressions 45%, parquet decode 20%, list assembly 15%
+    18000   1.0 | expressions 45%, parquet decode 15%, list assembly 12%
+    18010   1.1 | expressions 33%, parquet decode 19%, list assembly 14%
+    18020   1.0 | expressions 47%, other duckdb 12%, list assembly 12%
+    18030   1.0 | expressions 45%, parquet decode 12%, list assembly 12%
+    18040   1.0 | expressions 52%, other duckdb 12%, list assembly 12%
+    18050   1.0 | expressions 30%, parquet decode 22%, list assembly 15%
+    18060   1.0 | expressions 43%, unnest 12%, parquet decode 12%
+    18070   1.0 | expressions 40%, parquet decode 27%, list assembly 7%
+    18080   1.0 | expressions 40%, other duckdb 15%, parquet decode 15%
+    18090   1.0 | expressions 37%, parquet decode 22%, other duckdb 20%
+    18100   1.0 | expressions 36%, libc (memcpy/malloc/...) 17%, parquet decode 14%
+    18110   1.0 | expressions 43%, parquet decode 26%, list assembly 9%
+    18120   1.0 | expressions 37%, parquet decode 17%, list assembly 12%
+    18130   1.0 | expressions 34%, parquet decode 19%, list assembly 19%
+    18140   1.0 | expressions 42%, list assembly 15%, parquet decode 15%
+    18150   1.0 | expressions 45%, parquet decode 15%, other duckdb 10%
+    18160   1.0 | expressions 37%, parquet decode 25%, list assembly 17%
+    18170   1.0 | expressions 45%, parquet decode 15%, other duckdb 12%
+    18180   1.0 | expressions 47%, parquet decode 20%, other duckdb 12%
+    18190   1.0 | expressions 50%, parquet decode 12%, other duckdb 12%
+    18200   1.0 | expressions 41%, parquet decode 24%, libc (memcpy/malloc/...) 12%
+    18210   1.0 | expressions 48%, parquet decode 17%, libc (memcpy/malloc/...) 12%
+    18220   1.1 | expressions 30%, parquet decode 16%, list assembly 11%
+    18230   1.0 | expressions 58%, parquet decode 10%, list assembly 7%
+    18240   1.0 | expressions 46%, parquet decode 14%, list assembly 14%
+    18250   1.1 | expressions 50%, unnest 14%, parquet decode 14%
+    18260   1.0 | expressions 35%, other duckdb 12%, parquet decode 12%
+    18270   1.0 | expressions 39%, parquet decode 19%, other duckdb 12%
+    18280   1.0 | expressions 50%, parquet decode 20%, unnest 7%
+    18290   1.0 | expressions 36%, other duckdb 14%, unnest 12%
+    18300   1.0 | expressions 41%, list assembly 14%, unnest 12%
+    18310   1.0 | expressions 41%, parquet decode 17%, libc (memcpy/malloc/...) 10%
+    18320   1.0 | expressions 47%, parquet decode 15%, list assembly 15%
+    18330   1.0 | expressions 45%, parquet decode 17%, other duckdb 12%
+    18340   1.0 | expressions 51%, parquet decode 17%, kernel 7%
+    18350   1.0 | expressions 45%, other duckdb 12%, parquet decode 12%
+    18360   1.0 | expressions 36%, parquet decode 19%, unnest 9%
+    18370   1.0 | expressions 31%, parquet decode 14%, other duckdb 14%
+    18380   1.0 | expressions 37%, parquet decode 25%, other duckdb 7%
+    18390   1.0 | expressions 40%, parquet decode 17%, libc (memcpy/malloc/...) 12%
+    18400   1.0 | expressions 42%, list assembly 20%, parquet decode 15%
+    18410   1.0 | expressions 41%, other duckdb 12%, unnest 12%
+    18420   1.0 | expressions 45%, parquet decode 32%, unnest 7%
+    18430   1.0 | expressions 35%, other duckdb 17%, parquet decode 17%
+    18440   1.0 | expressions 40%, parquet decode 17%, other duckdb 15%
+    18450   1.0 | expressions 31%, parquet decode 17%, list assembly 12%
+    18460   1.0 | expressions 39%, parquet decode 17%, list assembly 12%
+    18470   1.0 | expressions 37%, kernel 22%, parquet decode 20%
+    18480   1.1 | expressions 23%, parquet decode 16%, unnest 14%
+    18490   1.0 | expressions 50%, parquet decode 12%, unnest 12%
+    18500   1.0 | expressions 29%, list assembly 17%, other duckdb 14%
+    18510   1.0 | expressions 55%, other duckdb 15%, parquet decode 10%
+    18520   1.0 | expressions 27%, other duckdb 22%, parquet decode 22%
+    18530   1.1 | expressions 33%, parquet decode 23%, unnest 9%
+    18540   1.0 | expressions 26%, other duckdb 14%, list assembly 14%
+    18550   1.0 | expressions 37%, parquet decode 20%, list assembly 15%
+    18560   1.0 | expressions 47%, other duckdb 17%, parquet decode 12%
+    18570   1.0 | expressions 45%, list assembly 17%, other duckdb 12%
+    18580   1.0 | expressions 39%, parquet decode 17%, list assembly 17%
+    18590   1.0 | expressions 35%, other duckdb 20%, parquet decode 15%
+    18600   1.1 | expressions 44%, parquet decode 20%, other duckdb 9%
+    18610   1.0 | expressions 47%, list assembly 15%, libc (memcpy/malloc/...) 10%
+    18620   1.0 | expressions 42%, list assembly 15%, unnest 12%
+    18630   1.0 | expressions 56%, list assembly 14%, libc (memcpy/malloc/...) 12%
+    18640   1.0 | expressions 35%, other duckdb 12%, list assembly 12%
+    18650   1.0 | expressions 40%, parquet decode 17%, libc (memcpy/malloc/...) 12%
+    18660   1.0 | expressions 32%, other duckdb 17%, list assembly 15%
+    18670   1.0 | expressions 39%, parquet decode 24%, other duckdb 12%
+    18680   1.0 | expressions 40%, parquet decode 25%, other duckdb 10%
+    18690   1.0 | expressions 35%, parquet decode 25%, list assembly 10%
+    18700   1.1 | expressions 47%, other duckdb 14%, list assembly 14%
+    18710   1.0 | expressions 32%, parquet decode 27%, other duckdb 15%
+    18720   1.0 | expressions 46%, other duckdb 14%, unnest 9%
+    18730   1.0 | expressions 45%, parquet decode 20%, list assembly 12%
+    18740   1.0 | expressions 39%, libc (memcpy/malloc/...) 17%, parquet decode 14%
+    18750   1.0 | expressions 37%, other duckdb 22%, list assembly 12%
+    18760   1.0 | expressions 53%, libc (memcpy/malloc/...) 9%, list assembly 9%
+    18770   1.0 | expressions 30%, parquet decode 25%, libc (memcpy/malloc/...) 15%
+    18780   1.0 | expressions 29%, parquet decode 21%, other duckdb 14%
+    18790   1.0 | expressions 41%, list assembly 17%, unnest 14%
+    18800   1.0 | expressions 45%, parquet decode 20%, list assembly 15%
+    18810   1.0 | expressions 42%, list assembly 15%, libc (memcpy/malloc/...) 12%
+    18820   1.0 | expressions 57%, list assembly 15%, other duckdb 10%
+    18830   1.0 | expressions 34%, parquet decode 26%, list assembly 12%
+    18840   1.1 | expressions 28%, kernel 21%, list assembly 11%
+    18850   1.0 | expressions 47%, parquet decode 20%, kernel 15%
+    18860   1.0 | expressions 46%, parquet decode 15%, other duckdb 10%
+    18870   1.0 | expressions 60%, other duckdb 12%, libc (memcpy/malloc/...) 7%
+    18880   1.0 | expressions 46%, parquet decode 19%, other duckdb 12%
+    18890   1.0 | expressions 43%, parquet decode 21%, list assembly 9%
+    18900   1.0 | expressions 47%, other duckdb 12%, parquet decode 12%
+    18910   1.0 | expressions 41%, parquet decode 26%, libc (memcpy/malloc/...) 9%
+    18920   1.0 | expressions 40%, list assembly 17%, parquet decode 15%
+    18930   1.0 | expressions 34%, parquet decode 31%, unnest 12%
+    18940   1.0 | expressions 41%, parquet decode 29%, other duckdb 9%
+    18950   1.0 | expressions 37%, list assembly 12%, other duckdb 12%
+    18960   1.0 | expressions 47%, parquet decode 17%, list assembly 10%
+    18970   1.0 | expressions 36%, list assembly 14%, libc (memcpy/malloc/...) 12%
+    18980   1.0 | expressions 29%, parquet decode 26%, list assembly 12%
+    18990   1.0 | expressions 42%, parquet decode 15%, other duckdb 12%
+    19000   1.0 | parquet decode 36%, expressions 26%, list assembly 12%
+    19010   1.0 | expressions 30%, other duckdb 22%, parquet decode 20%
+    19020   1.0 | expressions 42%, parquet decode 25%, libc (memcpy/malloc/...) 10%
+    19030   1.0 | expressions 32%, parquet decode 27%, list assembly 12%
+    19040   1.0 | expressions 40%, parquet decode 22%, kernel 12%
+    19050   1.0 | expressions 48%, other duckdb 12%, unnest 10%
+    19060   1.0 | expressions 37%, parquet decode 22%, other duckdb 12%
+    19070   1.1 | expressions 30%, parquet decode 18%, list assembly 16%
+    19080   1.0 | expressions 30%, parquet decode 22%, unnest 15%
+    19090   1.0 | expressions 41%, other duckdb 21%, parquet decode 14%
+    19100   1.0 | expressions 37%, parquet decode 27%, other duckdb 10%
+    19110   1.0 | expressions 39%, parquet decode 14%, kernel 12%
+    19120   1.0 | expressions 41%, list assembly 19%, other duckdb 14%
+    19130   1.0 | expressions 42%, parquet decode 17%, other duckdb 15%
+    19140   1.0 | expressions 46%, parquet decode 14%, kernel 9%
+    19150   1.0 | expressions 57%, list assembly 15%, parquet decode 12%
+    19160   1.0 | expressions 35%, parquet decode 25%, other duckdb 15%
+    19170   1.0 | expressions 26%, list assembly 21%, other duckdb 17%
+    19180   1.0 | expressions 36%, parquet decode 21%, other duckdb 9%
+    19190   1.0 | expressions 31%, parquet decode 26%, list assembly 14%
+    19200   1.0 | expressions 40%, other duckdb 25%, parquet decode 10%
+    19210   1.1 | expressions 47%, parquet decode 14%, libc (memcpy/malloc/...) 9%
+    19220   1.0 | expressions 56%, list assembly 14%, parquet decode 14%
+    19230   1.0 | libc (memcpy/malloc/...) 38%, other duckdb 23%, expressions 17%
+    19240   0.0 | expressions 100%

@@ -1,0 +1,15 @@
+threads=1  wall 25 ms, CPU 88 ms, average busy threads 3.5
+  CPU ms per category:  kernel 48, other duckdb 18, libc (memcpy/malloc/...) 16, parquet decode 2, expressions 2, aggregate 1, other 1, scheduler 0, scan filters / late decoding 0
+  hottest functions:
+        48 ms  [kernel.kallsyms]
+        16 ms  libc.so.6
+         4 ms  duckdb_je_malloc_mutex_lock_slow
+         2 ms  duckdb_je_tcache_bin_flush_small
+         2 ms  void duckdb_snappy::SnappyDecompressor::DecompressAllTags<duckdb_snappy::SnappyArrayWriter>(duckdb_snappy::Sna
+         1 ms  duckdb::CatalogEntry::~CatalogEntry()
+         1 ms  libstdc++.so.6.0.33
+         1 ms  bool duckdb::AggregateExecutor::UpdateUnaryClusteredOpt<true, duckdb::SumState<duckdb::hugeint_t>, long, duckd
+  timeline (10 ms): busy threads | main categories
+        0   1.2 | kernel 34%, parquet decode 21%, other duckdb 21%
+       10   6.1 | kernel 56%, libc (memcpy/malloc/...) 21%, other duckdb 20%
+       20   1.6 | kernel 61%, libc (memcpy/malloc/...) 19%, other duckdb 14%

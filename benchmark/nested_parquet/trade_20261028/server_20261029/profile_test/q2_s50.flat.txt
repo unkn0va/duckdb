@@ -1,0 +1,14 @@
+threads=1  wall 19 ms, CPU 72 ms, average busy threads 3.8
+  CPU ms per category:  kernel 34, other duckdb 15, libc (memcpy/malloc/...) 12, keys 4, parquet decode 2, scan filters / late decoding 1, scheduler 1, aggregate 1, vectors 0, expressions 0, other 0
+  hottest functions:
+        34 ms  [kernel.kallsyms]
+        12 ms  libc.so.6
+         4 ms  duckdb::ParquetNodeKeyGenerator::Process(unsigned char const*, unsigned char const*, unsigned long, duckdb::Se
+         3 ms  duckdb_je_tcache_bin_flush_small
+         1 ms  duckdb::DictionaryDecoder::GetValidValues(unsigned char*, unsigned long, unsigned long)
+         1 ms  unsigned long duckdb::ComparisonFilterExecutor::SelectTyped<long>(duckdb::UnifiedVectorFormat const&, duckdb::
+         1 ms  duckdb_je_tcache_bin_flush_stashed
+         1 ms  bool duckdb::AggregateExecutor::UpdateUnaryClusteredOpt<true, duckdb::SumState<duckdb::hugeint_t>, long, duckd
+  timeline (10 ms): busy threads | main categories
+        0   1.0 | keys 41%, parquet decode 21%, scan filters / late decoding 9%
+       10   6.2 | kernel 54%, other duckdb 22%, libc (memcpy/malloc/...) 20%

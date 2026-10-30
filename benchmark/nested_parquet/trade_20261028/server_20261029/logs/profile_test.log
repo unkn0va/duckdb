@@ -1,0 +1,7 @@
+[00:42:09] step profile
+[00:42:11] profile q2_s50 base
+[00:42:14] profile q2_s50 prenestoff
+[00:42:16] profile q2_s50 prenest
+[00:42:19] profile q2_s50 flat
+[00:42:22] profile q2_s50 pureflat
+[00:42:25] done: /home/layun03/nested-bench/duckdb_rey/benchmark/nested_parquet/trade_20261028/profile_test
