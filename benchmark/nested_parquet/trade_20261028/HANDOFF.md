@@ -150,8 +150,10 @@
 
 ## 6. 아직 설명 못 한 것 / 남은 일
 
-- **prenestoff 문자열 복사 1.2초**(`VectorStringBuffer::CopyInternal`, q2_s50): legs의 value만 읽는데 문자열 복사가 왜 남는지 확인하지 못했습니다.
-- prenestoff에서 `SetInvalid` 2.2초가 어디서 생기는지(UNNEST 뒤 validity 처리) 함수 단위로 따라가지 않았습니다.
+- (이 PC에서 찾음, 서버 확인 대기) **prenestoff 문자열 복사 1.2초와 `SetInvalid` 2.2초**(q2_s50)는 UNNEST 뒤가 아니라 리스트 리더 안에서 생깁니다.
+  - 가지치기된 STRUCT 필드는 `StructColumnReader::Read`가 `ConstantVector::SetNull`로 채웁니다(`extension/parquet/reader/struct_column_reader.cpp:88`).
+  - `ListColumnReader::ReadInternal` → `VectorBuffer::Append` → `VectorStructBuffer::CopyInternal`이 이 NULL을 리스트 자식에 행마다 복사합니다. 문자열 필드 세 개(leg_id, currency, option_type)의 복사입니다.
+  - call stack으로 확인했습니다(`issues_20261030/local_2m/issue1/summary.md` 1-4 끝).
 - flat의 100% 점: 스캔 필터가 실행 중에 통계로 건너뛰어지는지 확인하지 못했습니다.
 - q3w: prenest가 발동하는데도 이득이 없는 이유를 분해하지 않았습니다.
 - OR 조건의 리더 평가가 단일 비교보다 약 9배 비싼 이유(`Apply` 내부)를 분석하지 않았습니다.
@@ -160,6 +162,15 @@
 - 20스레드 결과는 표에만 있고 분석하지 않았습니다.
 - (끝남) 실수 오차 비교로 고친 뒤 서버 recheck를 다시 돌렸습니다. 2026-10-30 `231 checks, 0 failed`가 나왔고, q01 두 건도 통과했습니다.
   결과는 서버의 `trade_20261028/server_recheck_tol/`에만 있습니다.
+
+## 6-1. 2026-10-30 주 이슈 (진행 중)
+
+- 이슈 1(Unnest 오버헤드 분해)과 이슈 2(join 예상 오류)의 스크립트는 `issues_20261030/`에 있습니다(README.md). 이 PC 시험 결과는 `issues_20261030/local_2m/`입니다.
+- 서버 측정은 아직 하지 않았습니다. 순서: 이슈 1(`run_issue1.sh`, 약 2시간) → 이슈 2(`run_issue2.sh`, 약 4시간). 둘을 동시에 돌리지 않습니다.
+- perf 범주는 이제 call stack 기준입니다(`categories.py`). 잎 함수만 보던 `profile_breakdown.py`와 숫자가 다르고, 특히 "식·벡터"의 많은 부분이 리스트 조립으로 갑니다.
+- 2-2에서 확인한 것(2백만 행, 합성 TPC-H):
+  - flat 자식 노드 스캔의 예상 = 첫 leaf의 `num_values` 합입니다. 빈·NULL 리스트의 자리도 셉니다.
+  - UNNEST는 예상이 입력과 같습니다(리스트 길이를 1로 봄).
 
 ## 7. 서버(apache10) 실행 규칙
 
@@ -189,4 +200,8 @@
 | `fd0a79a41fa` | 서버 결과 `server_20261029/` |
 | `4b5b4c37892` | 결과 검사: 정수·문자열 정확히, 실수 상대 1e-9 |
 | `897d206f230` | summary.md 추가 분석 (q7_plots, q2_c50, 위쪽 FILTER, 100% 점, 시간 분해) |
-| (이 커밋) | HANDOFF.md, `analysis_20261030/` (scratchpad에 있던 q7 변형 SQL, plan_tree.py, CSV 프로파일 매크로, 재현성 해시, 샘플 생성 로그) |
+| `ce0a04ed146` | HANDOFF.md, `analysis_20261030/` (scratchpad에 있던 q7 변형 SQL, plan_tree.py, CSV 프로파일 매크로, 재현성 해시, 샘플 생성 로그) |
+| `69bd3cab48b` | 서버 recheck 통과 기록 |
+| `98502034e46` | 이슈 1·2 스크립트와 쿼리 (`issues_20261030/`) |
+| `b8320bc78aa` | 이슈 1·2 이 PC 시험 결과 (`issues_20261030/local_2m/`) |
+| (이 커밋) | HANDOFF.md 6, 6-1절 |
