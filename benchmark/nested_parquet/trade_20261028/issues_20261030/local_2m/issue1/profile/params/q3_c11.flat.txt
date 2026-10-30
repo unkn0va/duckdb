@@ -1,21 +1,23 @@
-q3_c11,flat: threads=1 wall 118 ms, CPU 117 ms (117 samples, 1000 Hz)
+q3_c11,flat: threads=1 wall 116 ms, CPU 113 ms (113 samples, 1000 Hz)
+stack depth: median 27 frames, 0% of the samples with fewer than 3
 CPU ms per category (sub-categories in brackets):
-  값 디코드          47   40.2%  [levels/skip 21, decode 15, scan 11]
-  원소 다루기         14   12.0%  [스캔 필터 13, PROJECTION 1]
-  키 생성           47   40.2%  [node keys 47]
-  집계              9    7.7%  [aggregate 9]
+  값 디코드          50   44.2%  [levels/skip 28, decode 14, scan 8]
+  원소 다루기         13   11.5%  [스캔 필터 12, PROJECTION 1]
+  키 생성           41   36.3%  [node keys 41]
+  집계              8    7.1%  [aggregate 8]
+  기타              1    0.9%  [실행기/결과 1]
 hottest sampled functions per category:
+  값 디코드         15 ms  void duckdb::RleBpDecoder::GetBatch<unsigned int>
   값 디코드         10 ms  void duckdb::RleBpDecoder::GetBatch<unsigned char>
-  값 디코드          8 ms  duckdb::DictionaryDecoder::GetValidValues
-  값 디코드          7 ms  void duckdb::RleBpDecoder::GetBatch<unsigned int>
-  값 디코드          5 ms  duckdb::ReadParquetNodeScan
-  값 디코드          4 ms  [unknown]
-  원소 다루기        11 ms  unsigned long duckdb::ComparisonFilterExecutor::SelectTyped<long>
-  원소 다루기         2 ms  duckdb::StandardVectorBuffer::GetData
-  원소 다루기         1 ms  duckdb::ExpressionExecutor::ExecuteExpression
-  키 생성          47 ms  duckdb::ParquetNodeKeyGenerator::Process
-  집계             8 ms  bool duckdb::AggregateExecutor::UpdateUnaryClusteredOpt<true, duckdb::SumState<duckdb::hugeint_t>, long, duckd
-  집계             1 ms  duckdb::ExpressionExecutor::ExecuteExpression
+  값 디코드         10 ms  duckdb::DictionaryDecoder::GetValidValues
+  값 디코드          2 ms  duckdb::SelectionVector::Slice
+  값 디코드          2 ms  [unknown]
+  원소 다루기        12 ms  unsigned long duckdb::ComparisonFilterExecutor::SelectTyped<long>
+  원소 다루기         1 ms  duckdb::ExpressionExecutor::Execute
+  키 생성          41 ms  duckdb::ParquetNodeKeyGenerator::Process
+  집계             7 ms  bool duckdb::AggregateExecutor::UpdateUnaryClusteredOpt<true, duckdb::SumState<duckdb::hugeint_t>, long, duckd
+  집계             1 ms  duckdb::PhysicalUngroupedAggregate::Sink
+  기타             1 ms  std::_Sp_counted_base<(__gnu_cxx::_Lock_policy)2>::_M_release
 callers of the watched functions (category of the sample / the next three frames up):
   SelectionVector::Slice: 3 ms
          3 ms  값 디코드/scan  < DictionaryBuffer::SliceInternal < VectorBuffer::Slice < Vector::Slice

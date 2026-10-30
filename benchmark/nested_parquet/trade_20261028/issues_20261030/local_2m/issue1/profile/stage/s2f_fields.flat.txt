@@ -1,21 +1,18 @@
-s2f_fields,flat: threads=1 wall 69 ms, CPU 66 ms (66 samples, 1000 Hz)
+s2f_fields,flat: threads=1 wall 70 ms, CPU 68 ms (68 samples, 1000 Hz)
+stack depth: median 27 frames, 0% of the samples with fewer than 3
 CPU ms per category (sub-categories in brackets):
-  값 디코드          34   51.5%  [decode 19, levels/skip 12, scan 3]
-  키 생성           26   39.4%  [node keys 26]
-  집계              4    6.1%  [aggregate 4]
-  기타              2    3.0%  [실행기/결과 2]
+  값 디코드          29   42.6%  [levels/skip 16, decode 12, scan 1]
+  키 생성           29   42.6%  [node keys 29]
+  집계             10   14.7%  [aggregate 10]
 hottest sampled functions per category:
-  값 디코드         11 ms  duckdb::DictionaryDecoder::GetValidValues
-  값 디코드          7 ms  void duckdb::RleBpDecoder::GetBatch<unsigned int>
-  값 디코드          4 ms  void duckdb_snappy::SnappyDecompressor::DecompressAllTags<duckdb_snappy::SnappyArrayWriter>
-  값 디코드          2 ms  [unknown]
-  값 디코드          2 ms  void duckdb::RleBpDecoder::GetBatch<unsigned char>
-  키 생성          26 ms  duckdb::ParquetNodeKeyGenerator::Process
-  집계             4 ms  duckdb::(anonymous namespace)::CountFunction::CountClusterUpdate
-  기타             1 ms  duckdb::Expression::Hash
-  기타             1 ms  duckdb::VectorCacheEntry::ResetFromCache
+  값 디코드          5 ms  void duckdb::RleBpDecoder::GetBatch<unsigned char>
+  값 디코드          5 ms  duckdb_fastpforlib::internal::__fastunpack1
+  값 디코드          5 ms  duckdb::DictionaryDecoder::GetValidValues
+  값 디코드          4 ms  void duckdb::RleBpDecoder::GetBatch<unsigned int>
+  값 디코드          2 ms  duckdb::ThriftFileTransport::read
+  키 생성          29 ms  duckdb::ParquetNodeKeyGenerator::Process
+  집계             9 ms  duckdb::(anonymous namespace)::CountFunction::CountClusterUpdate
+  집계             1 ms  duckdb::ExpressionExecutor::ExecuteExpression
 callers of the watched functions (category of the sample / the next three frames up):
-  ValidityMask::CopySel: 1 ms
-         1 ms  값 디코드/decode  < VectorBuffer::Copy < VectorOperations::Copy < DictionaryDecoder::Read
   VectorBuffer::Copy: 1 ms
          1 ms  값 디코드/decode  < VectorOperations::Copy < DictionaryDecoder::Read < ColumnReader::ReadData

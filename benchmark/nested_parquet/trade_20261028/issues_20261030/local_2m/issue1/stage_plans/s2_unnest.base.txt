@@ -1,6 +1,6 @@
 PROJECTION              0.000s  rows            1  est            1  
   UNGROUPED_AGGREGATE     0.000s  rows            1  est            1  aggregate: count_star()
-    PROJECTION              0.001s  rows      6997998  est      2000000  
+    PROJECTION              0.000s  rows      6997998  est      2000000  
       UNNEST                  0.029s  rows      6997998  est               
-        TABLE_SCAN              0.154s  rows      2000000  est      2000000  filename: trade_B.parquet
-total 0.192 s
+        TABLE_SCAN              0.152s  rows      2000000  est      2000000  filename: trade_B.parquet
+total 0.188 s

@@ -1,17 +1,24 @@
-q2_c01,flat: threads=1 wall 111 ms, CPU 109 ms (109 samples, 1000 Hz)
+q2_c01,flat: threads=1 wall 98 ms, CPU 97 ms (97 samples, 1000 Hz)
+stack depth: median 28 frames, 0% of the samples with fewer than 3
 CPU ms per category (sub-categories in brackets):
-  값 디코드          37   33.9%  [levels/skip 17, decode 13, scan 7]
-  원소 다루기         38   34.9%  [스캔 필터 38]
-  키 생성           33   30.3%  [node keys 33]
-  집계              1    0.9%  [aggregate 1]
+  값 디코드          29   29.9%  [levels/skip 13, scan 8, decode 8]
+  원소 다루기         29   29.9%  [스캔 필터 29]
+  키 생성           37   38.1%  [node keys 37]
+  기타              2    2.1%  [실행기/결과 2]
 hottest sampled functions per category:
-  값 디코드          8 ms  void duckdb::RleBpDecoder::GetBatch<unsigned int>
-  값 디코드          4 ms  void duckdb_snappy::SnappyDecompressor::DecompressAllTags<duckdb_snappy::SnappyArrayWriter>
-  값 디코드          4 ms  void duckdb::RleBpDecoder::GetBatch<unsigned char>
-  값 디코드          3 ms  [unknown]
+  값 디코드          4 ms  duckdb_fastpforlib::internal::__fastunpack1
+  값 디코드          4 ms  void duckdb::RleBpDecoder::GetBatch<unsigned int>
+  값 디코드          3 ms  void duckdb::RleBpDecoder::GetBatch<unsigned char>
   값 디코드          3 ms  duckdb::DictionaryDecoder::GetValidValues
-  원소 다루기        15 ms  duckdb::string_t::StringComparisonOperators::GreaterThan
-  원소 다루기        13 ms  [unknown]
-  원소 다루기        10 ms  unsigned long duckdb::ComparisonFilterExecutor::SelectTyped<duckdb::string_t>
-  키 생성          33 ms  duckdb::ParquetNodeKeyGenerator::Process
-  집계             1 ms  bool duckdb::AggregateExecutor::UpdateUnaryClusteredOpt<true, duckdb::SumState<duckdb::hugeint_t>, long, duckd
+  값 디코드          3 ms  [unknown]
+  원소 다루기        12 ms  [unknown]
+  원소 다루기        10 ms  duckdb::string_t::StringComparisonOperators::GreaterThan
+  원소 다루기         6 ms  unsigned long duckdb::ComparisonFilterExecutor::SelectTyped<duckdb::string_t>
+  원소 다루기         1 ms  duckdb::StringValue::Get[abi:cxx11]
+  키 생성          36 ms  duckdb::ParquetNodeKeyGenerator::Process
+  키 생성           1 ms  duckdb::ParquetNodeKeyGenerator::FindMismatch
+  기타             1 ms  duckdb::CastFunctionSet::GetCastFunction
+  기타             1 ms  duckdb::VectorBuffer::SetVectorSize
+callers of the watched functions (category of the sample / the next three frames up):
+  SelectionVector::Slice: 1 ms
+         1 ms  값 디코드/scan  < DictionaryBuffer::SliceInternal < VectorBuffer::Slice < Vector::Slice

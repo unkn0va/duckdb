@@ -2,7 +2,7 @@ UNGROUPED_AGGREGATE     0.002s  rows            1  est            1  aggregate: 
   PROJECTION              0.000s  rows      3492296  est       400000  
     PROJECTION              0.002s  rows      3492296  est       400000  
       PROJECTION              0.000s  rows      3492296  est       400000  
-        FILTER                  0.078s  rows      3492296  est       400000  
+        FILTER                  0.077s  rows      3492296  est       400000  
           UNNEST                  0.030s  rows      6997998  est               
-            TABLE_SCAN              0.127s  rows      2000000  est      2000000  filename: trade_B.parquet
-total 0.254 s
+            TABLE_SCAN              0.121s  rows      2000000  est      2000000  filename: trade_B.parquet
+total 0.244 s

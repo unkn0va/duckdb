@@ -1,5 +1,5 @@
-UNGROUPED_AGGREGATE     0.007s  rows            1  est            1  aggregate: sum(#0)
+UNGROUPED_AGGREGATE     0.005s  rows            1  est            1  aggregate: sum(#0)
   PROJECTION              0.000s  rows      3492296  est      1399599  
     PROJECTION              0.000s  rows      3492296  est      1399599  
-      TABLE_SCAN              0.129s  rows      3492296  est      1399599  file: trade_B.parquet; node: legs; filter: (leg_id < 'leg270')
-total 0.142 s
+      TABLE_SCAN              0.117s  rows      3492296  est      1399599  file: trade_B.parquet; node: legs; filter: (leg_id < 'leg270')
+total 0.129 s

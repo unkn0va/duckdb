@@ -1,23 +1,24 @@
-q01,flat: threads=1 wall 23 ms, CPU 21 ms (21 samples, 1000 Hz)
+q01,flat: threads=1 wall 22 ms, CPU 20 ms (20 samples, 1000 Hz)
+stack depth: median 30 frames, 0% of the samples with fewer than 3
 CPU ms per category (sub-categories in brackets):
-  값 디코드          10   47.6%  [decode 5, levels/skip 4, scan 1]
-  원소 다루기          5   23.8%  [PROJECTION 4, 스캔 필터 1]
-  키 생성            1    4.8%  [node keys 1]
-  집계              3   14.3%  [aggregate 3]
-  기타              2    9.5%  [실행기/결과 2]
+  값 디코드          14   70.0%  [decode 11, scan 2, levels/skip 1]
+  원소 다루기          1    5.0%  [PROJECTION 1]
+  join            1    5.0%  [hash join 1]
+  집계              4   20.0%  [aggregate 4]
 hottest sampled functions per category:
   값 디코드          3 ms  void duckdb_snappy::SnappyDecompressor::DecompressAllTags<duckdb_snappy::SnappyArrayWriter>
-  값 디코드          2 ms  duckdb_fastpforlib::internal::__fastunpack2
-  값 디코드          1 ms  duckdb::operator<(duckdb::Identifier const&, duckdb::Identifier const&)
-  값 디코드          1 ms  duckdb::TemplatedColumnReader<duckdb::date_t, duckdb::CallbackParquetValueConversion<int, duckdb::date_t, &duc
-  값 디코드          1 ms  void duckdb::RleBpDecoder::GetBatch<unsigned int>
-  원소 다루기         2 ms  void duckdb::ScalarFunction::BinaryFunction<double, double, double, duckdb::MultiplyOperator>
-  원소 다루기         1 ms  duckdb::VectorCacheEntry::ResetFromCache
-  원소 다루기         1 ms  duckdb::ColumnReader::Select
+  값 디코드          2 ms  duckdb::TemplatedColumnReader<double, duckdb::TemplatedParquetValueConversion<double> >::Plain
+  값 디코드          2 ms  duckdb::DictionaryDecoder::GetValidValues
+  값 디코드          1 ms  unsigned int duckdb_apache::thrift::transport::readAll<duckdb::ThriftFileTransport>
+  값 디코드          1 ms  duckdb::BinaryDeserializer::OnOptionalPropertyBegin
   원소 다루기         1 ms  void duckdb::ScalarFunction::BinaryFunction<double, double, double, duckdb::SubtractOperator>
-  키 생성           1 ms  duckdb::ParquetNodeKeyGenerator::Process
+  join           1 ms  unsigned long duckdb::TemplatedMatch<true, duckdb::string_t, duckdb::NotDistinctFrom>
+  집계             1 ms  void duckdb::AggregateExecutor::ExecuteUnaryClustered<duckdb::SumState<double>, double, duckdb::(anonymous nam
   집계             1 ms  duckdb::ClusteredAggr::ClusterIter
-  집계             1 ms  duckdb::(anonymous namespace)::CountFunction::CountClusterUpdate
   집계             1 ms  duckdb::ClusteredAggr::TryClustered
-  기타             1 ms  duckdb::MoveConstantsRule::MoveConstantsRule
-  기타             1 ms  std::_Function_handler<void (duckdb::unique_ptr<duckdb::Expression, std::default_delete<duckdb::Expression>, t
+  집계             1 ms  duckdb::VectorBuffer::SetVectorSize
+callers of the watched functions (category of the sample / the next three frames up):
+  SelectionVector::Slice: 1 ms
+         1 ms  값 디코드/scan  < DictionaryBuffer::SliceInternal < VectorBuffer::Slice < Vector::Slice
+  TemplatedValidityMask<unsigned long>::SetInvalid: 1 ms
+         1 ms  값 디코드/decode  < TemplatedColumnReader<double, TemplatedParquetValueConversion<double>  < ColumnReader::ReadData < ColumnReader::ReadInternal

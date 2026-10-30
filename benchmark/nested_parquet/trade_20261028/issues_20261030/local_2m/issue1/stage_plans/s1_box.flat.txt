@@ -1,4 +1,4 @@
 UNGROUPED_AGGREGATE     0.000s  rows            1  est            1  aggregate: count(#0)
   PROJECTION              0.000s  rows      6997998  est      6997998  
     TABLE_SCAN              0.045s  rows      6997998  est      6997998  file: trade_B.parquet; node: legs
-total 0.050 s
+total 0.051 s

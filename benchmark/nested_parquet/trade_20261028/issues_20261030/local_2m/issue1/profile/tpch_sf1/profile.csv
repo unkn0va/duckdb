@@ -1,45 +1,53 @@
 query,config,wall_ms,cpu_ms,category,sub,cpu_ms_category
-q01,base,172.0,151.0,리스트 조립,list/struct reader,74.0
-q01,base,172.0,151.0,값 디코드,decode,52.0
-q01,base,172.0,151.0,집계,aggregate,10.0
-q01,base,172.0,151.0,기타,실행기/결과,5.0
-q01,base,172.0,151.0,값 디코드,levels/skip,5.0
-q01,base,172.0,151.0,원소 다루기,FILTER,3.0
-q01,base,172.0,151.0,원소 다루기,PROJECTION,1.0
-q01,base,172.0,151.0,UNNEST,unnest,1.0
-q01,prenestoff,126.0,107.0,리스트 조립,list/struct reader,66.0
-q01,prenestoff,126.0,107.0,값 디코드,decode,17.0
-q01,prenestoff,126.0,107.0,집계,aggregate,9.0
-q01,prenestoff,126.0,107.0,원소 다루기,FILTER,4.0
-q01,prenestoff,126.0,107.0,값 디코드,levels/skip,3.0
-q01,prenestoff,126.0,107.0,UNNEST,unnest,3.0
-q01,prenestoff,126.0,107.0,값 디코드,scan,2.0
-q01,prenestoff,126.0,107.0,기타,실행기/결과,1.0
-q01,prenestoff,126.0,107.0,원소 다루기,PROJECTION,1.0
-q01,prenestoff,126.0,107.0,기타,정렬/limit,1.0
-q01,flat,44.0,43.0,값 디코드,decode,20.0
-q01,flat,44.0,43.0,집계,aggregate,10.0
-q01,flat,44.0,43.0,원소 다루기,스캔 필터,3.0
-q01,flat,44.0,43.0,기타,실행기/결과,2.0
-q01,flat,44.0,43.0,값 디코드,levels/skip,2.0
-q01,flat,44.0,43.0,값 디코드,scan,2.0
-q01,flat,44.0,43.0,원소 다루기,PROJECTION,2.0
-q01,flat,44.0,43.0,원소 다루기,식,1.0
-q01,flat,44.0,43.0,join,hash join,1.0
-q06,base,158.0,145.0,리스트 조립,list/struct reader,73.0
-q06,base,158.0,145.0,값 디코드,decode,56.0
-q06,base,158.0,145.0,값 디코드,levels/skip,6.0
-q06,base,158.0,145.0,원소 다루기,FILTER,6.0
-q06,base,158.0,145.0,기타,실행기/결과,3.0
-q06,base,158.0,145.0,값 디코드,scan,1.0
-q06,prenestoff,107.0,94.0,리스트 조립,list/struct reader,75.0
-q06,prenestoff,107.0,94.0,값 디코드,decode,7.0
-q06,prenestoff,107.0,94.0,원소 다루기,FILTER,5.0
-q06,prenestoff,107.0,94.0,값 디코드,levels/skip,3.0
-q06,prenestoff,107.0,94.0,값 디코드,scan,2.0
-q06,prenestoff,107.0,94.0,원소 다루기,PROJECTION,1.0
-q06,prenestoff,107.0,94.0,기타,실행기/결과,1.0
-q06,flat,16.0,14.0,값 디코드,decode,7.0
-q06,flat,16.0,14.0,키 생성,node keys,3.0
-q06,flat,16.0,14.0,값 디코드,scan,2.0
-q06,flat,16.0,14.0,원소 다루기,스캔 필터,2.0
+q01,base,193.0,167.0,리스트 조립,list/struct reader,84.0
+q01,base,193.0,167.0,값 디코드,decode,55.0
+q01,base,193.0,167.0,집계,aggregate,12.0
+q01,base,193.0,167.0,값 디코드,levels/skip,7.0
+q01,base,193.0,167.0,기타,실행기/결과,3.0
+q01,base,193.0,167.0,원소 다루기,PROJECTION,3.0
+q01,base,193.0,167.0,값 디코드,scan,1.0
+q01,base,193.0,167.0,원소 다루기,FILTER,1.0
+q01,base,193.0,167.0,UNNEST,unnest,1.0
+q01,prenestoff,121.0,113.0,리스트 조립,list/struct reader,71.0
+q01,prenestoff,121.0,113.0,값 디코드,decode,19.0
+q01,prenestoff,121.0,113.0,집계,aggregate,8.0
+q01,prenestoff,121.0,113.0,기타,실행기/결과,4.0
+q01,prenestoff,121.0,113.0,원소 다루기,FILTER,3.0
+q01,prenestoff,121.0,113.0,값 디코드,levels/skip,2.0
+q01,prenestoff,121.0,113.0,UNNEST,unnest,2.0
+q01,prenestoff,121.0,113.0,원소 다루기,PROJECTION,2.0
+q01,prenestoff,121.0,113.0,값 디코드,scan,1.0
+q01,prenestoff,121.0,113.0,기타,duckdb 미분류,1.0
+q01,flat,49.0,46.0,값 디코드,decode,21.0
+q01,flat,49.0,46.0,집계,aggregate,11.0
+q01,flat,49.0,46.0,키 생성,node keys,4.0
+q01,flat,49.0,46.0,원소 다루기,스캔 필터,3.0
+q01,flat,49.0,46.0,값 디코드,scan,2.0
+q01,flat,49.0,46.0,기타,실행기/결과,1.0
+q01,flat,49.0,46.0,기타,정렬/limit,1.0
+q01,flat,49.0,46.0,값 디코드,levels/skip,1.0
+q01,flat,49.0,46.0,원소 다루기,PROJECTION,1.0
+q01,flat,49.0,46.0,join,hash join,1.0
+q06,base,177.0,157.0,리스트 조립,list/struct reader,87.0
+q06,base,177.0,157.0,값 디코드,decode,54.0
+q06,base,177.0,157.0,값 디코드,levels/skip,7.0
+q06,base,177.0,157.0,UNNEST,unnest,3.0
+q06,base,177.0,157.0,값 디코드,scan,2.0
+q06,base,177.0,157.0,원소 다루기,FILTER,2.0
+q06,base,177.0,157.0,기타,실행기/결과,1.0
+q06,base,177.0,157.0,원소 다루기,PROJECTION,1.0
+q06,prenestoff,102.0,90.0,리스트 조립,list/struct reader,70.0
+q06,prenestoff,102.0,90.0,값 디코드,decode,6.0
+q06,prenestoff,102.0,90.0,기타,실행기/결과,3.0
+q06,prenestoff,102.0,90.0,값 디코드,levels/skip,3.0
+q06,prenestoff,102.0,90.0,원소 다루기,PROJECTION,2.0
+q06,prenestoff,102.0,90.0,UNNEST,unnest,2.0
+q06,prenestoff,102.0,90.0,원소 다루기,FILTER,2.0
+q06,prenestoff,102.0,90.0,값 디코드,scan,1.0
+q06,prenestoff,102.0,90.0,기타,duckdb 미분류,1.0
+q06,flat,16.0,14.0,값 디코드,decode,8.0
+q06,flat,16.0,14.0,키 생성,node keys,2.0
+q06,flat,16.0,14.0,값 디코드,scan,1.0
+q06,flat,16.0,14.0,원소 다루기,스캔 필터,1.0
+q06,flat,16.0,14.0,값 디코드,levels/skip,1.0
+q06,flat,16.0,14.0,기타,실행기/결과,1.0

@@ -1,11 +1,11 @@
-date:     2026-10-30T14:03:23+09:00
+date:     2026-10-30T14:26:59+09:00
 host:     ChoiLY, 20 hardware threads, 15 GiB memory
 cpu:      Intel(R) Core(TM) i5-14500
-uptime:    14:03:23 up 3 days,  1:10,  1 user,  load average: 0.13, 0.28, 0.30
+uptime:    14:26:59 up 3 days,  1:33,  1 user,  load average: 0.03, 0.12, 0.29
 base:     v2.1.0-dev88383 a809d3cd51  /home/layun03/nested-bench/duckdb_base/build/release/duckdb
 prenest:  v2.1.0-dev88385 fabde05fe6  /home/layun03/nested-bench/duckdb_prenest_base/build/release/duckdb
 final:    v2.1.0-dev88419 2d345279c3  /home/layun03/nested-bench/duckdb_rey/build/release/duckdb
 perf:     perf version 6.8.12  (perf)
-scripts:  69bd3cab48b nested_parquet: trade recheck with the float tolerance passes on apache10
+scripts:  2424b48e6a5 nested_parquet: trade handoff, the source of prenestoff's string copies and the issues of 2026-10-30
 data:     <2백만 행 샘플>/full
 runs:     3, perf 1000 Hz

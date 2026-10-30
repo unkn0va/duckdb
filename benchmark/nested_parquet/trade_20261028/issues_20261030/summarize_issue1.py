@@ -8,11 +8,15 @@
   1-3  perf categories of TPC-H (profile/tpch_sf1, profile/tpch_sf10)
   1-4  the category rules (categories.py), the runs where "기타" exceeds 10% with its top functions, and the callers
        of the watched functions (string copies, validity) in q2_s50
+Every table of categories is printed twice: by the new rules (call stacks, categories.py) and by the old ones (the
+leaf function's name, ../../profile_breakdown.py, the columns of server_20261029/summary.md) - both over the same
+samples (profile/*/*.folded.gz). A last section shows where the old columns go in the new categories.
 
 Usage: summarize_issue1.py <run_issue1.sh output folder>
 """
 import collections
 import csv
+import glob
 import io
 import os
 import re
@@ -21,7 +25,8 @@ import sys
 from contextlib import redirect_stdout
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from categories import CATEGORIES, table as category_table  # noqa: E402
+from categories import CATEGORIES, OLD_COLUMNS, classify, old_classify, read_folded  # noqa: E402
+from categories import table as category_table  # noqa: E402
 
 OUT = sys.argv[1] if __name__ == "__main__" else ""
 CONFIGS = ["base", "prenestoff", "prenest", "flat", "pureflat"]
@@ -43,6 +48,21 @@ def load_profile(folder):
         run["wall"], run["cpu"] = float(wall) / 1000, float(cpu) / 1000
         run[category] += float(ms) / 1000
         run[(category, sub)] += float(ms) / 1000
+    # the old categories and the (old column, new category, sub-category) of every sample, from the stacks
+    for path in glob.glob(os.path.join(OUT, "profile", folder, "*.folded.gz")):
+        header, stacks = read_folded(path)
+        freq = int(header.get("freq", 1000))
+        label = header.get("label", "")
+        key = tuple(label.split(",", 1)) if "," in label else tuple(os.path.basename(path).split(".")[:2])
+        run = runs[key]
+        moves = run["moves"] = collections.Counter()
+        leaves = run["vector_leaves"] = collections.Counter()
+        for stack, n, symbol in stacks:
+            old, new = old_classify(symbol, stack[0][1]), classify(stack)
+            run[("old", old)] += n / freq
+            moves[(old, *new)] += n / freq
+            if old == "식·벡터":
+                leaves[(*new, stack[0][0].replace("duckdb::", ""))] += n / freq
     return runs
 
 
@@ -54,9 +74,21 @@ def fmt(value, digits=2):
     return "·" if abs(value) < 0.5 * 10**-digits else f"{value:.{digits}f}"
 
 
-def category_header(extra=()):
-    cols = [*extra, *(SHORT[c] for c in CATEGORIES)]
+BASES = {"new": "새 기준(call stack)", "old": "옛 기준(잎 함수 이름)"}
+
+
+def columns(basis):
+    return [(SHORT[c], c) for c in CATEGORIES] if basis == "new" else [(c, ("old", c)) for c in OLD_COLUMNS]
+
+
+def category_header(extra=(), basis="new"):
+    cols = [*extra, *(name for name, _ in columns(basis))]
     return "| " + " | ".join(cols) + " |\n|" + "---|" * len(cols)
+
+
+def category_cells(run, basis="new", other=None):
+    """The category columns of a run (minus those of other) as markdown cells."""
+    return " | ".join(fmt(run[key] - (other[key] if other else 0)) for _, key in columns(basis))
 
 
 def stage_tables():
@@ -82,29 +114,31 @@ def stage_tables():
     print()
     if not perf:
         return
-    print("### perf 범주 (CPU 초)\n")
-    print(category_header(("구성", "단계", "wall", "CPU")))
-    for config in CONFIGS:
-        for stage in STAGES:
-            run = perf.get((stage, config))
-            if run:
-                print(f"| {config} | {stage} | {fmt(run['wall'])} | {fmt(run['cpu'])} | "
-                      + " | ".join(fmt(run[c]) for c in CATEGORIES) + " |")
-    print()
-    print("### 단계 사이의 차이: 측정 시간 차이 vs perf 범주 차이 (초)\n")
-    print("Δwall은 stage_time.csv(최소 시간)의 차이, 나머지는 perf 실행 한 번의 범주별 CPU 차이입니다.")
-    print("기대: s1→s2는 UNNEST, s2→s2f는 (가지치기하는 구성에서) 디코드·조립 감소 + 필드 꺼내기, s2f→s3는 원소 다루기(조건)와 집계.\n")
-    print(category_header(("구성", "단계", "Δwall", "ΔCPU(perf)")))
-    for config in CONFIGS:
-        for a, b in zip(STAGES, STAGES[1:]):
-            ra, rb = perf.get((a, config)), perf.get((b, config))
-            ta, tb = times.get((a, config)), times.get((b, config))
-            dwall = float(tb["wall_s"]) - float(ta["wall_s"]) if ta and tb and ta["wall_s"] and tb["wall_s"] else None
-            if not (ra and rb):
-                continue
-            print(f"| {config} | {a.split('_')[0]}→{b.split('_')[0]} | {fmt(dwall)} | {fmt(rb['cpu'] - ra['cpu'])} | "
-                  + " | ".join(fmt(rb[c] - ra[c]) for c in CATEGORIES) + " |")
-    print()
+    for basis, title in BASES.items():
+        print(f"### perf 범주 (CPU 초), {title}\n")
+        print(category_header(("구성", "단계", "wall", "CPU"), basis))
+        for config in CONFIGS:
+            for stage in STAGES:
+                run = perf.get((stage, config))
+                if run:
+                    print(f"| {config} | {stage} | {fmt(run['wall'])} | {fmt(run['cpu'])} | {category_cells(run, basis)} |")
+        print()
+    for basis, title in BASES.items():
+        print(f"### 단계 사이의 차이: 측정 시간 차이 vs perf 범주 차이 (초), {title}\n")
+        if basis == "new":
+            print("Δwall은 stage_time.csv(최소 시간)의 차이, 나머지는 perf 실행 한 번의 범주별 CPU 차이입니다.")
+            print("기대: s1→s2는 UNNEST, s2→s2f는 (가지치기하는 구성에서) 디코드·조립 감소 + 필드 꺼내기, s2f→s3는 원소 다루기(조건)와 집계.\n")
+        print(category_header(("구성", "단계", "Δwall", "ΔCPU(perf)"), basis))
+        for config in CONFIGS:
+            for a, b in zip(STAGES, STAGES[1:]):
+                ra, rb = perf.get((a, config)), perf.get((b, config))
+                ta, tb = times.get((a, config)), times.get((b, config))
+                dwall = float(tb["wall_s"]) - float(ta["wall_s"]) if ta and tb and ta["wall_s"] and tb["wall_s"] else None
+                if not (ra and rb):
+                    continue
+                print(f"| {config} | {a.split('_')[0]}→{b.split('_')[0]} | {fmt(dwall)} | {fmt(rb['cpu'] - ra['cpu'])} | "
+                      f"{category_cells(rb, basis, ra)} |")
+        print()
 
 
 def load_counts():
@@ -136,15 +170,15 @@ def param_tables():
                 print(f"| {q} | {c['column']} | {c['lists_total']:,} | {c['elements_total']:,} | {c['lists_scanned']:,} | "
                       f"{c['elements_unnested']:,} | {c['elements_passing']:,} |")
         print()
-    print("### 범주별 CPU 초\n")
-    print(category_header(("쿼리", "구성", "wall", "CPU")))
-    for q in queries:
-        for config in CONFIGS:
-            run = perf.get((q, config))
-            if run:
-                print(f"| {q} | {config} | {fmt(run['wall'])} | {fmt(run['cpu'])} | "
-                      + " | ".join(fmt(run[c]) for c in CATEGORIES) + " |")
-    print()
+    for basis, title in BASES.items():
+        print(f"### 범주별 CPU 초, {title}\n")
+        print(category_header(("쿼리", "구성", "wall", "CPU"), basis))
+        for q in queries:
+            for config in CONFIGS:
+                run = perf.get((q, config))
+                if run:
+                    print(f"| {q} | {config} | {fmt(run['wall'])} | {fmt(run['cpu'])} | {category_cells(run, basis)} |")
+        print()
     if not counts:
         return
     units = [("lists_total", "파일 리스트"), ("lists_scanned", "스캔한 리스트"), ("elements_total", "파일 원소"),
@@ -184,12 +218,70 @@ def tpch_tables():
     if not rows:
         return
     print("## 1-3 TPC-H (1스레드, perf)\n")
-    print("CPU 초, 괄호는 비율(%).\n")
-    print(category_header(("데이터", "쿼리", "구성", "wall", "CPU")))
-    for name, q, config, run in rows:
-        print(f"| {name} | {q} | {config} | {fmt(run['wall'])} | {fmt(run['cpu'])} | "
-              + " | ".join(f"{fmt(run[c])} ({100 * run[c] / run['cpu']:.0f})" if run[c] >= 0.005 else "·" for c in CATEGORIES)
-              + " |")
+    for basis, title in BASES.items():
+        print(f"### {title}: CPU 초, 괄호는 비율(%)\n")
+        print(category_header(("데이터", "쿼리", "구성", "wall", "CPU"), basis))
+        for name, q, config, run in rows:
+            print(f"| {name} | {q} | {config} | {fmt(run['wall'])} | {fmt(run['cpu'])} | "
+                  + " | ".join(f"{fmt(run[key])} ({100 * run[key] / run['cpu']:.0f})" if run[key] >= 0.005 else "·"
+                               for _, key in columns(basis))
+                  + " |")
+        print()
+
+
+def moves_tables():
+    """Where the old columns go in the new categories: q2_s50 in every configuration, the old 식·벡터 of
+    prenestoff by new sub-category, and the old 식·벡터 of every run."""
+    runs = {}
+    for folder in ("stage", "params", "tpch_sf1", "tpch_sf10"):
+        for key, run in load_profile(folder).items():
+            if "moves" in run:
+                runs[(folder, *key)] = run
+    if not runs:
+        return
+    print("## 옛 기준 → 새 기준\n")
+    print("같은 perf 샘플을 두 기준으로 나눴습니다. 옛 기준은 잎 함수의 전체 이름(인자 포함)만 보고(`../../profile_breakdown.py`),")
+    print("새 기준은 call stack을 위로 따라갑니다(`categories.py`). 행 = 옛 열, 열 = 새 범주, 값 = CPU 초.\n")
+    new_names = [SHORT[c] for c in CATEGORIES]
+    for config in CONFIGS:
+        run = runs.get(("params", "q2_s50", config))
+        if not run:
+            continue
+        print(f"### q2_s50 {config}\n")
+        print("| 옛 열 \\ 새 범주 | 합계 | " + " | ".join(new_names) + " |\n|---|---|" + "---|" * len(new_names))
+        for old in OLD_COLUMNS:
+            row = {c: sum(v for (o, n, _), v in run["moves"].items() if o == old and n == c) for c in CATEGORIES}
+            if sum(row.values()) >= 0.005:
+                print(f"| {old} | {fmt(sum(row.values()))} | " + " | ".join(fmt(row[c]) for c in CATEGORIES) + " |")
+        print(f"| 새 범주 합계 | {fmt(run['cpu'])} | " + " | ".join(fmt(run[c]) for c in CATEGORIES) + " |\n")
+    run = runs.get(("params", "q2_s50", "prenestoff"))
+    if run:
+        total = sum(v for (o, _, _), v in run["moves"].items() if o == "식·벡터")
+        print(f"### q2_s50 prenestoff: 옛 '식·벡터' {fmt(total)}초가 가는 곳 (새 범주 / 세부)\n")
+        print("지난 보고(`server_20261029/profile/q2_s50.prenestoff.txt`, 다른 실행)의 옛 '식·벡터'는 6.87초(expressions 4.20 + vectors 2.67)였습니다.\n")
+        print("| 새 범주 | 세부 | CPU 초 | 비율 | 주요 잎 함수 (초) |\n|---|---|---|---|---|")
+        parts = collections.Counter()
+        for (o, n, sub), v in run["moves"].items():
+            if o == "식·벡터":
+                parts[(n, sub)] += v
+        for (n, sub), v in parts.most_common():
+            if v >= 0.005:
+                top = sorted(((f, t) for (nn, ss, f), t in run["vector_leaves"].items() if (nn, ss) == (n, sub)),
+                             key=lambda ft: -ft[1])[:4]
+                functions = ", ".join(f"`{f[:60]}` {fmt(t)}" for f, t in top)
+                print(f"| {n} | {sub} | {fmt(v)} | {100 * v / total:.0f}% | {functions} |")
+        print()
+    print("### 모든 실행: 옛 '식·벡터'가 가는 곳 (상위 3개 새 범주)\n")
+    print("| 폴더 | 쿼리 | 구성 | 옛 식·벡터 초 | 새 범주 (초) |\n|---|---|---|---|---|")
+    for (folder, q, config), run in sorted(runs.items(), key=lambda kv: (kv[0][0], kv[0][1], CONFIGS.index(kv[0][2]))):
+        parts = collections.Counter()
+        for (o, n, _), v in run["moves"].items():
+            if o == "식·벡터":
+                parts[n] += v
+        total = sum(parts.values())
+        if total >= 0.005:
+            top = ", ".join(f"{SHORT[n]} {fmt(v)}" for n, v in parts.most_common(3))
+            print(f"| {folder} | {q} | {config} | {fmt(total)} | {top} |")
     print()
 
 
@@ -256,6 +348,7 @@ def main():
     stage_tables()
     param_tables()
     tpch_tables()
+    moves_tables()
     categories_section()
 
 

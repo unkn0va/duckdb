@@ -1,26 +1,28 @@
-s3_cond,flat: threads=1 wall 142 ms, CPU 138 ms (138 samples, 1000 Hz)
+s3_cond,flat: threads=1 wall 125 ms, CPU 125 ms (125 samples, 1000 Hz)
+stack depth: median 28 frames, 0% of the samples with fewer than 3
 CPU ms per category (sub-categories in brackets):
-  값 디코드          38   27.5%  [decode 19, levels/skip 11, scan 8]
-  원소 다루기         61   44.2%  [스캔 필터 61]
-  키 생성           31   22.5%  [node keys 31]
-  집계              6    4.3%  [aggregate 6]
-  기타              2    1.4%  [실행기/결과 2]
+  값 디코드          37   29.6%  [decode 21, levels/skip 13, scan 3]
+  원소 다루기         40   32.0%  [스캔 필터 40]
+  키 생성           43   34.4%  [node keys 43]
+  집계              2    1.6%  [aggregate 2]
+  기타              3    2.4%  [실행기/결과 3]
 hottest sampled functions per category:
-  값 디코드          8 ms  duckdb::DictionaryDecoder::GetValidValues
-  값 디코드          4 ms  void duckdb::RleBpDecoder::GetBatch<unsigned char>
-  값 디코드          3 ms  [unknown]
-  값 디코드          3 ms  duckdb::ReadParquetNodeScan
-  값 디코드          2 ms  duckdb_fastpforlib::internal::__fastunpack1
-  원소 다루기        27 ms  duckdb::string_t::StringComparisonOperators::GreaterThan
-  원소 다루기        16 ms  [unknown]
-  원소 다루기        13 ms  unsigned long duckdb::ComparisonFilterExecutor::SelectTyped<duckdb::string_t>
-  원소 다루기         4 ms  memcmp@plt
-  원소 다루기         1 ms  std::_Sp_counted_base<(__gnu_cxx::_Lock_policy)2>::_M_release
-  키 생성          31 ms  duckdb::ParquetNodeKeyGenerator::Process
-  집계             5 ms  bool duckdb::AggregateExecutor::UpdateUnaryClusteredOpt<true, duckdb::SumState<duckdb::hugeint_t>, long, duckd
-  집계             1 ms  duckdb::VectorCacheEntry::ResetFromCache
-  기타             1 ms  duckdb::DataChunk::Verify
-  기타             1 ms  duckdb::DataChunk::Reset
+  값 디코드         10 ms  duckdb::DictionaryDecoder::GetValidValues
+  값 디코드          5 ms  void duckdb::RleBpDecoder::GetBatch<unsigned char>
+  값 디코드          3 ms  duckdb_fastpforlib::internal::__fastunpack9
+  값 디코드          3 ms  void duckdb_snappy::SnappyDecompressor::DecompressAllTags<duckdb_snappy::SnappyArrayWriter>
+  값 디코드          3 ms  void duckdb::RleBpDecoder::GetBatch<unsigned int>
+  원소 다루기        18 ms  duckdb::string_t::StringComparisonOperators::GreaterThan
+  원소 다루기        17 ms  [unknown]
+  원소 다루기         5 ms  unsigned long duckdb::ComparisonFilterExecutor::SelectTyped<duckdb::string_t>
+  키 생성          43 ms  duckdb::ParquetNodeKeyGenerator::Process
+  집계             1 ms  operator delete
+  집계             1 ms  bool duckdb::AggregateExecutor::UpdateUnaryClusteredOpt<true, duckdb::SumState<duckdb::hugeint_t>, long, duckd
+  기타             1 ms  duckdb::PipelineExecutor::StartOperator
+  기타             1 ms  [unknown]
+  기타             1 ms  std::_Sp_counted_base<(__gnu_cxx::_Lock_policy)2>::_M_release
 callers of the watched functions (category of the sample / the next three frames up):
   SelectionVector::Slice: 1 ms
          1 ms  값 디코드/scan  < DictionaryBuffer::SliceInternal < VectorBuffer::Slice < Vector::Slice
+  ValidityMask::CopySel: 1 ms
+         1 ms  값 디코드/decode  < VectorBuffer::Copy < VectorOperations::Copy < DictionaryDecoder::Read

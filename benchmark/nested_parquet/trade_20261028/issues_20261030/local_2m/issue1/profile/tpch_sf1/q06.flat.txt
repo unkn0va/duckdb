@@ -1,14 +1,17 @@
 q06,flat: threads=1 wall 16 ms, CPU 14 ms (14 samples, 1000 Hz)
+stack depth: median 31 frames, 0% of the samples with fewer than 3
 CPU ms per category (sub-categories in brackets):
-  값 디코드           9   64.3%  [decode 7, scan 2]
-  원소 다루기          2   14.3%  [스캔 필터 2]
-  키 생성            3   21.4%  [node keys 3]
+  값 디코드          10   71.4%  [decode 8, scan 1, levels/skip 1]
+  원소 다루기          1    7.1%  [스캔 필터 1]
+  키 생성            2   14.3%  [node keys 2]
+  기타              1    7.1%  [실행기/결과 1]
 hottest sampled functions per category:
-  값 디코드          5 ms  void duckdb_snappy::SnappyDecompressor::DecompressAllTags<duckdb_snappy::SnappyArrayWriter>
-  값 디코드          1 ms  std::__detail::_Map_base<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std:
-  값 디코드          1 ms  duckdb::FileSystem::IsRemoteFile
-  값 디코드          1 ms  duckdb::TemplatedColumnReader<double, duckdb::TemplatedParquetValueConversion<double> >::Plain
-  값 디코드          1 ms  duckdb::TemplatedColumnReader<duckdb::date_t, duckdb::CallbackParquetValueConversion<int, duckdb::date_t, &duc
-  원소 다루기         1 ms  bool duckdb::GreaterThanEquals::Operation<double>
-  원소 다루기         1 ms  bool duckdb::GreaterThan::Operation<double>
-  키 생성           3 ms  duckdb::ParquetNodeKeyGenerator::Process
+  값 디코드          6 ms  void duckdb_snappy::SnappyDecompressor::DecompressAllTags<duckdb_snappy::SnappyArrayWriter>
+  값 디코드          3 ms  [unknown]
+  값 디코드          1 ms  duckdb_fastpforlib::internal::__fastunpack4
+  원소 다루기         1 ms  unsigned long duckdb::ComparisonFilterExecutor::SelectTyped<double>
+  키 생성           2 ms  duckdb::ParquetNodeKeyGenerator::Process
+  기타             1 ms  duckdb::AttachedDatabase::InvokeCloseIfLastReference
+callers of the watched functions (category of the sample / the next three frames up):
+  TemplatedValidityMask<unsigned long>::SetInvalid: 2 ms
+         2 ms  값 디코드/decode  < TemplatedColumnReader<double, TemplatedParquetValueConversion<double>  < ColumnReader::ReadData < ColumnReader::ReadInternal

@@ -1,15 +1,19 @@
-q3_c12,flat: threads=1 wall 55 ms, CPU 53 ms (53 samples, 1000 Hz)
+q3_c12,flat: threads=1 wall 50 ms, CPU 47 ms (47 samples, 1000 Hz)
+stack depth: median 26 frames, 0% of the samples with fewer than 3
 CPU ms per category (sub-categories in brackets):
-  값 디코드          14   26.4%  [decode 9, levels/skip 3, scan 2]
-  원소 다루기          7   13.2%  [스캔 필터 7]
-  키 생성           31   58.5%  [node keys 31]
-  집계              1    1.9%  [aggregate 1]
+  값 디코드          10   21.3%  [decode 6, levels/skip 3, scan 1]
+  원소 다루기          5   10.6%  [스캔 필터 5]
+  키 생성           26   55.3%  [node keys 26]
+  집계              4    8.5%  [aggregate 4]
+  기타              2    4.3%  [실행기/결과 2]
 hottest sampled functions per category:
   값 디코드          3 ms  duckdb::DictionaryDecoder::GetValidValues
-  값 디코드          1 ms  duckdb_apache::thrift::protocol::TVirtualProtocol<duckdb_apache::thrift::protocol::TCompactProtocolT<duckdb::T
-  값 디코드          1 ms  duckdb_je_ecache_dalloc
-  값 디코드          1 ms  duckdb_je_pa_dalloc
-  값 디코드          1 ms  duckdb::BlockAllocator::Get
-  원소 다루기         7 ms  unsigned long duckdb::ComparisonFilterExecutor::SelectTyped<long>
-  키 생성          31 ms  duckdb::ParquetNodeKeyGenerator::Process
-  집계             1 ms  bool duckdb::AggregateExecutor::UpdateUnaryClusteredOpt<true, duckdb::SumState<duckdb::hugeint_t>, long, duckd
+  값 디코드          2 ms  duckdb_fastpforlib::internal::__fastunpack15
+  값 디코드          1 ms  duckdb::BinaryDeserializer::OnObjectBegin
+  값 디코드          1 ms  std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::_M_replace
+  값 디코드          1 ms  void duckdb_snappy::SnappyDecompressor::DecompressAllTags<duckdb_snappy::SnappyArrayWriter>
+  원소 다루기         5 ms  unsigned long duckdb::ComparisonFilterExecutor::SelectTyped<long>
+  키 생성          26 ms  duckdb::ParquetNodeKeyGenerator::Process
+  집계             4 ms  bool duckdb::AggregateExecutor::UpdateUnaryClusteredOpt<true, duckdb::SumState<duckdb::hugeint_t>, long, duckd
+  기타             1 ms  duckdb::SimpleBufferedData::UnblockSinks
+  기타             1 ms  [unknown]

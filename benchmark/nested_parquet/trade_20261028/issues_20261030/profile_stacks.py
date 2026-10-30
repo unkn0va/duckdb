@@ -8,7 +8,8 @@ categories.py walks from the sampled function upwards - memcpy, malloc, the kern
 for the code that called them.
 
 Written next to OUT (a path prefix):
-  OUT.folded.gz  the stacks ('root;...;leaf count', frames 'function@dso'), re-classifiable with categories.py
+  OUT.folded.gz  the stacks ('root;...;leaf<TAB>leaf symbol count', frames 'function@dso' without the arguments, the
+                 leaf's symbol in full for the old leaf-only categories), re-classifiable with categories.py
   OUT.txt        wall and CPU time, CPU ms per category and sub-category, the hottest functions of every category,
                  and for the functions in WATCH the callers they were reached from
 CSV_OUT gets one row per category and sub-category: label, wall ms, CPU ms of the run, category, sub, CPU ms.
@@ -76,8 +77,9 @@ def record(tmp):
 
 
 def parse(data):
-    """[(stack from the leaf: [(function, dso)])] of the DuckDB process's samples (not of the toggle script's)."""
-    samples, stack = [], None
+    """[(stack from the leaf: [(function, dso)])] of the DuckDB process's samples (not of the toggle script's), and
+    the full symbol (with its arguments) of every sample's leaf."""
+    samples, leaves, stack, leaf = [], [], None, ""
     comm = os.path.basename(DUCKDB)[:15]
     script = subprocess.Popen(["perf", "script", "-i", data, "-F", "comm,tid,time,ip,sym,dso"], stdout=subprocess.PIPE,
                               stderr=subprocess.DEVNULL, text=True)
@@ -86,26 +88,32 @@ def parse(data):
         if line.startswith("\t"):
             m = re.match(r"\s*[0-9a-f]+ (.*) \((.*)\)$", line)
             if stack is not None and m:
-                name = function_name(re.sub(r"\+0x[0-9a-f]+$", "", m.group(1)))
+                symbol = re.sub(r"\+0x[0-9a-f]+$", "", m.group(1))
+                if not stack:
+                    leaf = sys.intern(symbol)
+                name = function_name(symbol)
                 stack.append((sys.intern(name), sys.intern(os.path.basename(m.group(2)))))
             continue
         if stack:
             samples.append(stack)
+            leaves.append(leaf)
         stack = [] if line.split()[:1] == [comm] else None
     if script.wait():
         sys.exit(f"perf script failed ({script.returncode})")
-    return samples
+    return samples, leaves
 
 
 def main():
     # perf.data next to the results: /tmp may be small
     with tempfile.TemporaryDirectory(dir=os.path.dirname(os.path.abspath(OUT))) as tmp:
         wall, data = record(tmp)
-        samples = parse(data)
+        samples, leaves = parse(data)
     cpu_ms = len(samples) * 1000 / FREQ
     label = os.environ.get("LABEL", os.path.basename(OUT))
 
-    folded = collections.Counter(";".join(f"{f}@{d}" for f, d in reversed(stack)) for stack in samples)
+    folded = collections.Counter(
+        ";".join(f"{f}@{d}" for f, d in reversed(stack)) + "\t" + leaf for stack, leaf in zip(samples, leaves)
+    )
     with gzip.open(OUT + ".folded.gz", "wt") as f:
         f.write(f"# freq={FREQ} wall_ms={wall * 1000:.1f} label={label.replace(' ', '_')}\n")
         for frames, n in folded.most_common():

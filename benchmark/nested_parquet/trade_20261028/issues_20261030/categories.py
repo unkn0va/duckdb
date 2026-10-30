@@ -11,10 +11,16 @@ Without a strong frame the first weak one decides; without either the sample is 
 The rules match the qualified function name without its arguments (in "f(duckdb::ColumnReader &)" the argument type
 does not count), first rule first within a frame.
 
+The earlier reports used the leaf-only categories of ../../profile_breakdown.py: the sampled function's full symbol
+(its arguments included) against that file's CATEGORIES, read from it here (old_classify), and grouped into the
+columns of server_20261029/summary.md (OLD_GROUPS).
+
 Usage: categories.py table                       the rules as a markdown table
        categories.py classify <folded.gz> ...    re-classify recorded stacks (profile_stacks.py) and print the
                                                  CPU ms per category and sub-category as CSV (label from the file name)
+       categories.py compare <folded.gz> ...     CPU ms of every (old column, new category / sub-category) pair as CSV
 """
+import ast
 import collections
 import gzip
 import os
@@ -147,6 +153,46 @@ def classify(stack):
     return "기타", leaf_kind(frame, dso)
 
 
+def _old_rules():
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "profile_breakdown.py")
+    for node in ast.parse(open(path).read()).body:
+        if isinstance(node, ast.Assign) and any(getattr(t, "id", "") == "CATEGORIES" for t in node.targets):
+            return ast.literal_eval(node.value)
+    raise RuntimeError(f"no CATEGORIES in {path}")
+
+
+OLD_RULES = _old_rules()
+# the columns of the tables in server_20261029/summary.md ("시간 분해"); every other old category is 기타
+OLD_GROUPS = {
+    "parquet decode": "디코드",
+    "parquet levels/skip": "디코드",
+    "list assembly": "조립",
+    "keys": "키",
+    "scan filters / late decoding": "FILTER",
+    "pre-nest filter": "FILTER",
+    "unnest": "UNNEST",
+    "hash join": "join",
+    "join filters": "join",
+    "aggregate": "집계",
+    "expressions": "식·벡터",
+    "vectors": "식·벡터",
+}
+OLD_COLUMNS = ["디코드", "조립", "키", "FILTER", "UNNEST", "join", "집계", "식·벡터", "기타"]
+
+
+def old_classify(symbol, dso, binary="duckdb"):
+    """The column of profile_breakdown.py's category of a sample: its leaf's full symbol and file only."""
+    if dso == binary:
+        category = next((name for name, patterns in OLD_RULES if any(p in symbol for p in patterns)), "other duckdb")
+    elif "libc" in dso or "libstdc++" in dso or "libm" in dso:
+        category = "libc"
+    elif "kernel" in dso:
+        category = "kernel"
+    else:
+        category = "other"
+    return OLD_GROUPS.get(category, "기타")
+
+
 def table():
     print("| 순서 | 범주 | 세부 | 종류 | 함수 이름 패턴 (정규식, 인자 제외) |")
     print("|---|---|---|---|---|")
@@ -157,8 +203,9 @@ def table():
 
 
 def read_folded(path):
-    """The header {"freq": hz, ...} and the [(stack from the leaf, count)] of a folded file of profile_stacks.py:
-    a first line '# key=value ...', then 'root;...;leaf count' with frames 'name@dso'."""
+    """The header {"freq": hz, ...} and the [(stack from the leaf, count, the leaf's full symbol)] of a folded file of
+    profile_stacks.py: a first line '# key=value ...', then 'root;...;leaf<TAB>symbol count' with frames 'name@dso'
+    (files without the symbol give the leaf's name instead)."""
     header, stacks = {}, []
     with gzip.open(path, "rt") as f:
         for line in f:
@@ -166,31 +213,34 @@ def read_folded(path):
                 header.update(item.split("=", 1) for item in line[1:].split())
                 continue
             frames, _, count = line.rstrip("\n").rpartition(" ")
+            frames, _, symbol = frames.partition("\t")
             stack = []
             for frame in reversed(frames.split(";")):
                 name, _, dso = frame.partition("@")
                 stack.append((name, dso))
-            stacks.append((stack, int(count)))
+            stacks.append((stack, int(count), symbol or stack[0][0]))
     return header, stacks
 
 
 def main():
-    if len(sys.argv) < 2 or sys.argv[1] not in ("table", "classify"):
+    if len(sys.argv) < 2 or sys.argv[1] not in ("table", "classify", "compare"):
         print(__doc__)
         sys.exit(2)
     if sys.argv[1] == "table":
         table()
         return
-    print("label,category,sub,cpu_ms")
+    compare = sys.argv[1] == "compare"
+    print("label,old,category,sub,cpu_ms" if compare else "label,category,sub,cpu_ms")
     for path in sys.argv[2:]:
         header, stacks = read_folded(path)
         freq = int(header.get("freq", 1000))
         label = header.get("label") or re.sub(r"\.folded\.gz$", "", os.path.basename(path))
         counts = collections.Counter()
-        for stack, n in stacks:
-            counts[classify(stack)] += n
-        for (category, sub), n in sorted(counts.items(), key=lambda kv: -kv[1]):
-            print(f"{label},{category},{sub},{n * 1000 / freq:.1f}")
+        for stack, n, symbol in stacks:
+            key = classify(stack)
+            counts[(old_classify(symbol, stack[0][1]), *key) if compare else key] += n
+        for key, n in sorted(counts.items(), key=lambda kv: -kv[1]):
+            print(f"{label},{','.join(key)},{n * 1000 / freq:.1f}")
 
 
 if __name__ == "__main__":

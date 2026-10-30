@@ -1,17 +1,16 @@
-s2_unnest,pureflat: threads=1 wall 40 ms, CPU 31 ms (31 samples, 1000 Hz)
+s2_unnest,pureflat: threads=1 wall 41 ms, CPU 34 ms (34 samples, 1000 Hz)
+stack depth: median 34 frames, 0% of the samples with fewer than 3
 CPU ms per category (sub-categories in brackets):
-  값 디코드          26   83.9%  [decode 18, levels/skip 6, scan 2]
-  집계              5   16.1%  [aggregate 5]
+  값 디코드          27   79.4%  [decode 15, scan 7, levels/skip 5]
+  집계              5   14.7%  [aggregate 5]
+  기타              2    5.9%  [실행기/결과 2]
 hottest sampled functions per category:
-  값 디코드          5 ms  [unknown]
-  값 디코드          5 ms  void duckdb_snappy::SnappyDecompressor::DecompressAllTags<duckdb_snappy::SnappyArrayWriter>
-  값 디코드          4 ms  void duckdb::RleBpDecoder::GetBatch<unsigned int>
-  값 디코드          3 ms  duckdb::ValidityMask::CopySel
-  값 디코드          1 ms  duckdb_parquet::ColumnMetaData::ColumnMetaData
-  집계             3 ms  duckdb::(anonymous namespace)::CountFunction::CountClusterUpdate
-  집계             1 ms  duckdb::PhysicalUngroupedAggregate::Sink
-  집계             1 ms  duckdb::DictionaryBuffer::ToUnifiedFormat
-callers of the watched functions (category of the sample / the next three frames up):
-  ValidityMask::CopySel: 3 ms
-         2 ms  값 디코드/decode  < StandardVectorBuffer::FlattenSliceInternal < VectorBuffer::FlattenSlice < DictionaryBuffer::Flatten
-         1 ms  값 디코드/decode  < VectorBuffer::Copy < VectorOperations::Copy < DictionaryDecoder::Read
+  값 디코드          6 ms  void duckdb_snappy::SnappyDecompressor::DecompressAllTags<duckdb_snappy::SnappyArrayWriter>
+  값 디코드          6 ms  [unknown]
+  값 디코드          2 ms  void duckdb::RleBpDecoder::GetBatch<unsigned int>
+  값 디코드          2 ms  duckdb_fastpforlib::internal::__fastunpack15
+  값 디코드          1 ms  duckdb::TaskExecutor::ScheduleTasks
+  집계             4 ms  duckdb::(anonymous namespace)::CountFunction::CountClusterUpdate
+  집계             1 ms  duckdb::VectorCacheEntry::ResetFromCache
+  기타             1 ms  duckdb::TableBinding::TableBinding
+  기타             1 ms  duckdb::VectorCacheEntry::ResetFromCache

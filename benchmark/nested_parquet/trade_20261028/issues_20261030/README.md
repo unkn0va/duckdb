@@ -10,7 +10,7 @@
 | `run_issue2.sh` | 이슈 2. 단계 `info variants cardinality summary`. 결과 폴더에 `variants.csv`, `variant_plans/`, `cardinality.csv`, `summary.md` |
 | `make_issue_queries.py` | `queries_stage/`(1-1 단계 쿼리)와 `queries_plans/`(2-1 변형)를 만듦. 상수는 `../make_queries.py`에서 가져옴 |
 | `profile_stacks.py` | perf를 call stack(`--call-graph dwarf`)과 함께 돌려 범주별 CPU 시간을 냄. 측정하는 두 번째 실행만 샘플링(perf control fifo + CLI `.shell`) |
-| `categories.py` | 범주 규칙(1-4). `table`은 규칙표, `classify <folded.gz>`는 기록된 스택을 다시 나눔 |
+| `categories.py` | 범주 규칙(1-4). `table`은 규칙표, `classify <folded.gz>`는 기록된 스택을 다시 나눔, `compare <folded.gz>`는 (옛 열, 새 범주)별 시간. 옛 기준(잎 함수 이름)은 `../../profile_breakdown.py`의 규칙을 그 파일에서 읽어 씀 |
 | `time_queries.py` | 다섯 구성으로 쿼리 파일을 RUNS번 재고(최소), 결과를 원래 쿼리(base builtin)와 비교. 파일 앞의 `SET`은 시간 밖에서 실행. `SAME_PLAN=1`이면 원래와 계획이 같은 변형은 다시 재지 않음 |
 | `stage_check.py` | 단계 쿼리가 의도한 단계에서 멈추는지 실행 계획으로 확인 |
 | `counts.py` | 1-2의 리스트 수와 원소 수(base EXPLAIN ANALYZE + 파일) |
@@ -43,6 +43,8 @@
 
 `categories.py table`의 규칙을 씁니다. 샘플의 스택을 잎에서 위로 따라가며 처음 맞는 규칙이 범주를 정하고, memcpy·malloc·kernel·validity·벡터 도우미는 부른 쪽의 범주를 받습니다.
 이전 `../../profile_breakdown.py`는 잎 함수만 보고 인자 이름까지 맞췄습니다. 그래서 그 표의 "식·벡터"에 들어 있던 것 중 상당 부분이 이 분류에서는 리스트 조립으로 갑니다.
+`summary.md`는 모든 범주 표를 두 기준(새: call stack, 옛: 잎 함수 이름, `server_20261029/summary.md`의 열)으로 같은 샘플에 대해 보여 주고, "옛 기준 → 새 기준"에서 옛 열이 새 범주로 어떻게 나뉘는지 보여 줍니다.
+옛 기준을 정확히 다시 내려면 잎 함수의 전체 이름이 필요해서, `.folded.gz`의 각 줄에 그것을 함께 기록합니다(`프레임들<TAB>잎 전체 이름 개수`).
 
 ### 2-2 join 종류
 

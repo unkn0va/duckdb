@@ -1,13 +1,16 @@
-s1_box,flat: threads=1 wall 50 ms, CPU 48 ms (48 samples, 1000 Hz)
+s1_box,flat: threads=1 wall 49 ms, CPU 48 ms (48 samples, 1000 Hz)
+stack depth: median 26 frames, 0% of the samples with fewer than 3
 CPU ms per category (sub-categories in brackets):
-  값 디코드          15   31.2%  [scan 6, decode 6, levels/skip 3]
-  키 생성           32   66.7%  [node keys 32]
+  값 디코드          19   39.6%  [levels/skip 9, decode 7, scan 3]
+  원소 다루기          1    2.1%  [PROJECTION 1]
+  키 생성           27   56.2%  [node keys 27]
   기타              1    2.1%  [실행기/결과 1]
 hottest sampled functions per category:
-  값 디코드          3 ms  duckdb::DictionaryDecoder::GetValidValues
-  값 디코드          2 ms  [unknown]
-  값 디코드          1 ms  duckdb::DataChunk::SetChildCardinality
-  값 디코드          1 ms  duckdb_fastpforlib::internal::__fastunpack9
-  값 디코드          1 ms  std::__cxx11::to_string
-  키 생성          32 ms  duckdb::ParquetNodeKeyGenerator::Process
-  기타             1 ms  duckdb::StandardVectorBuffer::ResetCapacity
+  값 디코드          5 ms  duckdb::DictionaryDecoder::GetValidValues
+  값 디코드          3 ms  void duckdb::RleBpDecoder::GetBatch<unsigned int>
+  값 디코드          3 ms  duckdb_fastpforlib::internal::__fastunpack1
+  값 디코드          2 ms  void duckdb::RleBpDecoder::GetBatch<unsigned char>
+  값 디코드          1 ms  std::__detail::_Map_base<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std:
+  원소 다루기         1 ms  std::_Sp_counted_base<(__gnu_cxx::_Lock_policy)2>::_M_release
+  키 생성          27 ms  duckdb::ParquetNodeKeyGenerator::Process
+  기타             1 ms  duckdb::PipelineExecutor::Execute
