@@ -53,7 +53,8 @@ def flat_problem(row, base, final):
         return None
     if row.get(f"{variant}_{final}_ok") != "True":
         return f"{variant}: the result check failed"
-    if row[f"{variant}_{final}_result"] != row.get(f"builtin_{base}_result"):
+    same = row.get(f"{variant}_{final}_same")  # CSVs before the comparison with a tolerance: compare the hashes
+    if (same == "False") if same else row[f"{variant}_{final}_result"] != row.get(f"builtin_{base}_result"):
         return f"{variant}: the result differs from the builtin query (it passed only against its oracle)"
     return None
 

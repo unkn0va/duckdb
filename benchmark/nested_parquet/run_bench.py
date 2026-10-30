@@ -5,9 +5,12 @@ A query directory holds <name>.<variant>.sql files, variants: builtin (DuckDB ne
 with manual joins), split (the paper's pre-split files), flat (read_parquet_flat), flat_umbra / flat_minmax (XMark
 queries over read_parquet_flat: Umbra's correlated subqueries / a join with the min/max key per parent). Each query runs
 RUNS times in one CLI process (the first run warms the OS cache); the fastest wall-clock time (_s) and the smallest
-CPU time of all threads (user + sys, _cpu) are reported. The results of the variants are compared by an
-order-insensitive hash with the builtin query - or with <name>.<variant>.oracle, a query whose result the variant has
-by definition when it differs from the builtin one.
+CPU time of all threads (user + sys, _cpu) are reported. The results of the variants are compared with the builtin
+query - or with <name>.<variant>.oracle, a query whose result the variant has by definition when it differs from the
+builtin one - as sets of rows: integers and strings exactly, numbers with a fraction or an exponent to a relative
+difference of REL_TOL (1e-9; float sums depend on the order of the additions). _result records the number of rows
+and a fingerprint of the rows; _same says whether a variant equals the builtin result (also when _ok compares
+it with an oracle).
 
 Several binaries (label=path,label=path) and thread counts (THREADS=1,16) can be compared: they run interleaved, one
 after the other for every variant, so that they see the same state of the machine (the timings of a laptop drift by
@@ -40,6 +43,9 @@ The CSV is written to <result csv>.partial after every query and renamed to <res
 Usage: [RUNS=n] [THREADS=n[,n...]] [VARIANTS="label=v,v ..."] [SKIPS=1] [ALLOW_BUSY=1] run_bench.py <duckdb binary | label=path,...> <query dir> <data dir> <result csv>
 """
 import csv
+import hashlib
+import io
+import math
 import os
 import re
 import signal
@@ -52,6 +58,7 @@ DATA_DIR = sys.argv[3]
 OUT_CSV = sys.argv[4]
 RUNS = int(os.environ.get("RUNS", "5"))
 TIMEOUT = int(os.environ.get("QUERY_TIMEOUT", "600"))
+REL_TOL = 1e-9
 
 SKIPS = os.environ.get("SKIPS", "") == "1"
 
@@ -154,23 +161,60 @@ def run_timed(sql, binary, threads, config_setup=""):
     return (wall, cpu), ""
 
 
-def result_hash(sql, binary=None, setup=""):
-    # order-insensitive fingerprint of the result, with numbers rounded to absorb float summation order: to 2 decimals,
-    # then to 12 significant digits (DuckDB versions round large averages differently in the last bit). Every column is
-    # in the list (*COLUMNS unpacks them into one call), which also keeps read_parquet_flat from dropping unused nodes.
-    inner = sql.strip().rstrip(";")
-    query = (
-        "SELECT count(*), hash(list(r ORDER BY r)) FROM (SELECT list_transform(v, "
-        "lambda x: CASE WHEN TRY_CAST(x AS DOUBLE) IS NULL THEN x "
-        "ELSE printf('%.11e', round(x::DOUBLE, 2)) END)::VARCHAR AS r "
-        f"FROM (SELECT list_value(*COLUMNS(*)) AS v FROM (SELECT COLUMNS(*)::VARCHAR FROM ({inner}))))"
-    )
+INTEGER = re.compile(r"-?[0-9]+")
+NUMBER = re.compile(r"-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)(?:[eE][-+]?[0-9]+)?|-?inf|nan")
+
+
+def parse_value(text):
+    """An int, a float (a number with a fraction or an exponent) or the string itself."""
+    if INTEGER.fullmatch(text):
+        return int(text)
+    if NUMBER.fullmatch(text):
+        return float(text)
+    return text
+
+
+def sort_key(row):
+    # floats rounded, so that rows whose floats differ in the last digits sort to the same place
+    return tuple((1, v) if isinstance(v, str) else (0, float(f"{v:.6g}") if isinstance(v, float) else v) for v in row)
+
+
+def result_rows(sql, binary=None, setup=""):
+    """The rows of the query's result, sorted (order-insensitive), or an error message."""
     binary = binary or DUCKDB
     try:
-        proc = run_process([binary, *FLAGS[binary], "-csv", "-noheader", "-c", setup + query], timeout=TIMEOUT)
+        proc = run_process([binary, *FLAGS[binary], "-csv", "-noheader", "-c", setup + sql.strip()], timeout=TIMEOUT)
     except subprocess.TimeoutExpired:
         return "error: timeout"
-    return proc.stdout.strip() if proc.returncode == 0 else "error: " + proc.stderr.strip()[-200:]
+    if proc.returncode != 0:
+        return "error: " + proc.stderr.strip()[-200:]
+    rows = [tuple(parse_value(v) for v in row) for row in csv.reader(io.StringIO(proc.stdout))]
+    return sorted(rows, key=sort_key)
+
+
+def same_rows(a, b):
+    if isinstance(a, str) or isinstance(b, str) or a is None or b is None or len(a) != len(b):
+        return False
+    for row_a, row_b in zip(a, b):
+        if len(row_a) != len(row_b):
+            return False
+        for x, y in zip(row_a, row_b):
+            if isinstance(x, float) or isinstance(y, float):
+                if isinstance(x, str) or isinstance(y, str):
+                    return False
+                if not (math.isclose(x, y, rel_tol=REL_TOL) or (math.isnan(x) and math.isnan(y))):
+                    return False
+            elif x != y:
+                return False
+    return True
+
+
+def fingerprint(rows):
+    """For the CSV: the number of rows and a hash of them (floats to 9 significant digits)."""
+    if isinstance(rows, str):
+        return rows
+    text = "\n".join(",".join(f"{v:.9g}" if isinstance(v, float) else str(v) for v in row) for row in rows)
+    return f"{len(rows)},{hashlib.sha1(text.encode()).hexdigest()[:16]}"
 
 
 SKIP_MESSAGE = re.compile(r"skip (\d+) of (\d+) tasks of node[^,]*(?:, the filters of joins (\d+) more)?")
@@ -285,6 +329,7 @@ rows = []
 names = sorted({f.rsplit(".", 2)[0] for f in os.listdir(QUERY_DIR) if f.endswith(".sql")})
 for name in names:
     entry = {"query": name, "busy_cpu": f"{check_system_load(name):.0f}"}
+    results = {}  # the rows of every result, for the comparisons (the CSV only gets their fingerprint)
     for label, _, setup in BINARIES:
         if setup:
             entry[f"setup_{label}"] = setup.replace("\n", " ").strip()
@@ -311,34 +356,37 @@ for name in names:
             if not runs_variant(label, variant):
                 continue
             key = f"{variant}{'_' + label if len(BINARIES) > 1 else ''}_result"
-            entry[key] = "n/a" if label in failed else result_hash(sql, binary, setup)
+            results[key] = "n/a" if label in failed else result_rows(sql, binary, setup)
+            entry[key] = fingerprint(results[key])
     # the builtin query of every further binary (e.g. with an optimizer setting) must give the first one's result
     builtin_labels = [l for l, _, _ in BINARIES if len(BINARIES) > 1 and f"builtin_{l}_result" in entry]
     for label in builtin_labels[1:]:
-        result, expected = entry[f"builtin_{label}_result"], entry[f"builtin_{builtin_labels[0]}_result"]
-        entry[f"builtin_{label}_ok"] = str(expected == result and not result.startswith(("error", "n/a")))
+        result, expected = results[f"builtin_{label}_result"], results[f"builtin_{builtin_labels[0]}_result"]
+        entry[f"builtin_{label}_ok"] = str(same_rows(expected, result))
         entry["builtin_reference"] = f"builtin of {builtin_labels[0]}"
     oracle_results = {}
     for variant in VARIANTS[1:]:
         oracle_path = os.path.join(QUERY_DIR, f"{name}.{variant}.oracle")
         for label, _, _ in BINARIES:
             binary_suffix = "_" + label if len(BINARIES) > 1 else ""
-            result = entry.get(f"{variant}{binary_suffix}_result")
+            result = results.get(f"{variant}{binary_suffix}_result")
             if result is None:
                 continue
-            if os.path.exists(oracle_path):
-                if oracle_path not in oracle_results:
-                    oracle_results[oracle_path] = result_hash(open(oracle_path).read())
-                expected, reference = oracle_results[oracle_path], "oracle"
-            elif f"builtin{binary_suffix}_result" in entry:
-                expected, reference = entry[f"builtin{binary_suffix}_result"], "builtin"
+            if f"builtin{binary_suffix}_result" in results:
+                builtin, builtin_reference = results[f"builtin{binary_suffix}_result"], "builtin"
             else:
                 # the binary does not run the builtin query: the builtin result of another binary
-                others = [l for l, _, _ in BINARIES if f"builtin_{l}_result" in entry]
-                expected = entry[f"builtin_{others[0]}_result"] if others else None
-                reference = f"builtin of {others[0]}" if others else "none"
-            ok = expected is not None and expected == result and not result.startswith(("error", "n/a"))
-            entry[f"{variant}{binary_suffix}_ok"] = str(ok)
+                others = [l for l, _, _ in BINARIES if f"builtin_{l}_result" in results]
+                builtin = results[f"builtin_{others[0]}_result"] if others else None
+                builtin_reference = f"builtin of {others[0]}" if others else "none"
+            if os.path.exists(oracle_path):
+                if oracle_path not in oracle_results:
+                    oracle_results[oracle_path] = result_rows(open(oracle_path).read())
+                expected, reference = oracle_results[oracle_path], "oracle"
+            else:
+                expected, reference = builtin, builtin_reference
+            entry[f"{variant}{binary_suffix}_ok"] = str(same_rows(expected, result))
+            entry[f"{variant}{binary_suffix}_same"] = str(same_rows(builtin, result))
             entry[f"{variant}_reference"] = reference
     for config in CONFIGS:
         ratio(entry, "builtin", "node", config["suffix"])

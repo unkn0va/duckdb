@@ -26,6 +26,15 @@ def csv_files(args):
             yield arg
 
 
+def differs_from_builtin(row, variant, builtin):
+    """Whether a variant that passed its check has another result than the builtin query (it passed an oracle)."""
+    same = row.get(variant + "_same")
+    if same:
+        return same == "False"
+    # CSVs before the comparison with a tolerance: compare the result hashes
+    return row.get(variant + "_result") != builtin
+
+
 def main():
     if not sys.argv[1:]:
         print(__doc__)
@@ -49,7 +58,7 @@ def main():
                         problems.append(
                             f"{dataset} {row['query']}: {variant} differs from {reference or 'the reference'}"
                         )
-                    elif not key.startswith("builtin") and row.get(key.removesuffix("_ok") + "_result") != builtin:
+                    elif not key.startswith("builtin") and differs_from_builtin(row, key.removesuffix("_ok"), builtin):
                         variant = key.removesuffix("_ok")
                         warnings.append(
                             f"{dataset} {row['query']}: {variant} equals its oracle, not the builtin result"
