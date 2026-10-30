@@ -1,0 +1,11 @@
+ORDER_BY                0.000s  rows            4  est      6997998  
+  HASH_GROUP_BY           0.001s  rows            4  est      6997998  group: #0; aggregate: count_star(), sum(#1)
+    PROJECTION              0.000s  rows         1559  est      6997998  
+      HASH_JOIN               0.000s  rows         1559  est      6997998  condition: c0 = as_of_date, c1 = csa_hash
+        probe: HASH_JOIN               0.001s  rows         1559  est      6997998  condition: ak0 = sk
+          probe: PROJECTION              0.000s  rows         1559  est      6997998  
+            TABLE_SCAN              0.051s  rows         1559  est            0  filename: pureflat/legs.parquet
+          build: PROJECTION              0.000s  rows          533  est      2000000  
+            TABLE_SCAN              0.019s  rows          533  est            0  filename: pureflat/parent.parquet; filter: (c1 >= 509178227299232215)
+        build: TABLE_SCAN              0.000s  rows            4  est            4  filename: ../dims/csa_dictionary.parquet
+total 0.091 s

@@ -1,0 +1,23 @@
+q2_c25,flat: threads=1 wall 105 ms, CPU 101 ms (101 samples, 1000 Hz)
+CPU ms per category (sub-categories in brackets):
+  값 디코드          40   39.6%  [decode 18, levels/skip 13, scan 9]
+  원소 다루기         25   24.8%  [스캔 필터 25]
+  키 생성           34   33.7%  [node keys 34]
+  집계              2    2.0%  [aggregate 2]
+hottest sampled functions per category:
+  값 디코드          9 ms  duckdb::DictionaryDecoder::GetValidValues
+  값 디코드          8 ms  void duckdb::RleBpDecoder::GetBatch<unsigned int>
+  값 디코드          3 ms  duckdb::ReadParquetNodeScan
+  값 디코드          3 ms  duckdb_fastpforlib::internal::__fastunpack1
+  값 디코드          2 ms  duckdb::DictionaryDecoder::Read
+  원소 다루기        11 ms  duckdb::string_t::StringComparisonOperators::GreaterThan
+  원소 다루기        10 ms  [unknown]
+  원소 다루기         4 ms  unsigned long duckdb::ComparisonFilterExecutor::SelectTyped<duckdb::string_t>
+  키 생성          34 ms  duckdb::ParquetNodeKeyGenerator::Process
+  집계             1 ms  std::_Sp_counted_base<(__gnu_cxx::_Lock_policy)2>::_M_release
+  집계             1 ms  bool duckdb::AggregateExecutor::UpdateUnaryClusteredOpt<true, duckdb::SumState<duckdb::hugeint_t>, long, duckd
+callers of the watched functions (category of the sample / the next three frames up):
+  SelectionVector::Slice: 1 ms
+         1 ms  값 디코드/scan  < DictionaryBuffer::SliceInternal < VectorBuffer::Slice < Vector::Slice
+  ValidityMask::CopySel: 1 ms
+         1 ms  값 디코드/decode  < VectorBuffer::Copy < VectorOperations::Copy < DictionaryDecoder::Read

@@ -1,0 +1,11 @@
+ORDER_BY                0.000s  rows            4  est            2  
+  HASH_GROUP_BY           0.000s  rows            4  est            2  group: #0; aggregate: sum(#1), sum(#2)
+    PROJECTION              0.000s  rows            4  est            3  
+      HASH_JOIN               0.000s  rows            4  est            3  condition: c0 = as_of_date, c1 = csa_hash
+        probe: HASH_GROUP_BY           0.001s  rows            4  est      1999280  group: #0, #1; aggregate: count_star(), sum(#2)
+          PROJECTION              0.000s  rows         1559  est      2000000  
+            PROJECTION              0.000s  rows         1559  est      2000000  
+              UNNEST                  0.001s  rows         1559  est               
+                TABLE_SCAN              0.070s  rows          533  est      2000000  filename: trade_B.parquet; filter: (c1 >= 509178227299232215)
+        build: TABLE_SCAN              0.000s  rows            4  est            4  filename: ../dims/csa_dictionary.parquet
+total 0.080 s

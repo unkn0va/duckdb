@@ -1,0 +1,23 @@
+q01,flat: threads=1 wall 23 ms, CPU 21 ms (21 samples, 1000 Hz)
+CPU ms per category (sub-categories in brackets):
+  값 디코드          10   47.6%  [decode 5, levels/skip 4, scan 1]
+  원소 다루기          5   23.8%  [PROJECTION 4, 스캔 필터 1]
+  키 생성            1    4.8%  [node keys 1]
+  집계              3   14.3%  [aggregate 3]
+  기타              2    9.5%  [실행기/결과 2]
+hottest sampled functions per category:
+  값 디코드          3 ms  void duckdb_snappy::SnappyDecompressor::DecompressAllTags<duckdb_snappy::SnappyArrayWriter>
+  값 디코드          2 ms  duckdb_fastpforlib::internal::__fastunpack2
+  값 디코드          1 ms  duckdb::operator<(duckdb::Identifier const&, duckdb::Identifier const&)
+  값 디코드          1 ms  duckdb::TemplatedColumnReader<duckdb::date_t, duckdb::CallbackParquetValueConversion<int, duckdb::date_t, &duc
+  값 디코드          1 ms  void duckdb::RleBpDecoder::GetBatch<unsigned int>
+  원소 다루기         2 ms  void duckdb::ScalarFunction::BinaryFunction<double, double, double, duckdb::MultiplyOperator>
+  원소 다루기         1 ms  duckdb::VectorCacheEntry::ResetFromCache
+  원소 다루기         1 ms  duckdb::ColumnReader::Select
+  원소 다루기         1 ms  void duckdb::ScalarFunction::BinaryFunction<double, double, double, duckdb::SubtractOperator>
+  키 생성           1 ms  duckdb::ParquetNodeKeyGenerator::Process
+  집계             1 ms  duckdb::ClusteredAggr::ClusterIter
+  집계             1 ms  duckdb::(anonymous namespace)::CountFunction::CountClusterUpdate
+  집계             1 ms  duckdb::ClusteredAggr::TryClustered
+  기타             1 ms  duckdb::MoveConstantsRule::MoveConstantsRule
+  기타             1 ms  std::_Function_handler<void (duckdb::unique_ptr<duckdb::Expression, std::default_delete<duckdb::Expression>, t

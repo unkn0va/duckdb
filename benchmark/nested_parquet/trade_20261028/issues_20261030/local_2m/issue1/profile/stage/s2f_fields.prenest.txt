@@ -1,0 +1,43 @@
+s2f_fields,prenest: threads=1 wall 152 ms, CPU 150 ms (150 samples, 1000 Hz)
+CPU ms per category (sub-categories in brackets):
+  값 디코드          23   15.3%  [decode 14, levels/skip 8, scan 1]
+  리스트 조립         82   54.7%  [list/struct reader 82]
+  UNNEST         35   23.3%  [unnest 35]
+  원소 다루기          2    1.3%  [PROJECTION 2]
+  집계              2    1.3%  [aggregate 2]
+  기타              6    4.0%  [실행기/결과 6]
+hottest sampled functions per category:
+  값 디코드          6 ms  duckdb::DictionaryDecoder::GetValidValues
+  값 디코드          3 ms  void duckdb::RleBpDecoder::GetBatch<unsigned char>
+  값 디코드          2 ms  duckdb::DictionaryDecoder::Read
+  값 디코드          2 ms  duckdb_fastpforlib::internal::__fastunpack9
+  값 디코드          2 ms  [unknown]
+  리스트 조립        18 ms  unsigned long duckdb::ListColumnReader::ReadInternal<duckdb::TemplatedListReader>
+  리스트 조립        13 ms  duckdb::TemplatedValidityMask<unsigned long>::SetInvalid
+  리스트 조립        11 ms  duckdb::ValidityMask::CopySel
+  리스트 조립        10 ms  [unknown]
+  리스트 조립         9 ms  duckdb::VectorStringBuffer::CopyInternal
+  UNNEST        29 ms  duckdb::PhysicalUnnest::ExecuteInternal
+  UNNEST         3 ms  duckdb::UnnestOperatorState::PrepareInput
+  UNNEST         1 ms  std::_Sp_counted_base<(__gnu_cxx::_Lock_policy)2>::_M_release
+  UNNEST         1 ms  duckdb::DataChunk::Verify
+  UNNEST         1 ms  cfree
+  원소 다루기         1 ms  duckdb::Allocator::~Allocator
+  원소 다루기         1 ms  duckdb::BoundFunctionExpression const& duckdb::BaseExpression::Cast<duckdb::BoundFunctionExpression>
+  집계             1 ms  std::_Sp_counted_base<(__gnu_cxx::_Lock_policy)2>::_M_release
+  집계             1 ms  duckdb::UngroupedAggregateExecuteState::Sink
+  기타             2 ms  std::_Sp_counted_base<(__gnu_cxx::_Lock_policy)2>::_M_release
+  기타             1 ms  sched_getcpu
+  기타             1 ms  duckdb::VectorCacheEntry::ResetFromCache
+  기타             1 ms  duckdb::DataChunk::VerifyInternal
+  기타             1 ms  duckdb::TaskScheduler::GetEstimatedCPUId
+callers of the watched functions (category of the sample / the next three frames up):
+  VectorStringBuffer::CopyInternal: 9 ms
+         9 ms  리스트 조립/list/struct reader  < VectorBuffer::Copy < VectorStructBuffer::CopyInternal < VectorBuffer::Copy
+  VectorBuffer::Copy: 10 ms
+         8 ms  리스트 조립/list/struct reader  < VectorStructBuffer::CopyInternal < VectorBuffer::Copy < VectorBuffer::Append
+         2 ms  리스트 조립/list/struct reader  < VectorBuffer::Append < unsigned long ListColumnReader::ReadInternal<TemplatedListReader> < ParquetReader::Process
+  TemplatedValidityMask<unsigned long>::SetInvalid: 13 ms
+        13 ms  리스트 조립/list/struct reader  < VectorBuffer::Copy < VectorStructBuffer::CopyInternal < VectorBuffer::Copy
+  ValidityMask::CopySel: 11 ms
+        11 ms  리스트 조립/list/struct reader  < VectorBuffer::Copy < VectorStructBuffer::CopyInternal < VectorBuffer::Copy

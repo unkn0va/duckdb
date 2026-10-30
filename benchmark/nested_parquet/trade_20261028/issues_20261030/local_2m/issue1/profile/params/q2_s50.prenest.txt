@@ -1,0 +1,43 @@
+q2_s50,prenest: threads=1 wall 128 ms, CPU 123 ms (123 samples, 1000 Hz)
+CPU ms per category (sub-categories in brackets):
+  값 디코드          18   14.6%  [decode 10, levels/skip 7, scan 1]
+  리스트 조립         63   51.2%  [list/struct reader 63]
+  UNNEST         23   18.7%  [unnest 23]
+  원소 다루기         14   11.4%  [prenest 조건 10, FILTER 3, PROJECTION 1]
+  집계              3    2.4%  [aggregate 3]
+  기타              2    1.6%  [실행기/결과 2]
+hottest sampled functions per category:
+  값 디코드          5 ms  duckdb::DictionaryDecoder::GetValidValues
+  값 디코드          5 ms  void duckdb::RleBpDecoder::GetBatch<unsigned int>
+  값 디코드          2 ms  [unknown]
+  값 디코드          1 ms  memcpy@plt
+  값 디코드          1 ms  void duckdb_snappy::SnappyDecompressor::DecompressAllTags<duckdb_snappy::SnappyArrayWriter>
+  리스트 조립        31 ms  duckdb::ListColumnReader::ReadFilteredInternal
+  리스트 조립        11 ms  duckdb::TemplatedValidityMask<unsigned long>::SetInvalid
+  리스트 조립         7 ms  duckdb::VectorStringBuffer::CopyInternal
+  리스트 조립         3 ms  [unknown]
+  리스트 조립         2 ms  duckdb::VectorBuffer::Copy
+  UNNEST        13 ms  duckdb::PhysicalUnnest::ExecuteInternal
+  UNNEST         8 ms  duckdb::UnnestOperatorState::PrepareInput
+  UNNEST         1 ms  void std::vector<duckdb::Vector, std::allocator<duckdb::Vector> >::_M_realloc_insert<duckdb::Vector&, duckdb::
+  UNNEST         1 ms  std::_Sp_counted_base<(__gnu_cxx::_Lock_policy)2>::_M_release
+  원소 다루기         7 ms  unsigned long duckdb::ScalarExecutor::SelectOutputDispatch<duckdb::BinaryExecutor::SelectPolicy, duckdb::Binar
+  원소 다루기         1 ms  duckdb::ScalarExecutor::InputProfile duckdb::ScalarExecutor::GetInputProfile<2ul, 0ul, 1ul>
+  원소 다루기         1 ms  duckdb::ExecuteFunctionState::TryExecuteDictionaryExpression
+  원소 다루기         1 ms  duckdb::PhysicalFilter::ExecuteInternal
+  원소 다루기         1 ms  duckdb::PrenestFilter::Apply
+  집계             2 ms  void duckdb::(anonymous namespace)::ClusteredSumOperation<duckdb::BaseSumOperation<duckdb::(anonymous namespac
+  집계             1 ms  duckdb::DataChunk::Reset
+  기타             1 ms  duckdb::VectorCacheEntry::ResetFromCache
+  기타             1 ms  std::_Sp_counted_base<(__gnu_cxx::_Lock_policy)2>::_M_release
+callers of the watched functions (category of the sample / the next three frames up):
+  VectorBuffer::Copy: 3 ms
+         3 ms  리스트 조립/list/struct reader  < VectorStructBuffer::CopyInternal < VectorBuffer::Copy < VectorBuffer::Append
+  TemplatedValidityMask<unsigned long>::SetInvalid: 11 ms
+        11 ms  리스트 조립/list/struct reader  < VectorBuffer::Copy < VectorStructBuffer::CopyInternal < VectorBuffer::Copy
+  VectorStringBuffer::CopyInternal: 7 ms
+         7 ms  리스트 조립/list/struct reader  < VectorBuffer::Copy < VectorStructBuffer::CopyInternal < VectorBuffer::Copy
+  SelectionVector::Slice: 2 ms
+         2 ms  리스트 조립/list/struct reader  < VectorBuffer::Copy < VectorStructBuffer::CopyInternal < VectorBuffer::Copy
+  ValidityMask::CopySel: 1 ms
+         1 ms  리스트 조립/list/struct reader  < VectorBuffer::Copy < VectorStructBuffer::CopyInternal < VectorBuffer::Copy

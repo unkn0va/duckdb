@@ -1,0 +1,15 @@
+q3_c13,pureflat: threads=1 wall 15 ms, CPU 12 ms (12 samples, 1000 Hz)
+CPU ms per category (sub-categories in brackets):
+  값 디코드           6   50.0%  [decode 3, levels/skip 2, scan 1]
+  집계              4   33.3%  [aggregate 4]
+  기타              2   16.7%  [실행기/결과 2]
+hottest sampled functions per category:
+  값 디코드          2 ms  void duckdb_snappy::SnappyDecompressor::DecompressAllTags<duckdb_snappy::SnappyArrayWriter>
+  값 디코드          1 ms  malloc
+  값 디코드          1 ms  duckdb_fastpforlib::internal::__fastunpack4
+  값 디코드          1 ms  void duckdb::RleBpDecoder::GetBatch<unsigned int>
+  값 디코드          1 ms  [unknown]
+  집계             3 ms  bool duckdb::AggregateExecutor::UpdateUnaryClusteredOpt<true, duckdb::SumState<duckdb::hugeint_t>, long, duckd
+  집계             1 ms  duckdb::VectorCache::ResetFromCache
+  기타             1 ms  [unknown]
+  기타             1 ms  duckdb::VectorBuffer::ClearAuxiliaryData

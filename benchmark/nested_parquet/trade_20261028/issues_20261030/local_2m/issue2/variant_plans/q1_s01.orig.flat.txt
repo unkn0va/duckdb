@@ -1,0 +1,6 @@
+UNGROUPED_AGGREGATE     0.000s  rows            1  est            1  aggregate: sum(#0)
+  PROJECTION              0.000s  rows        70600  est      1399599  
+    HASH_JOIN               0.031s  rows        70600  est      1399599  condition: _ak0 = _sk
+      probe: TABLE_SCAN              0.052s  rows      6997998  est      6997998  file: trade_B.parquet; node: legs
+      build: TABLE_SCAN              0.010s  rows        20000  est       400000  file: trade_B.parquet; node: (top level); filter: (c9 < 10050000)
+total 0.100 s

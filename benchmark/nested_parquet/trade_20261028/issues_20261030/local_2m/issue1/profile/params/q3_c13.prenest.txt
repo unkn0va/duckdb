@@ -1,0 +1,29 @@
+q3_c13,prenest: threads=1 wall 61 ms, CPU 57 ms (57 samples, 1000 Hz)
+CPU ms per category (sub-categories in brackets):
+  값 디코드           8   14.0%  [decode 4, levels/skip 3, scan 1]
+  리스트 조립         17   29.8%  [list/struct reader 17]
+  UNNEST         27   47.4%  [unnest 27]
+  원소 다루기          2    3.5%  [FILTER 2]
+  집계              3    5.3%  [aggregate 3]
+hottest sampled functions per category:
+  값 디코드          2 ms  [unknown]
+  값 디코드          1 ms  duckdb_parquet::ColumnMetaData::read
+  값 디코드          1 ms  duckdb::DictionaryDecoder::GetValidValues
+  값 디코드          1 ms  duckdb_fastpforlib::internal::__fastunpack1
+  값 디코드          1 ms  duckdb::FileBuffer::FileBuffer
+  리스트 조립        10 ms  unsigned long duckdb::ListColumnReader::ReadInternal<duckdb::TemplatedListReader>
+  리스트 조립         3 ms  duckdb::ValidityMask::CopySel
+  리스트 조립         1 ms  pthread_mutex_trylock
+  리스트 조립         1 ms  duckdb::StringUtil::BytesToHumanReadableString[abi:cxx11]
+  리스트 조립         1 ms  duckdb::BufferPool::MemoryUsage::UpdateUsedMemory
+  UNNEST        24 ms  duckdb::PhysicalUnnest::ExecuteInternal
+  UNNEST         3 ms  duckdb::UnnestOperatorState::PrepareInput
+  원소 다루기         1 ms  unsigned long duckdb::ScalarExecutor::SelectOutputDispatch<duckdb::BinaryExecutor::SelectPolicy, duckdb::Binar
+  원소 다루기         1 ms  duckdb::ExpressionExecutor::Select
+  집계             2 ms  void duckdb::(anonymous namespace)::ClusteredSumOperation<duckdb::BaseSumOperation<duckdb::(anonymous namespac
+  집계             1 ms  duckdb::ExpressionExecutor::ExecuteExpression
+callers of the watched functions (category of the sample / the next three frames up):
+  ValidityMask::CopySel: 3 ms
+         3 ms  리스트 조립/list/struct reader  < VectorBuffer::Copy < VectorBuffer::Append < unsigned long ListColumnReader::ReadInternal<TemplatedListReader>
+  VectorBuffer::Copy: 1 ms
+         1 ms  리스트 조립/list/struct reader  < VectorBuffer::Append < unsigned long ListColumnReader::ReadInternal<TemplatedListReader> < ParquetReader::Process

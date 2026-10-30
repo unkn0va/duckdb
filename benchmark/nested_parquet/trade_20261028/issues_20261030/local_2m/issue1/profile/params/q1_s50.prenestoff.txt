@@ -1,0 +1,36 @@
+q1_s50,prenestoff: threads=1 wall 143 ms, CPU 136 ms (136 samples, 1000 Hz)
+CPU ms per category (sub-categories in brackets):
+  값 디코드          28   20.6%  [decode 19, levels/skip 8, scan 1]
+  리스트 조립         90   66.2%  [list/struct reader 90]
+  UNNEST         14   10.3%  [unnest 14]
+  집계              1    0.7%  [aggregate 1]
+  기타              3    2.2%  [실행기/결과 3]
+hottest sampled functions per category:
+  값 디코드          5 ms  duckdb::DictionaryDecoder::GetValidValues
+  값 디코드          4 ms  duckdb_fastpforlib::internal::__fastunpack1
+  값 디코드          4 ms  [unknown]
+  값 디코드          4 ms  void duckdb_snappy::SnappyDecompressor::DecompressAllTags<duckdb_snappy::SnappyArrayWriter>
+  값 디코드          2 ms  duckdb::DictionaryDecoder::Filter
+  리스트 조립        20 ms  unsigned long duckdb::ListColumnReader::ReadInternal<duckdb::TemplatedListReader>
+  리스트 조립        19 ms  duckdb::TemplatedValidityMask<unsigned long>::SetInvalid
+  리스트 조립        15 ms  duckdb::VectorStringBuffer::CopyInternal
+  리스트 조립         5 ms  [unknown]
+  리스트 조립         3 ms  duckdb::ValidityMask::CopySel
+  UNNEST        12 ms  duckdb::PhysicalUnnest::ExecuteInternal
+  UNNEST         1 ms  duckdb::VectorStructBuffer::ToUnifiedFormat
+  UNNEST         1 ms  duckdb::DictionaryBuffer::SliceInternal
+  집계             1 ms  void duckdb::(anonymous namespace)::ClusteredSumOperation<duckdb::BaseSumOperation<duckdb::(anonymous namespac
+  기타             1 ms  duckdb::VectorCacheEntry::ResetFromCache
+  기타             1 ms  duckdb::PipelineExecutor::Execute
+  기타             1 ms  duckdb::PipelineExecutor::EndOperator
+callers of the watched functions (category of the sample / the next three frames up):
+  ValidityMask::CopySel: 4 ms
+         3 ms  리스트 조립/list/struct reader  < VectorBuffer::Copy < VectorStructBuffer::CopyInternal < VectorBuffer::Copy
+         1 ms  값 디코드/decode  < StandardVectorBuffer::FlattenSliceInternal < VectorBuffer::FlattenSlice < DictionaryBuffer::Flatten
+  TemplatedValidityMask<unsigned long>::SetInvalid: 19 ms
+        19 ms  리스트 조립/list/struct reader  < VectorBuffer::Copy < VectorStructBuffer::CopyInternal < VectorBuffer::Copy
+  VectorBuffer::Copy: 6 ms
+         5 ms  리스트 조립/list/struct reader  < VectorStructBuffer::CopyInternal < VectorBuffer::Copy < VectorBuffer::Append
+         1 ms  리스트 조립/list/struct reader  < VectorBuffer::Append < unsigned long ListColumnReader::ReadInternal<TemplatedListReader> < ParquetReader::DecodeRemainingColumns
+  VectorStringBuffer::CopyInternal: 15 ms
+        15 ms  리스트 조립/list/struct reader  < VectorBuffer::Copy < VectorStructBuffer::CopyInternal < VectorBuffer::Copy

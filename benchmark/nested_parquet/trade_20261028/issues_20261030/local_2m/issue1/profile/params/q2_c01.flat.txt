@@ -1,0 +1,17 @@
+q2_c01,flat: threads=1 wall 111 ms, CPU 109 ms (109 samples, 1000 Hz)
+CPU ms per category (sub-categories in brackets):
+  값 디코드          37   33.9%  [levels/skip 17, decode 13, scan 7]
+  원소 다루기         38   34.9%  [스캔 필터 38]
+  키 생성           33   30.3%  [node keys 33]
+  집계              1    0.9%  [aggregate 1]
+hottest sampled functions per category:
+  값 디코드          8 ms  void duckdb::RleBpDecoder::GetBatch<unsigned int>
+  값 디코드          4 ms  void duckdb_snappy::SnappyDecompressor::DecompressAllTags<duckdb_snappy::SnappyArrayWriter>
+  값 디코드          4 ms  void duckdb::RleBpDecoder::GetBatch<unsigned char>
+  값 디코드          3 ms  [unknown]
+  값 디코드          3 ms  duckdb::DictionaryDecoder::GetValidValues
+  원소 다루기        15 ms  duckdb::string_t::StringComparisonOperators::GreaterThan
+  원소 다루기        13 ms  [unknown]
+  원소 다루기        10 ms  unsigned long duckdb::ComparisonFilterExecutor::SelectTyped<duckdb::string_t>
+  키 생성          33 ms  duckdb::ParquetNodeKeyGenerator::Process
+  집계             1 ms  bool duckdb::AggregateExecutor::UpdateUnaryClusteredOpt<true, duckdb::SumState<duckdb::hugeint_t>, long, duckd

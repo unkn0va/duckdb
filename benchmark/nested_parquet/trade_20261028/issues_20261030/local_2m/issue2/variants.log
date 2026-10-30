@@ -1,0 +1,60 @@
+q1_s01.orig            base           0.168 s  result yes  
+q1_s01.orig            prenestoff     0.117 s  result yes  
+q1_s01.orig            prenest        0.116 s  result yes  
+q1_s01.orig            flat           0.090 s  result yes  
+q1_s01.orig            pureflat       0.095 s  result yes  
+q1_s01.fixed           base           0.168 s  result yes  same plan as q1_s01.orig
+q1_s01.fixed           prenestoff     0.117 s  result yes  same plan as q1_s01.orig
+q1_s01.fixed           prenest        0.116 s  result yes  same plan as q1_s01.orig
+q1_s01.fixed           flat           0.090 s  result yes  
+q1_s01.fixed           pureflat       0.092 s  result yes  
+q1_s50.orig            base           0.181 s  result yes  
+q1_s50.orig            prenestoff     0.133 s  result yes  
+q1_s50.orig            prenest        0.131 s  result yes  
+q1_s50.orig            flat           0.169 s  result yes  
+q1_s50.orig            pureflat       0.190 s  result yes  
+q1_s50.fixed           base           0.181 s  result yes  same plan as q1_s50.orig
+q1_s50.fixed           prenestoff     0.133 s  result yes  same plan as q1_s50.orig
+q1_s50.fixed           prenest        0.131 s  result yes  same plan as q1_s50.orig
+q1_s50.fixed           flat           0.176 s  result yes  
+q1_s50.fixed           pureflat       0.196 s  result yes  
+q6_group.orig          base           0.222 s  result yes  
+q6_group.orig          prenestoff     0.169 s  result yes  
+q6_group.orig          prenest        0.139 s  result yes  
+q6_group.orig          flat           0.230 s  result yes  
+q6_group.orig          pureflat       0.250 s  result yes  
+q6_group.fixed         base           0.222 s  result yes  same plan as q6_group.orig
+q6_group.fixed         prenestoff     0.169 s  result yes  same plan as q6_group.orig
+q6_group.fixed         prenest        0.139 s  result yes  same plan as q6_group.orig
+q6_group.fixed         flat           0.249 s  result yes  
+q6_group.fixed         pureflat       0.272 s  result yes  
+q7_csa.orig            base           0.110 s  result yes  
+q7_csa.orig            prenestoff     0.071 s  result yes  
+q7_csa.orig            prenest        0.073 s  result yes  
+q7_csa.orig            flat           0.078 s  result yes  
+q7_csa.orig            pureflat       0.075 s  result yes  
+q7_csa.fixed           base           0.110 s  result yes  same plan as q7_csa.orig
+q7_csa.fixed           prenestoff     0.071 s  result yes  same plan as q7_csa.orig
+q7_csa.fixed           prenest        0.073 s  result yes  same plan as q7_csa.orig
+q7_csa.fixed           flat           0.272 s  result yes  
+q7_csa.fixed           pureflat       0.081 s  result yes  
+q7_csa.preagg          base           0.111 s  result yes  
+q7_csa.preagg          prenestoff     0.072 s  result yes  
+q7_csa.preagg          prenest        0.070 s  result yes  
+q7_csa.preagg          flat           0.293 s  result yes  
+q7_csa.preagg          pureflat       0.081 s  result yes  
+q7_plots.orig          base           0.386 s  result yes  
+q7_plots.orig          prenestoff     0.351 s  result yes  
+q7_plots.orig          prenest        0.331 s  result yes  
+q7_plots.orig          flat           0.915 s  result yes  
+q7_plots.orig          pureflat       0.908 s  result yes  
+q7_plots.fixed         base           0.386 s  result yes  same plan as q7_plots.orig
+q7_plots.fixed         prenestoff     0.351 s  result yes  same plan as q7_plots.orig
+q7_plots.fixed         prenest        0.331 s  result yes  same plan as q7_plots.orig
+q7_plots.fixed         flat           0.762 s  result yes  
+q7_plots.fixed         pureflat       0.806 s  result yes  
+q7_plots.preagg        base           0.225 s  result yes  
+q7_plots.preagg        prenestoff     0.173 s  result yes  
+q7_plots.preagg        prenest        0.169 s  result yes  
+q7_plots.preagg        flat           0.346 s  result yes  
+q7_plots.preagg        pureflat       0.385 s  result yes  

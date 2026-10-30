@@ -1,0 +1,27 @@
+q01,flat: threads=1 wall 44 ms, CPU 43 ms (43 samples, 1000 Hz)
+CPU ms per category (sub-categories in brackets):
+  값 디코드          24   55.8%  [decode 20, levels/skip 2, scan 2]
+  원소 다루기          6   14.0%  [스캔 필터 3, PROJECTION 2, 식 1]
+  join            1    2.3%  [hash join 1]
+  집계             10   23.3%  [aggregate 10]
+  기타              2    4.7%  [실행기/결과 2]
+hottest sampled functions per category:
+  값 디코드         11 ms  void duckdb_snappy::SnappyDecompressor::DecompressAllTags<duckdb_snappy::SnappyArrayWriter>
+  값 디코드          7 ms  duckdb::StringColumnReader::VerifyString
+  값 디코드          1 ms  duckdb_fastpforlib::internal::__fastunpack3
+  값 디코드          1 ms  malloc
+  값 디코드          1 ms  [unknown]
+  원소 다루기         1 ms  decltype 
+  원소 다루기         1 ms  [unknown]
+  원소 다루기         1 ms  void duckdb::ScalarFunction::BinaryFunction<double, double, double, duckdb::SubtractOperator>
+  원소 다루기         1 ms  duckdb::string_t duckdb::StringParquetValueConversion::PlainRead<true>
+  원소 다루기         1 ms  duckdb::ExpressionExecutor::Verify
+  join           1 ms  unsigned long duckdb::TemplatedMatch<true, duckdb::string_t, duckdb::NotDistinctFrom>
+  집계             7 ms  unsigned long duckdb::Hash<duckdb::string_t>
+  집계             2 ms  void duckdb::AggregateExecutor::ExecuteUnaryClustered<duckdb::SumState<double>, double, duckdb::(anonymous nam
+  집계             1 ms  duckdb::GroupedAggregateHashTable::FindOrCreateGroupsInternal
+  기타             1 ms  [unknown]
+  기타             1 ms  duckdb::ColumnBindingRewrite::ApplyToChild
+callers of the watched functions (category of the sample / the next three frames up):
+  TemplatedValidityMask<unsigned long>::SetInvalid: 1 ms
+         1 ms  값 디코드/decode  < TemplatedColumnReader<double, TemplatedParquetValueConversion<double>  < ColumnReader::ReadData < ColumnReader::ReadInternal

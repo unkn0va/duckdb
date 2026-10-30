@@ -1,0 +1,26 @@
+s1_box,base: threads=1 wall 157 ms, CPU 154 ms (154 samples, 1000 Hz)
+CPU ms per category (sub-categories in brackets):
+  값 디코드          52   33.8%  [levels/skip 26, decode 24, scan 2]
+  리스트 조립         99   64.3%  [list/struct reader 99]
+  집계              2    1.3%  [aggregate 2]
+  기타              1    0.6%  [실행기/결과 1]
+hottest sampled functions per category:
+  값 디코드         17 ms  duckdb::DictionaryDecoder::GetValidValues
+  값 디코드         14 ms  void duckdb::RleBpDecoder::GetBatch<unsigned int>
+  값 디코드          6 ms  duckdb_fastpforlib::internal::__fastunpack1
+  값 디코드          5 ms  [unknown]
+  값 디코드          4 ms  void duckdb::RleBpDecoder::GetBatch<unsigned char>
+  리스트 조립        36 ms  duckdb::VectorStringBuffer::CopyInternal
+  리스트 조립        21 ms  duckdb::ValidityMask::CopySel
+  리스트 조립        12 ms  unsigned long duckdb::ListColumnReader::ReadInternal<duckdb::TemplatedListReader>
+  리스트 조립        12 ms  [unknown]
+  리스트 조립         4 ms  duckdb::CopyVectorBuffer
+  집계             2 ms  void duckdb::AggregateExecutor::ExecuteUnaryClustered<duckdb::SumState<duckdb::hugeint_t>, long, duckdb::(anon
+  기타             1 ms  duckdb::VectorCacheEntry::ResetFromCache
+callers of the watched functions (category of the sample / the next three frames up):
+  VectorStringBuffer::CopyInternal: 41 ms
+        41 ms  리스트 조립/list/struct reader  < VectorBuffer::Copy < VectorStructBuffer::CopyInternal < VectorBuffer::Copy
+  VectorBuffer::Copy: 4 ms
+         4 ms  리스트 조립/list/struct reader  < VectorStructBuffer::CopyInternal < VectorBuffer::Copy < VectorBuffer::Append
+  ValidityMask::CopySel: 21 ms
+        21 ms  리스트 조립/list/struct reader  < VectorBuffer::Copy < VectorStructBuffer::CopyInternal < VectorBuffer::Copy

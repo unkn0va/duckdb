@@ -1,0 +1,43 @@
+q1_s90,prenest: threads=1 wall 160 ms, CPU 156 ms (156 samples, 1000 Hz)
+CPU ms per category (sub-categories in brackets):
+  값 디코드          27   17.3%  [decode 11, levels/skip 9, scan 7]
+  리스트 조립         89   57.1%  [list/struct reader 89]
+  UNNEST         32   20.5%  [unnest 32]
+  원소 다루기          2    1.3%  [PROJECTION 2]
+  집계              2    1.3%  [aggregate 2]
+  기타              4    2.6%  [실행기/결과 3, duckdb 미분류 1]
+hottest sampled functions per category:
+  값 디코드          5 ms  void duckdb::RleBpDecoder::GetBatch<unsigned int>
+  값 디코드          3 ms  void duckdb::RleBpDecoder::GetBatch<unsigned char>
+  값 디코드          3 ms  duckdb::DictionaryDecoder::GetValidValues
+  값 디코드          2 ms  void duckdb_snappy::SnappyDecompressor::DecompressAllTags<duckdb_snappy::SnappyArrayWriter>
+  값 디코드          2 ms  [unknown]
+  리스트 조립        27 ms  duckdb::TemplatedValidityMask<unsigned long>::SetInvalid
+  리스트 조립        15 ms  unsigned long duckdb::ListColumnReader::ReadInternal<duckdb::TemplatedListReader>
+  리스트 조립        13 ms  duckdb::VectorStringBuffer::CopyInternal
+  리스트 조립        10 ms  [unknown]
+  리스트 조립         6 ms  duckdb::ValidityMask::CopySel
+  UNNEST        28 ms  duckdb::PhysicalUnnest::ExecuteInternal
+  UNNEST         2 ms  duckdb::UnnestOperatorState::PrepareInput
+  UNNEST         1 ms  void duckdb::shared_ptr<duckdb::ShreddedVectorBuffer, true>::__enable_weak_this<duckdb::VectorBuffer, duckdb::
+  UNNEST         1 ms  duckdb::StandardVectorBuffer::SliceInternal
+  원소 다루기         1 ms  std::_Sp_counted_ptr_inplace<duckdb::DictionaryBuffer, std::allocator<void>, (__gnu_cxx::_Lock_policy)2>::_M_d
+  원소 다루기         1 ms  duckdb::DatabaseInstance::GetDatabase
+  집계             1 ms  void duckdb::(anonymous namespace)::ClusteredSumOperation<duckdb::BaseSumOperation<duckdb::(anonymous namespac
+  집계             1 ms  std::_Sp_counted_base<(__gnu_cxx::_Lock_policy)2>::_M_release
+  기타             1 ms  duckdb::TemplatedValidityMask<unsigned long>::SetInvalid
+  기타             1 ms  duckdb::PipelineExecutor::SetInterruptState
+  기타             1 ms  duckdb::VectorBuffer::ClearAuxiliaryData
+  기타             1 ms  sched_getcpu
+callers of the watched functions (category of the sample / the next three frames up):
+  TemplatedValidityMask<unsigned long>::SetInvalid: 28 ms
+        27 ms  리스트 조립/list/struct reader  < VectorBuffer::Copy < VectorStructBuffer::CopyInternal < VectorBuffer::Copy
+         1 ms  기타/duckdb 미분류  < VectorBuffer::Copy
+  VectorStringBuffer::CopyInternal: 13 ms
+        13 ms  리스트 조립/list/struct reader  < VectorBuffer::Copy < VectorStructBuffer::CopyInternal < VectorBuffer::Copy
+  VectorBuffer::Copy: 11 ms
+        11 ms  리스트 조립/list/struct reader  < VectorStructBuffer::CopyInternal < VectorBuffer::Copy < VectorBuffer::Append
+  ValidityMask::CopySel: 6 ms
+         6 ms  리스트 조립/list/struct reader  < VectorBuffer::Copy < VectorStructBuffer::CopyInternal < VectorBuffer::Copy
+  SelectionVector::Slice: 2 ms
+         2 ms  값 디코드/scan  < DictionaryBuffer::SliceInternal < VectorBuffer::Slice < DictionaryBuffer::SliceWithCache

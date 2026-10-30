@@ -1,0 +1,13 @@
+s1_box,flat: threads=1 wall 50 ms, CPU 48 ms (48 samples, 1000 Hz)
+CPU ms per category (sub-categories in brackets):
+  값 디코드          15   31.2%  [scan 6, decode 6, levels/skip 3]
+  키 생성           32   66.7%  [node keys 32]
+  기타              1    2.1%  [실행기/결과 1]
+hottest sampled functions per category:
+  값 디코드          3 ms  duckdb::DictionaryDecoder::GetValidValues
+  값 디코드          2 ms  [unknown]
+  값 디코드          1 ms  duckdb::DataChunk::SetChildCardinality
+  값 디코드          1 ms  duckdb_fastpforlib::internal::__fastunpack9
+  값 디코드          1 ms  std::__cxx11::to_string
+  키 생성          32 ms  duckdb::ParquetNodeKeyGenerator::Process
+  기타             1 ms  duckdb::StandardVectorBuffer::ResetCapacity

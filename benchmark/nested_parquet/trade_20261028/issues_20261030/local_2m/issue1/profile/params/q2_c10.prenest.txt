@@ -1,0 +1,38 @@
+q2_c10,prenest: threads=1 wall 108 ms, CPU 102 ms (102 samples, 1000 Hz)
+CPU ms per category (sub-categories in brackets):
+  값 디코드          35   34.3%  [decode 22, levels/skip 12, scan 1]
+  리스트 조립         31   30.4%  [list/struct reader 31]
+  UNNEST         20   19.6%  [unnest 20]
+  원소 다루기         13   12.7%  [prenest 조건 9, FILTER 4]
+  기타              3    2.9%  [실행기/결과 3]
+hottest sampled functions per category:
+  값 디코드          8 ms  duckdb::DictionaryDecoder::GetValidValues
+  값 디코드          7 ms  [unknown]
+  값 디코드          4 ms  duckdb_fastpforlib::internal::__fastunpack1
+  값 디코드          4 ms  void duckdb::RleBpDecoder::GetBatch<unsigned int>
+  값 디코드          3 ms  void duckdb::RleBpDecoder::GetBatch<unsigned char>
+  리스트 조립        23 ms  duckdb::ListColumnReader::ReadFilteredInternal
+  리스트 조립         2 ms  duckdb::ListColumnReader::ApplyPendingSkips
+  리스트 조립         1 ms  [unknown]
+  리스트 조립         1 ms  duckdb::CopyVectorBuffer
+  리스트 조립         1 ms  malloc
+  UNNEST        11 ms  duckdb::UnnestOperatorState::PrepareInput
+  UNNEST         8 ms  duckdb::PhysicalUnnest::ExecuteInternal
+  UNNEST         1 ms  operator new
+  원소 다루기         5 ms  [unknown]
+  원소 다루기         4 ms  unsigned long duckdb::ScalarExecutor::Select<duckdb::UnaryExecutor::SelectPolicy, duckdb::UnarySelectAdapter<b
+  원소 다루기         1 ms  duckdb::ExpressionExecutor::Verify
+  원소 다루기         1 ms  bool duckdb::ScalarExecutor::TrySelectFlat<7ul, duckdb::ScalarExecutor::StaticSelectionSink<true, false>, duck
+  원소 다루기         1 ms  duckdb::ArenaAllocatorData::~ArenaAllocatorData
+  기타             1 ms  pthread_mutex_unlock@plt
+  기타             1 ms  duckdb::PipelineExecutor::FetchFromSource
+  기타             1 ms  duckdb::GetAllowParserOverrideValues
+callers of the watched functions (category of the sample / the next three frames up):
+  TemplatedValidityMask<unsigned long>::SetInvalid: 1 ms
+         1 ms  리스트 조립/list/struct reader  < VectorBuffer::Copy < VectorStructBuffer::CopyInternal < VectorBuffer::Copy
+  VectorBuffer::Copy: 1 ms
+         1 ms  리스트 조립/list/struct reader  < VectorStructBuffer::CopyInternal < VectorBuffer::Copy < VectorBuffer::Append
+  ValidityMask::CopySel: 1 ms
+         1 ms  값 디코드/decode  < StandardVectorBuffer::FlattenSliceInternal < VectorStringBuffer::FlattenSliceInternal < VectorBuffer::FlattenSlice
+  VectorStringBuffer::CopyInternal: 1 ms
+         1 ms  리스트 조립/list/struct reader  < VectorBuffer::Copy < VectorStructBuffer::CopyInternal < VectorBuffer::Copy

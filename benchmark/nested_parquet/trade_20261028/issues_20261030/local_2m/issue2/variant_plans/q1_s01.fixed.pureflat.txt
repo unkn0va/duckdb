@@ -1,0 +1,9 @@
+UNGROUPED_AGGREGATE     0.000s  rows            1  est            0  aggregate: sum(#0)
+  PROJECTION              0.000s  rows        70600  est      6997998  
+    PROJECTION              0.000s  rows        70600  est      6997998  
+      HASH_JOIN               0.005s  rows        70600  est      6997998  condition: ak0 = sk
+        probe: PROJECTION              0.001s  rows        70600  est      6997998  
+          TABLE_SCAN              0.056s  rows        70600  est            0  filename: pureflat/legs.parquet
+        build: PROJECTION              0.000s  rows        20000  est      2000000  
+          TABLE_SCAN              0.022s  rows        20000  est            0  filename: pureflat/parent.parquet; filter: (c9 < 10050000)
+total 0.104 s

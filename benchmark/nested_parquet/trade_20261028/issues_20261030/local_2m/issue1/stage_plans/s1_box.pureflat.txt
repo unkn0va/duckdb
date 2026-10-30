@@ -1,0 +1,4 @@
+UNGROUPED_AGGREGATE     0.003s  rows            1  est            1  aggregate: count(#0)
+  PROJECTION              0.000s  rows      6997998  est      6997998  
+    TABLE_SCAN              0.025s  rows      6997998  est      6997998  filename: pureflat/legs.parquet
+total 0.039 s

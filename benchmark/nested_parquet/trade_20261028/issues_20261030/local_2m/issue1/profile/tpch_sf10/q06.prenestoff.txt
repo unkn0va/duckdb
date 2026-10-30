@@ -1,0 +1,36 @@
+q06,prenestoff: threads=1 wall 58 ms, CPU 55 ms (55 samples, 1000 Hz)
+CPU ms per category (sub-categories in brackets):
+  값 디코드           6   10.9%  [decode 4, scan 2]
+  리스트 조립         41   74.5%  [list/struct reader 41]
+  UNNEST          1    1.8%  [unnest 1]
+  원소 다루기          5    9.1%  [FILTER 5]
+  기타              2    3.6%  [실행기/결과 2]
+hottest sampled functions per category:
+  값 디코드          3 ms  void duckdb_snappy::SnappyDecompressor::DecompressAllTags<duckdb_snappy::SnappyArrayWriter>
+  값 디코드          2 ms  [unknown]
+  값 디코드          1 ms  duckdb::MultiFileFunction<duckdb::TableFunctionMultiFileWrapper>::ProduceJob
+  리스트 조립        12 ms  [unknown]
+  리스트 조립        10 ms  duckdb::ValidityMask::CopySel
+  리스트 조립         6 ms  duckdb::TemplatedValidityMask<unsigned long>::SetInvalid
+  리스트 조립         5 ms  duckdb::VectorStringBuffer::CopyInternal
+  리스트 조립         5 ms  duckdb::CopyVectorBuffer
+  UNNEST         1 ms  duckdb_je_malloc_default
+  원소 다루기         2 ms  unsigned long duckdb::ScalarExecutor::SelectOutputDispatch<duckdb::BinaryExecutor::SelectPolicy, duckdb::Binar
+  원소 다루기         1 ms  [unknown]
+  원소 다루기         1 ms  unsigned long duckdb::ScalarExecutor::SelectOutputDispatch<duckdb::VariadicExecutor::SelectPolicy<int, int, in
+  원소 다루기         1 ms  duckdb::DictionaryBuffer::SliceInternal
+  기타             1 ms  duckdb::LogicalProjection::GetColumnBindings
+  기타             1 ms  std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::_M_create
+callers of the watched functions (category of the sample / the next three frames up):
+  VectorBuffer::Copy: 16 ms
+        16 ms  리스트 조립/list/struct reader  < VectorStructBuffer::CopyInternal < VectorBuffer::Copy < VectorBuffer::Append
+  VectorStringBuffer::CopyInternal: 5 ms
+         5 ms  리스트 조립/list/struct reader  < VectorBuffer::Copy < VectorStructBuffer::CopyInternal < VectorBuffer::Copy
+  TemplatedValidityMask<unsigned long>::SetInvalid: 6 ms
+         6 ms  리스트 조립/list/struct reader  < VectorBuffer::Copy < VectorStructBuffer::CopyInternal < VectorBuffer::Copy
+  ValidityMask::CopySel: 10 ms
+         8 ms  리스트 조립/list/struct reader  < VectorBuffer::Copy < VectorStructBuffer::CopyInternal < VectorBuffer::Copy
+         1 ms  리스트 조립/list/struct reader  < VectorBuffer::Copy < VectorBuffer::Append < VectorListBuffer::CopyInternal
+         1 ms  리스트 조립/list/struct reader  < VectorBuffer::Copy < VectorBuffer::Append < unsigned long ListColumnReader::ReadInternal<TemplatedListReader>
+  SelectionVector::Slice: 1 ms
+         1 ms  UNNEST/unnest  < DictionaryBuffer::SliceInternal < VectorBuffer::Slice < Vector::Slice

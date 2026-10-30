@@ -1,0 +1,15 @@
+q3_c12,flat: threads=1 wall 55 ms, CPU 53 ms (53 samples, 1000 Hz)
+CPU ms per category (sub-categories in brackets):
+  값 디코드          14   26.4%  [decode 9, levels/skip 3, scan 2]
+  원소 다루기          7   13.2%  [스캔 필터 7]
+  키 생성           31   58.5%  [node keys 31]
+  집계              1    1.9%  [aggregate 1]
+hottest sampled functions per category:
+  값 디코드          3 ms  duckdb::DictionaryDecoder::GetValidValues
+  값 디코드          1 ms  duckdb_apache::thrift::protocol::TVirtualProtocol<duckdb_apache::thrift::protocol::TCompactProtocolT<duckdb::T
+  값 디코드          1 ms  duckdb_je_ecache_dalloc
+  값 디코드          1 ms  duckdb_je_pa_dalloc
+  값 디코드          1 ms  duckdb::BlockAllocator::Get
+  원소 다루기         7 ms  unsigned long duckdb::ComparisonFilterExecutor::SelectTyped<long>
+  키 생성          31 ms  duckdb::ParquetNodeKeyGenerator::Process
+  집계             1 ms  bool duckdb::AggregateExecutor::UpdateUnaryClusteredOpt<true, duckdb::SumState<duckdb::hugeint_t>, long, duckd

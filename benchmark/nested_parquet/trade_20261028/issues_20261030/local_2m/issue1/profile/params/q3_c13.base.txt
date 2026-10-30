@@ -1,0 +1,30 @@
+q3_c13,base: threads=1 wall 60 ms, CPU 56 ms (56 samples, 1000 Hz)
+CPU ms per category (sub-categories in brackets):
+  값 디코드          14   25.0%  [decode 6, levels/skip 6, scan 2]
+  리스트 조립         15   26.8%  [list/struct reader 15]
+  UNNEST         21   37.5%  [unnest 21]
+  원소 다루기          5    8.9%  [FILTER 5]
+  기타              1    1.8%  [실행기/결과 1]
+hottest sampled functions per category:
+  값 디코드          3 ms  void duckdb::RleBpDecoder::GetBatch<unsigned int>
+  값 디코드          2 ms  duckdb::DictionaryDecoder::GetValidValues
+  값 디코드          1 ms  duckdb::ThriftFileTransport::read
+  값 디코드          1 ms  void duckdb::RleBpDecoder::GetBatch<unsigned char>
+  값 디코드          1 ms  duckdb::Vector::ConstReference
+  리스트 조립        10 ms  unsigned long duckdb::ListColumnReader::ReadInternal<duckdb::TemplatedListReader>
+  리스트 조립         3 ms  duckdb::ValidityMask::CopySel
+  리스트 조립         2 ms  duckdb::CopyVectorBuffer
+  UNNEST        20 ms  duckdb::PhysicalUnnest::ExecuteInternal
+  UNNEST         1 ms  duckdb::UnnestOperatorState::PrepareInput
+  원소 다루기         3 ms  unsigned long duckdb::ScalarExecutor::SelectOutputDispatch<duckdb::BinaryExecutor::SelectPolicy, duckdb::Binar
+  원소 다루기         1 ms  duckdb::SelectionVector::Slice
+  원소 다루기         1 ms  duckdb::VectorBuffer::CreateStandardVector
+  기타             1 ms  duckdb::VectorCacheEntry::ResetFromCache
+callers of the watched functions (category of the sample / the next three frames up):
+  ValidityMask::CopySel: 4 ms
+         3 ms  리스트 조립/list/struct reader  < VectorBuffer::Copy < VectorBuffer::Append < unsigned long ListColumnReader::ReadInternal<TemplatedListReader>
+         1 ms  값 디코드/decode  < StandardVectorBuffer::FlattenSliceInternal < VectorBuffer::FlattenSlice < DictionaryBuffer::Flatten
+  VectorBuffer::Copy: 2 ms
+         2 ms  리스트 조립/list/struct reader  < VectorBuffer::Append < unsigned long ListColumnReader::ReadInternal<TemplatedListReader> < ParquetReader::Process
+  SelectionVector::Slice: 1 ms
+         1 ms  원소 다루기/FILTER  < DictionaryBuffer::SliceInternal < VectorBuffer::Slice < DictionaryBuffer::SliceWithCache

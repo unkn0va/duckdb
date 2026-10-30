@@ -1,0 +1,32 @@
+s2_unnest,prenest: threads=1 wall 190 ms, CPU 187 ms (187 samples, 1000 Hz)
+CPU ms per category (sub-categories in brackets):
+  값 디코드          48   25.7%  [levels/skip 23, decode 18, scan 7]
+  리스트 조립        101   54.0%  [list/struct reader 101]
+  UNNEST         36   19.3%  [unnest 36]
+  기타              2    1.1%  [실행기/결과 2]
+hottest sampled functions per category:
+  값 디코드          8 ms  void duckdb::RleBpDecoder::GetBatch<unsigned char>
+  값 디코드          8 ms  void duckdb::RleBpDecoder::GetBatch<unsigned int>
+  값 디코드          5 ms  void duckdb_snappy::SnappyDecompressor::DecompressAllTags<duckdb_snappy::SnappyArrayWriter>
+  값 디코드          5 ms  duckdb_fastpforlib::internal::__fastunpack1
+  값 디코드          4 ms  duckdb::DictionaryDecoder::GetValidValues
+  리스트 조립        33 ms  duckdb::VectorStringBuffer::CopyInternal
+  리스트 조립        21 ms  duckdb::ValidityMask::CopySel
+  리스트 조립        17 ms  unsigned long duckdb::ListColumnReader::ReadInternal<duckdb::TemplatedListReader>
+  리스트 조립        10 ms  [unknown]
+  리스트 조립         4 ms  duckdb::CopyVectorBuffer
+  UNNEST        27 ms  duckdb::PhysicalUnnest::ExecuteInternal
+  UNNEST         2 ms  duckdb::UnnestOperatorState::PrepareInput
+  UNNEST         2 ms  malloc
+  UNNEST         2 ms  duckdb::StandardVectorBuffer::SliceInternal
+  UNNEST         1 ms  duckdb::DictionaryBuffer::DictionaryBuffer
+  기타             1 ms  duckdb::VectorCacheEntry::ResetFromCache
+  기타             1 ms  operator delete
+callers of the watched functions (category of the sample / the next three frames up):
+  VectorStringBuffer::CopyInternal: 43 ms
+        41 ms  리스트 조립/list/struct reader  < VectorBuffer::Copy < VectorStructBuffer::CopyInternal < VectorBuffer::Copy
+         2 ms  값 디코드/decode  < VectorBuffer::Copy < VectorOperations::Copy < DictionaryDecoder::Read
+  ValidityMask::CopySel: 21 ms
+        21 ms  리스트 조립/list/struct reader  < VectorBuffer::Copy < VectorStructBuffer::CopyInternal < VectorBuffer::Copy
+  VectorBuffer::Copy: 4 ms
+         4 ms  리스트 조립/list/struct reader  < VectorStructBuffer::CopyInternal < VectorBuffer::Copy < VectorBuffer::Append

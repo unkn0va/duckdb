@@ -1,0 +1,9 @@
+ORDER_BY                0.000s  rows            3  est      6997998  
+  HASH_GROUP_BY           0.039s  rows            3  est      6997998  group: #0; aggregate: sum(#1)
+    PROJECTION              0.000s  rows      3504198  est      6997998  
+      HASH_JOIN               0.099s  rows      3504198  est      6997998  condition: ak0 = sk
+        probe: PROJECTION              0.003s  rows      3504198  est      6997998  
+          TABLE_SCAN              0.058s  rows      3504198  est            0  filename: pureflat/legs.parquet; filter: (value < 507400)
+        build: PROJECTION              0.002s  rows      2000000  est      2000000  
+          TABLE_SCAN              0.027s  rows      2000000  est            0  filename: pureflat/parent.parquet
+total 0.295 s

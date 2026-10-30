@@ -1,0 +1,25 @@
+q2_c10,pureflat: threads=1 wall 44 ms, CPU 37 ms (37 samples, 1000 Hz)
+CPU ms per category (sub-categories in brackets):
+  값 디코드          30   81.1%  [decode 22, levels/skip 7, scan 1]
+  원소 다루기          4   10.8%  [스캔 필터 4]
+  집계              2    5.4%  [aggregate 2]
+  기타              1    2.7%  [실행기/결과 1]
+hottest sampled functions per category:
+  값 디코드         11 ms  void duckdb_snappy::SnappyDecompressor::DecompressAllTags<duckdb_snappy::SnappyArrayWriter>
+  값 디코드          7 ms  void duckdb::RleBpDecoder::GetBatch<unsigned int>
+  값 디코드          4 ms  duckdb::ValidityMask::CopySel
+  값 디코드          3 ms  [unknown]
+  값 디코드          2 ms  duckdb::VectorStringBuffer::CopyInternal
+  원소 다루기         1 ms  duckdb::string_t::StringComparisonOperators::GreaterThan
+  원소 다루기         1 ms  duckdb::ComparisonFilterExecutor::FilterSelection
+  원소 다루기         1 ms  [unknown]
+  원소 다루기         1 ms  unsigned long duckdb::ComparisonFilterExecutor::SelectTyped<duckdb::string_t>
+  집계             1 ms  std::_Sp_counted_base<(__gnu_cxx::_Lock_policy)2>::_M_release_last_use_cold
+  집계             1 ms  duckdb::LocalUngroupedAggregateState::Sink
+  기타             1 ms  std::vector<duckdb::Identifier, std::allocator<duckdb::Identifier> >::operator=
+callers of the watched functions (category of the sample / the next three frames up):
+  ValidityMask::CopySel: 4 ms
+         3 ms  값 디코드/decode  < VectorBuffer::Copy < VectorOperations::Copy < DictionaryDecoder::Read
+         1 ms  값 디코드/decode  < StandardVectorBuffer::FlattenSliceInternal < VectorStringBuffer::FlattenSliceInternal < VectorBuffer::FlattenSlice
+  VectorStringBuffer::CopyInternal: 2 ms
+         2 ms  값 디코드/decode  < VectorBuffer::Copy < VectorOperations::Copy < DictionaryDecoder::Read

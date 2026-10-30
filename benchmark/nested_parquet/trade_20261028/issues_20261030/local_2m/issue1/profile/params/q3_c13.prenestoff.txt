@@ -1,0 +1,33 @@
+q3_c13,prenestoff: threads=1 wall 60 ms, CPU 57 ms (57 samples, 1000 Hz)
+CPU ms per category (sub-categories in brackets):
+  값 디코드           8   14.0%  [decode 5, levels/skip 3]
+  리스트 조립         23   40.4%  [list/struct reader 23]
+  UNNEST         18   31.6%  [unnest 18]
+  원소 다루기          6   10.5%  [FILTER 6]
+  집계              1    1.8%  [aggregate 1]
+  기타              1    1.8%  [실행기/결과 1]
+hottest sampled functions per category:
+  값 디코드          2 ms  [unknown]
+  값 디코드          2 ms  duckdb::DictionaryDecoder::GetValidValues
+  값 디코드          2 ms  void duckdb::RleBpDecoder::GetBatch<unsigned char>
+  값 디코드          1 ms  duckdb_fastpforlib::internal::__fastunpack1
+  값 디코드          1 ms  malloc
+  리스트 조립        16 ms  unsigned long duckdb::ListColumnReader::ReadInternal<duckdb::TemplatedListReader>
+  리스트 조립         3 ms  duckdb::ValidityMask::CopySel
+  리스트 조립         3 ms  duckdb::CopyVectorBuffer
+  리스트 조립         1 ms  void std::vector<duckdb::unique_ptr<duckdb::AuxiliaryDataHolder, std::default_delete<duckdb::AuxiliaryDataHold
+  UNNEST        18 ms  duckdb::PhysicalUnnest::ExecuteInternal
+  원소 다루기         2 ms  unsigned long duckdb::ScalarExecutor::SelectOutputDispatch<duckdb::BinaryExecutor::SelectPolicy, duckdb::Binar
+  원소 다루기         1 ms  duckdb::Vector::Initialize
+  원소 다루기         1 ms  duckdb::StandardVectorBuffer::~StandardVectorBuffer
+  원소 다루기         1 ms  operator new
+  원소 다루기         1 ms  duckdb::SelectionVector::Slice
+  집계             1 ms  void duckdb::(anonymous namespace)::ClusteredSumOperation<duckdb::BaseSumOperation<duckdb::(anonymous namespac
+  기타             1 ms  duckdb::PipelineExecutor::Execute
+callers of the watched functions (category of the sample / the next three frames up):
+  ValidityMask::CopySel: 3 ms
+         3 ms  리스트 조립/list/struct reader  < VectorBuffer::Copy < VectorBuffer::Append < unsigned long ListColumnReader::ReadInternal<TemplatedListReader>
+  VectorBuffer::Copy: 3 ms
+         3 ms  리스트 조립/list/struct reader  < VectorBuffer::Append < unsigned long ListColumnReader::ReadInternal<TemplatedListReader> < ParquetReader::Process
+  SelectionVector::Slice: 2 ms
+         2 ms  원소 다루기/FILTER  < DictionaryBuffer::SliceInternal < VectorBuffer::Slice < DictionaryBuffer::SliceWithCache

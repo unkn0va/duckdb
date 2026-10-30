@@ -1,0 +1,11 @@
+s1_box,pureflat: threads=1 wall 36 ms, CPU 27 ms (27 samples, 1000 Hz)
+CPU ms per category (sub-categories in brackets):
+  값 디코드          24   88.9%  [decode 22, scan 2]
+  집계              2    7.4%  [aggregate 2]
+  기타              1    3.7%  [실행기/결과 1]
+hottest sampled functions per category:
+  값 디코드         22 ms  void duckdb_snappy::SnappyDecompressor::DecompressAllTags<duckdb_snappy::SnappyArrayWriter>
+  값 디코드          2 ms  [unknown]
+  집계             1 ms  duckdb::(anonymous namespace)::CountFunction::CountClusterUpdate
+  집계             1 ms  duckdb::AllocatedData::Reset
+  기타             1 ms  duckdb::BufferedData::ReplenishBuffer

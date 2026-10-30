@@ -1,0 +1,13 @@
+ORDER_BY                0.000s  rows            3  est           10  
+  HASH_GROUP_BY           0.000s  rows            3  est           10  group: #0; aggregate: sum(#1), sum(#2)
+    PROJECTION              0.000s  rows           10  est      1939544  
+      HASH_JOIN               0.000s  rows           10  est      1939544  condition: c8 = reg_scenario
+        probe: HASH_GROUP_BY           0.091s  rows            3  est      1939544  group: #0; aggregate: count_star(), sum(#1)
+          PROJECTION              0.000s  rows      6997998  est      6997998  
+            HASH_JOIN               0.163s  rows      6997998  est      6997998  condition: _ak0 = _sk
+              probe: PROJECTION              0.001s  rows      6997998  est      6997998  
+                TABLE_SCAN              0.051s  rows      6997998  est      6997998  file: trade_B.parquet; node: legs
+              build: PROJECTION              0.000s  rows      2000000  est      2000000  
+                TABLE_SCAN              0.007s  rows      2000000  est      2000000  file: trade_B.parquet; node: (top level)
+        build: TABLE_SCAN              0.000s  rows           10  est           10  filename: ../dims/date_plots_flat.parquet
+total 0.367 s
