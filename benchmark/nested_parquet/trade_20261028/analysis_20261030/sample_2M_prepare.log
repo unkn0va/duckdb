@@ -1,0 +1,342 @@
+[15:53:38] duckdb: v2.1.0-dev88383 a809d3cd51
+[15:53:38] pyarrow 26.0.0, seed 20261028, out $SCRATCH/sample_out
+[15:53:38] extracted: csaDictionaryJoin.csv 145 datePlotsZipTable.csv 158 fact.csv 654107750 
+[15:53:38] distinct: 224830 rows, 2000000 with copies
+$SCRATCH/sample_out/dims/csa_dictionary.parquet: 4 rows
+$SCRATCH/sample_out/dims/date_plots.parquet: 3 rows
+$SCRATCH/sample_out/dims/date_plots_flat.parquet: 10 rows
+[15:53:38] writing $SCRATCH/sample_out/distinct
+$SCRATCH/sample_out/distinct/trade_A.parquet: 224830 rows
+$SCRATCH/sample_out/distinct/trade_B.parquet: 224830 rows
+$SCRATCH/sample_out/distinct/trade_C.parquet: 224830 rows
+$SCRATCH/sample_out/distinct/pureflat/parent.parquet: 224830 rows
+$SCRATCH/sample_out/distinct/pureflat/c11.parquet: 1506030 rows
+$SCRATCH/sample_out/distinct/pureflat/c12.parquet: 629288 rows
+$SCRATCH/sample_out/distinct/pureflat/c13.parquet: 451709 rows
+$SCRATCH/sample_out/distinct/pureflat/c14.parquet: 562073 rows
+$SCRATCH/sample_out/distinct/pureflat/legs.parquet: 786727 rows
+[15:53:39] writing $SCRATCH/sample_out/full
+$SCRATCH/sample_out/full/trade_A.parquet: 2000000 rows
+$SCRATCH/sample_out/full/trade_B.parquet: 2000000 rows
+$SCRATCH/sample_out/full/trade_C.parquet: 2000000 rows
+$SCRATCH/sample_out/full/pureflat/parent.parquet: 2000000 rows
+$SCRATCH/sample_out/full/pureflat/c11.parquet: 13345090 rows
+$SCRATCH/sample_out/full/pureflat/c12.parquet: 5596070 rows
+$SCRATCH/sample_out/full/pureflat/c13.parquet: 3847601 rows
+$SCRATCH/sample_out/full/pureflat/c14.parquet: 4999396 rows
+$SCRATCH/sample_out/full/pureflat/legs.parquet: 6997998 rows
+[15:53:43] checking
+## distinct
+
+### lengths
+|  source   |  rows  | c11_elements | c11_max | c12_elements | c12_max | c13_elements | c13_max | c14_elements | c14_max | legs_elements | legs_max | legs_same_length |
+|-----------|-------:|-------------:|--------:|-------------:|--------:|-------------:|--------:|-------------:|--------:|--------------:|---------:|-----------------:|
+| csv       | 224830 | 1506030      | 47      | 629288       | 4       | 451709       | 4       | 562073       | 4       | 786727        | 5        | 224830           |
+| A         | 224830 | 1506030      | 47      | 629288       | 4       | 451709       | 4       | 562073       | 4       | 786727        | 5        | 224830           |
+| B         | 224830 | 1506030      | 47      | 629288       | 4       | 451709       | 4       | 562073       | 4       | 786727        | 5        | 224830           |
+| C         | 224830 | 1506030      | 47      | 629288       | 4       | 451709       | 4       | 562073       | 4       | 786727        | 5        | 224830           |
+| pure flat | 224830 | 1506030      | 47      | 629288       | 4       | 451709       | 4       | 562073       | 4       | 786727        | 5        | 224830           |
+| all_sources_agree |
+|-------------------|
+| true              |
+
+### content
+|                 check                  | mismatches |
+|----------------------------------------|-----------:|
+| A = B, row by row                      | 0          |
+| C = B, row by row (c11..c13 unwrapped) | 0          |
+| parent = B scalars, sk = row number    | 0          |
+
+| list |             b              |         pure_flat          | parents_with_elements |
+|------|---------------------------:|---------------------------:|----------------------:|
+| c11  | 13849302096388049972596024 | 13849302096388049972596024 | 224830                |
+| c12  | 5807199940738026006919739  | 5807199940738026006919739  | 224830                |
+| c13  | 4160696749047979238582133  | 4160696749047979238582133  | 224830                |
+| c14  | 5176775303904002781827770  | 5176775303904002781827770  | 224830                |
+| legs | 7257108714255497618341777  | 7257108714255497618341777  | 224830                |
+(b = pure_flat for every list, and parents_with_elements = the rows: no list is empty)
+
+## full
+
+### lengths
+|  source   |  rows   | c11_elements | c11_max | c12_elements | c12_max | c13_elements | c13_max | c14_elements | c14_max | legs_elements | legs_max | legs_same_length |
+|-----------|--------:|-------------:|--------:|-------------:|--------:|-------------:|--------:|-------------:|--------:|--------------:|---------:|-----------------:|
+| csv       | 2000000 | 13345090     | 47      | 5596070      | 4       | 3847601      | 4       | 4999396      | 4       | 6997998       | 5        | 2000000          |
+| A         | 2000000 | 13345090     | 47      | 5596070      | 4       | 3847601      | 4       | 4999396      | 4       | 6997998       | 5        | 2000000          |
+| B         | 2000000 | 13345090     | 47      | 5596070      | 4       | 3847601      | 4       | 4999396      | 4       | 6997998       | 5        | 2000000          |
+| C         | 2000000 | 13345090     | 47      | 5596070      | 4       | 3847601      | 4       | 4999396      | 4       | 6997998       | 5        | 2000000          |
+| pure flat | 2000000 | 13345090     | 47      | 5596070      | 4       | 3847601      | 4       | 4999396      | 4       | 6997998       | 5        | 2000000          |
+| all_sources_agree |
+|-------------------|
+| true              |
+
+### content
+|                 check                  | mismatches |
+|----------------------------------------|-----------:|
+| A = B, row by row                      | 0          |
+| C = B, row by row (c11..c13 unwrapped) | 0          |
+| parent = B scalars, sk = row number    | 0          |
+
+| list |              b              |          pure_flat          | parents_with_elements |
+|------|----------------------------:|----------------------------:|----------------------:|
+| c11  | 123144631184340527511015328 | 123144631184340527511015328 | 2000000               |
+| c12  | 51612981402820139141697606  | 51612981402820139141697606  | 2000000               |
+| c13  | 35484529847384463281198289  | 35484529847384463281198289  | 2000000               |
+| c14  | 46096775207895313800369990  | 46096775207895313800369990  | 2000000               |
+| legs | 64547083447377497982720777  | 64547083447377497982720777  | 2000000               |
+(b = pure_flat for every list, and parents_with_elements = the rows: no list is empty)
+
+## full vs distinct: the same distinct rows
+| distinct_rows_of_full | rows_of_distinct | only_in_full | only_in_distinct |
+|----------------------:|-----------------:|-------------:|-----------------:|
+| 224830                | 224830           | 0            | 0                |
+
+## files
+```
+$SCRATCH/sample_out/distinct/trade_A.parquet: 10.4 MB, 224830 rows, 2 row groups (largest 122880 rows)
+  column                         data pages per row group (min/avg/max)    total dict pages  version
+  c0                                        6 /      6.50 /         7       13          2  v1
+  c1                                        6 /      6.50 /         7       13          2  v1
+  c2                                        6 /      6.50 /         7       13          2  v1
+  c3                                        6 /      6.50 /         7       13          2  v1
+  c4                                        6 /      6.50 /         7       13          2  v1
+  c5                                        6 /      6.50 /         7       13          2  v1
+  c6                                        6 /      6.50 /         7       13          2  v1
+  c7                                        6 /      6.50 /         7       13          2  v1
+  c8                                        6 /      6.50 /         7       13          2  v1
+  c9                                        6 /      6.50 /         7       13          2  v1
+  c10                                       6 /      6.50 /         7       13          2  v1
+  c11.list.element                          6 /      6.50 /         7       13          2  v1
+  c12.list.element                          6 /      6.50 /         7       13          2  v1
+  c13.list.element                          6 /      6.50 /         7       13          2  v1
+  c14.list.element                          6 /      6.50 /         7       13          2  v1
+  c15.list.element                          6 /      6.50 /         7       13          2  v1
+  c16.list.element                          6 /      6.50 /         7       13          2  v1
+  c17.list.element                          6 /      6.50 /         7       13          2  v1
+  c18.list.element                          6 /      6.50 /         7       13          2  v1
+  c19                                       6 /      6.50 /         7       13          2  v1
+  c20                                       6 /      6.50 /         7       13          2  v1
+  c21                                       6 /      6.50 /         7       13          2  v1
+  c22                                       6 /      6.50 /         7       13          2  v1
+$SCRATCH/sample_out/distinct/trade_B.parquet: 10.4 MB, 224830 rows, 2 row groups (largest 122880 rows)
+  column                         data pages per row group (min/avg/max)    total dict pages  version
+  c0                                        6 /      6.50 /         7       13          2  v1
+  c1                                        6 /      6.50 /         7       13          2  v1
+  c2                                        6 /      6.50 /         7       13          2  v1
+  c3                                        6 /      6.50 /         7       13          2  v1
+  c4                                        6 /      6.50 /         7       13          2  v1
+  c5                                        6 /      6.50 /         7       13          2  v1
+  c6                                        6 /      6.50 /         7       13          2  v1
+  c7                                        6 /      6.50 /         7       13          2  v1
+  c8                                        6 /      6.50 /         7       13          2  v1
+  c9                                        6 /      6.50 /         7       13          2  v1
+  c10                                       6 /      6.50 /         7       13          2  v1
+  c11.list.element                          6 /      6.50 /         7       13          2  v1
+  c12.list.element                          6 /      6.50 /         7       13          2  v1
+  c13.list.element                          6 /      6.50 /         7       13          2  v1
+  c14.list.element                          6 /      6.50 /         7       13          2  v1
+  legs.list.element.leg_id                  6 /      6.50 /         7       13          2  v1
+  legs.list.element.currency                6 /      6.50 /         7       13          2  v1
+  legs.list.element.option_type              6 /      6.50 /         7       13          2  v1
+  legs.list.element.value                   6 /      6.50 /         7       13          2  v1
+  c19                                       6 /      6.50 /         7       13          2  v1
+  c20                                       6 /      6.50 /         7       13          2  v1
+  c21                                       6 /      6.50 /         7       13          2  v1
+  c22                                       6 /      6.50 /         7       13          2  v1
+$SCRATCH/sample_out/distinct/trade_C.parquet: 10.4 MB, 224830 rows, 2 row groups (largest 122880 rows)
+  column                         data pages per row group (min/avg/max)    total dict pages  version
+  c0                                        6 /      6.50 /         7       13          2  v1
+  c1                                        6 /      6.50 /         7       13          2  v1
+  c2                                        6 /      6.50 /         7       13          2  v1
+  c3                                        6 /      6.50 /         7       13          2  v1
+  c4                                        6 /      6.50 /         7       13          2  v1
+  c5                                        6 /      6.50 /         7       13          2  v1
+  c6                                        6 /      6.50 /         7       13          2  v1
+  c7                                        6 /      6.50 /         7       13          2  v1
+  c8                                        6 /      6.50 /         7       13          2  v1
+  c9                                        6 /      6.50 /         7       13          2  v1
+  c10                                       6 /      6.50 /         7       13          2  v1
+  c11.list.element.v                        6 /      6.50 /         7       13          2  v1
+  c12.list.element.v                        6 /      6.50 /         7       13          2  v1
+  c13.list.element.v                        6 /      6.50 /         7       13          2  v1
+  c14.list.element                          6 /      6.50 /         7       13          2  v1
+  legs.list.element.leg_id                  6 /      6.50 /         7       13          2  v1
+  legs.list.element.currency                6 /      6.50 /         7       13          2  v1
+  legs.list.element.option_type              6 /      6.50 /         7       13          2  v1
+  legs.list.element.value                   6 /      6.50 /         7       13          2  v1
+  c19                                       6 /      6.50 /         7       13          2  v1
+  c20                                       6 /      6.50 /         7       13          2  v1
+  c21                                       6 /      6.50 /         7       13          2  v1
+  c22                                       6 /      6.50 /         7       13          2  v1
+$SCRATCH/sample_out/distinct/pureflat/c11.parquet: 5.1 MB, 1506030 rows, 13 row groups (largest 122880 rows)
+  column                         data pages per row group (min/avg/max)    total dict pages  version
+  ak0                                       2 /      6.62 /         7       86         13  v1
+  c11                                       2 /      6.62 /         7       86         13  v1
+$SCRATCH/sample_out/distinct/pureflat/c12.parquet: 3.5 MB, 629288 rows, 6 row groups (largest 122880 rows)
+  column                         data pages per row group (min/avg/max)    total dict pages  version
+  ak0                                       1 /      6.00 /         7       36          6  v1
+  c12                                       1 /      6.00 /         7       36          6  v1
+$SCRATCH/sample_out/distinct/pureflat/c13.parquet: 1.9 MB, 451709 rows, 4 row groups (largest 122880 rows)
+  column                         data pages per row group (min/avg/max)    total dict pages  version
+  ak0                                       5 /      6.50 /         7       26          4  v1
+  c13                                       5 /      6.50 /         7       26          4  v1
+$SCRATCH/sample_out/distinct/pureflat/c14.parquet: 2.0 MB, 562073 rows, 5 row groups (largest 122880 rows)
+  column                         data pages per row group (min/avg/max)    total dict pages  version
+  ak0                                       4 /      6.40 /         7       32          5  v1
+  c14                                       4 /      6.40 /         7       32          5  v1
+$SCRATCH/sample_out/distinct/pureflat/legs.parquet: 6.1 MB, 786727 rows, 7 row groups (largest 122880 rows)
+  column                         data pages per row group (min/avg/max)    total dict pages  version
+  ak0                                       3 /      6.43 /         7       45          7  v1
+  leg_id                                    3 /      6.43 /         7       45          7  v1
+  currency                                  3 /      6.43 /         7       45          7  v1
+  option_type                               3 /      6.43 /         7       45          7  v1
+  value                                     3 /      6.43 /         7       45          7  v1
+$SCRATCH/sample_out/distinct/pureflat/parent.parquet: 3.9 MB, 224830 rows, 2 row groups (largest 122880 rows)
+  column                         data pages per row group (min/avg/max)    total dict pages  version
+  sk                                        6 /      6.50 /         7       13          2  v1
+  c0                                        6 /      6.50 /         7       13          2  v1
+  c1                                        6 /      6.50 /         7       13          2  v1
+  c2                                        6 /      6.50 /         7       13          2  v1
+  c3                                        6 /      6.50 /         7       13          2  v1
+  c4                                        6 /      6.50 /         7       13          2  v1
+  c5                                        6 /      6.50 /         7       13          2  v1
+  c6                                        6 /      6.50 /         7       13          2  v1
+  c7                                        6 /      6.50 /         7       13          2  v1
+  c8                                        6 /      6.50 /         7       13          2  v1
+  c9                                        6 /      6.50 /         7       13          2  v1
+  c10                                       6 /      6.50 /         7       13          2  v1
+  c19                                       6 /      6.50 /         7       13          2  v1
+  c20                                       6 /      6.50 /         7       13          2  v1
+  c21                                       6 /      6.50 /         7       13          2  v1
+  c22                                       6 /      6.50 /         7       13          2  v1
+$SCRATCH/sample_out/full/trade_A.parquet: 91.5 MB, 2000000 rows, 17 row groups (largest 122880 rows)
+  column                         data pages per row group (min/avg/max)    total dict pages  version
+  c0                                        2 /      6.71 /         7      114         17  v1
+  c1                                        2 /      6.71 /         7      114         17  v1
+  c2                                        2 /      6.71 /         7      114         17  v1
+  c3                                        2 /      6.71 /         7      114         17  v1
+  c4                                        2 /      6.71 /         7      114         17  v1
+  c5                                        2 /      6.71 /         7      114         17  v1
+  c6                                        2 /      6.71 /         7      114         17  v1
+  c7                                        2 /      6.71 /         7      114         17  v1
+  c8                                        2 /      6.71 /         7      114         17  v1
+  c9                                        2 /      6.71 /         7      114         17  v1
+  c10                                       2 /      6.71 /         7      114         17  v1
+  c11.list.element                          2 /      6.71 /         7      114         17  v1
+  c12.list.element                          2 /      6.71 /         7      114         17  v1
+  c13.list.element                          2 /      6.71 /         7      114         17  v1
+  c14.list.element                          2 /      6.71 /         7      114         17  v1
+  c15.list.element                          2 /      6.71 /         7      114         17  v1
+  c16.list.element                          2 /      6.71 /         7      114         17  v1
+  c17.list.element                          2 /      6.71 /         7      114         17  v1
+  c18.list.element                          2 /      6.71 /         7      114         17  v1
+  c19                                       2 /      6.71 /         7      114         17  v1
+  c20                                       2 /      6.71 /         7      114         17  v1
+  c21                                       2 /      6.71 /         7      114         17  v1
+  c22                                       2 /      6.71 /         7      114         17  v1
+$SCRATCH/sample_out/full/trade_B.parquet: 91.5 MB, 2000000 rows, 17 row groups (largest 122880 rows)
+  column                         data pages per row group (min/avg/max)    total dict pages  version
+  c0                                        2 /      6.71 /         7      114         17  v1
+  c1                                        2 /      6.71 /         7      114         17  v1
+  c2                                        2 /      6.71 /         7      114         17  v1
+  c3                                        2 /      6.71 /         7      114         17  v1
+  c4                                        2 /      6.71 /         7      114         17  v1
+  c5                                        2 /      6.71 /         7      114         17  v1
+  c6                                        2 /      6.71 /         7      114         17  v1
+  c7                                        2 /      6.71 /         7      114         17  v1
+  c8                                        2 /      6.71 /         7      114         17  v1
+  c9                                        2 /      6.71 /         7      114         17  v1
+  c10                                       2 /      6.71 /         7      114         17  v1
+  c11.list.element                          2 /      6.71 /         7      114         17  v1
+  c12.list.element                          2 /      6.71 /         7      114         17  v1
+  c13.list.element                          2 /      6.71 /         7      114         17  v1
+  c14.list.element                          2 /      6.71 /         7      114         17  v1
+  legs.list.element.leg_id                  2 /      6.71 /         7      114         17  v1
+  legs.list.element.currency                2 /      6.71 /         7      114         17  v1
+  legs.list.element.option_type              2 /      6.71 /         7      114         17  v1
+  legs.list.element.value                   2 /      6.71 /         7      114         17  v1
+  c19                                       2 /      6.71 /         7      114         17  v1
+  c20                                       2 /      6.71 /         7      114         17  v1
+  c21                                       2 /      6.71 /         7      114         17  v1
+  c22                                       2 /      6.71 /         7      114         17  v1
+$SCRATCH/sample_out/full/trade_C.parquet: 91.5 MB, 2000000 rows, 17 row groups (largest 122880 rows)
+  column                         data pages per row group (min/avg/max)    total dict pages  version
+  c0                                        2 /      6.71 /         7      114         17  v1
+  c1                                        2 /      6.71 /         7      114         17  v1
+  c2                                        2 /      6.71 /         7      114         17  v1
+  c3                                        2 /      6.71 /         7      114         17  v1
+  c4                                        2 /      6.71 /         7      114         17  v1
+  c5                                        2 /      6.71 /         7      114         17  v1
+  c6                                        2 /      6.71 /         7      114         17  v1
+  c7                                        2 /      6.71 /         7      114         17  v1
+  c8                                        2 /      6.71 /         7      114         17  v1
+  c9                                        2 /      6.71 /         7      114         17  v1
+  c10                                       2 /      6.71 /         7      114         17  v1
+  c11.list.element.v                        2 /      6.71 /         7      114         17  v1
+  c12.list.element.v                        2 /      6.71 /         7      114         17  v1
+  c13.list.element.v                        2 /      6.71 /         7      114         17  v1
+  c14.list.element                          2 /      6.71 /         7      114         17  v1
+  legs.list.element.leg_id                  2 /      6.71 /         7      114         17  v1
+  legs.list.element.currency                2 /      6.71 /         7      114         17  v1
+  legs.list.element.option_type              2 /      6.71 /         7      114         17  v1
+  legs.list.element.value                   2 /      6.71 /         7      114         17  v1
+  c19                                       2 /      6.71 /         7      114         17  v1
+  c20                                       2 /      6.71 /         7      114         17  v1
+  c21                                       2 /      6.71 /         7      114         17  v1
+  c22                                       2 /      6.71 /         7      114         17  v1
+$SCRATCH/sample_out/full/pureflat/c11.parquet: 45.6 MB, 13345090 rows, 109 row groups (largest 122880 rows)
+  column                         data pages per row group (min/avg/max)    total dict pages  version
+  ak0                                       4 /      6.97 /         7      760        109  v1
+  c11                                       4 /      6.97 /         7      760        109  v1
+$SCRATCH/sample_out/full/pureflat/c12.parquet: 31.1 MB, 5596070 rows, 46 row groups (largest 122880 rows)
+  column                         data pages per row group (min/avg/max)    total dict pages  version
+  ak0                                       4 /      6.93 /         7      319         46  v1
+  c12                                       4 /      6.93 /         7      319         46  v1
+$SCRATCH/sample_out/full/pureflat/c13.parquet: 16.6 MB, 3847601 rows, 32 row groups (largest 122880 rows)
+  column                         data pages per row group (min/avg/max)    total dict pages  version
+  ak0                                       2 /      6.84 /         7      219         32  v1
+  c13                                       2 /      6.84 /         7      219         32  v1
+$SCRATCH/sample_out/full/pureflat/c14.parquet: 17.4 MB, 4999396 rows, 41 row groups (largest 122880 rows)
+  column                         data pages per row group (min/avg/max)    total dict pages  version
+  ak0                                       5 /      6.95 /         7      285         41  v1
+  c14                                       5 /      6.95 /         7      285         41  v1
+$SCRATCH/sample_out/full/pureflat/legs.parquet: 53.6 MB, 6997998 rows, 57 row groups (largest 122880 rows)
+  column                         data pages per row group (min/avg/max)    total dict pages  version
+  ak0                                       6 /      6.98 /         7      398         57  v1
+  leg_id                                    6 /      6.98 /         7      398         57  v1
+  currency                                  6 /      6.98 /         7      398         57  v1
+  option_type                               6 /      6.98 /         7      398         57  v1
+  value                                     6 /      6.98 /         7      398         57  v1
+$SCRATCH/sample_out/full/pureflat/parent.parquet: 34.8 MB, 2000000 rows, 17 row groups (largest 122880 rows)
+  column                         data pages per row group (min/avg/max)    total dict pages  version
+  sk                                        2 /      6.71 /         7      114         17  v1
+  c0                                        2 /      6.71 /         7      114         17  v1
+  c1                                        2 /      6.71 /         7      114         17  v1
+  c2                                        2 /      6.71 /         7      114         17  v1
+  c3                                        2 /      6.71 /         7      114         17  v1
+  c4                                        2 /      6.71 /         7      114         17  v1
+  c5                                        2 /      6.71 /         7      114         17  v1
+  c6                                        2 /      6.71 /         7      114         17  v1
+  c7                                        2 /      6.71 /         7      114         17  v1
+  c8                                        2 /      6.71 /         7      114         17  v1
+  c9                                        2 /      6.71 /         7      114         17  v1
+  c10                                       2 /      6.71 /         7      114         17  v1
+  c19                                       2 /      6.71 /         7      114         17  v1
+  c20                                       2 /      6.71 /         7      114         17  v1
+  c21                                       2 /      6.71 /         7      114         17  v1
+  c22                                       2 /      6.71 /         7      114         17  v1
+$SCRATCH/sample_out/dims/csa_dictionary.parquet: 0.0 MB, 4 rows, 1 row groups (largest 4 rows)
+  column                         data pages per row group (min/avg/max)    total dict pages  version
+  csa                                       1 /      1.00 /         1        1          1  v1
+  as_of_date                                1 /      1.00 /         1        1          1  v1
+  csa_hash                                  1 /      1.00 /         1        1          1  v1
+$SCRATCH/sample_out/dims/date_plots.parquet: 0.0 MB, 3 rows, 1 row groups (largest 3 rows)
+  column                         data pages per row group (min/avg/max)    total dict pages  version
+  reg_scenario                              1 /      1.00 /         1        1          1  v1
+  plot_dates.list.element                   1 /      1.00 /         1        1          1  v1
+$SCRATCH/sample_out/dims/date_plots_flat.parquet: 0.0 MB, 10 rows, 1 row groups (largest 10 rows)
+  column                         data pages per row group (min/avg/max)    total dict pages  version
+  reg_scenario                              1 /      1.00 /         1        1          1  v1
+  plot_date                                 1 /      1.00 /         1        1          1  v1
+```
+[15:53:51] done
