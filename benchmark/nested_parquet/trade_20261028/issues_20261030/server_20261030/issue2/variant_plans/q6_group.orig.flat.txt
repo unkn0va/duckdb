@@ -1,0 +1,9 @@
+ORDER_BY                0.000s  rows            3  est     50331536  
+  HASH_GROUP_BY           0.724s  rows            3  est     50331536  group: #0; aggregate: sum(#1)
+    PROJECTION              0.024s  rows    174970000  est     69980000  
+      HASH_JOIN               9.646s  rows    174970000  est     69980000  condition: _sk = _ak0
+        probe: PROJECTION              0.042s  rows    100000000  est    100000000  
+          TABLE_SCAN              0.955s  rows    100000000  est    100000000  file: trade_B.parquet; node: (top level)
+        build: PROJECTION              0.099s  rows    174970000  est     69980000  
+          TABLE_SCAN              7.114s  rows    174970000  est     69980000  file: trade_B.parquet; node: legs; filter: (value < 507400)
+total 25.494 s

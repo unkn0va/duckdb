@@ -1,0 +1,61 @@
+name,config,wall_s,cpu_s,runs,threads,same_result,result,plan,note,busy_cores
+q1_s01.orig,base,16.915,16.973,10,1,yes,"1,c2be86f460cf47eb",4abc457d3ffd1000,,0.0
+q1_s01.orig,prenestoff,10.947,10.998,10,1,yes,"1,c2be86f460cf47eb",4abc457d3ffd1000,,0.0
+q1_s01.orig,prenest,11.077,11.128,10,1,yes,"1,c2be86f460cf47eb",4abc457d3ffd1000,,0.0
+q1_s01.orig,flat,11.862,11.861,10,1,yes,"1,c2be86f460cf47eb",d34a46b6f7b34207,,0.0
+q1_s01.orig,pureflat,10.601,10.841,10,1,yes,"1,c2be86f460cf47eb",16b5739bcf748340,,0.0
+q1_s01.fixed,base,16.915,16.973,10,1,yes,"1,c2be86f460cf47eb",4abc457d3ffd1000,same plan as q1_s01.orig,
+q1_s01.fixed,prenestoff,10.947,10.998,10,1,yes,"1,c2be86f460cf47eb",4abc457d3ffd1000,same plan as q1_s01.orig,
+q1_s01.fixed,prenest,11.077,11.128,10,1,yes,"1,c2be86f460cf47eb",4abc457d3ffd1000,same plan as q1_s01.orig,
+q1_s01.fixed,flat,11.757,11.756,10,1,yes,"1,c2be86f460cf47eb",d808d25e7213c7e0,,0.0
+q1_s01.fixed,pureflat,10.568,10.844,10,1,yes,"1,c2be86f460cf47eb",93bc81903aa4ad99,,0.0
+q1_s50.orig,base,18.671,18.728,10,1,yes,"1,667287f89fbc7369",4abc457d3ffd1000,,0.0
+q1_s50.orig,prenestoff,12.835,12.889,10,1,yes,"1,667287f89fbc7369",4abc457d3ffd1000,,0.0
+q1_s50.orig,prenest,12.861,12.915,10,1,yes,"1,667287f89fbc7369",4abc457d3ffd1000,,0.0
+q1_s50.orig,flat,20.837,20.837,10,1,yes,"1,667287f89fbc7369",d34a46b6f7b34207,,0.0
+q1_s50.orig,pureflat,20.120,20.461,10,1,yes,"1,667287f89fbc7369",16b5739bcf748340,,0.0
+q1_s50.fixed,base,18.671,18.728,10,1,yes,"1,667287f89fbc7369",4abc457d3ffd1000,same plan as q1_s50.orig,
+q1_s50.fixed,prenestoff,12.835,12.889,10,1,yes,"1,667287f89fbc7369",4abc457d3ffd1000,same plan as q1_s50.orig,
+q1_s50.fixed,prenest,12.861,12.915,10,1,yes,"1,667287f89fbc7369",4abc457d3ffd1000,same plan as q1_s50.orig,
+q1_s50.fixed,flat,20.377,20.376,10,1,yes,"1,667287f89fbc7369",d808d25e7213c7e0,,0.0
+q1_s50.fixed,pureflat,20.006,20.335,10,1,yes,"1,667287f89fbc7369",93bc81903aa4ad99,,0.0
+q6_group.orig,base,22.468,22.528,10,1,yes,"3,a8261dc0c929a63a",862ca2de269442a7,,0.0
+q6_group.orig,prenestoff,16.528,16.581,10,1,yes,"3,a8261dc0c929a63a",862ca2de269442a7,,0.0
+q6_group.orig,prenest,12.710,12.770,10,1,yes,"3,a8261dc0c929a63a",862ca2de269442a7,,0.0
+q6_group.orig,flat,25.165,25.176,10,1,yes,"3,a8261dc0c929a63a",64fe956979b5cd4a,,0.0
+q6_group.orig,pureflat,25.198,25.429,10,1,yes,"3,a8261dc0c929a63a",6a3a140c316859ad,,0.0
+q6_group.fixed,base,22.468,22.528,10,1,yes,"3,a8261dc0c929a63a",862ca2de269442a7,same plan as q6_group.orig,
+q6_group.fixed,prenestoff,16.528,16.581,10,1,yes,"3,a8261dc0c929a63a",862ca2de269442a7,same plan as q6_group.orig,
+q6_group.fixed,prenest,12.710,12.770,10,1,yes,"3,a8261dc0c929a63a",862ca2de269442a7,same plan as q6_group.orig,
+q6_group.fixed,flat,25.815,25.815,10,1,yes,"3,a8261dc0c929a63a",04ffc6955fecd24a,,0.0
+q6_group.fixed,pureflat,26.435,26.982,10,1,yes,"3,a8261dc0c929a63a",fd2beeaa54d430e6,,0.0
+q7_csa.orig,base,11.171,11.242,10,1,yes,"4,f9675934a681e70a",53d59b0020c2cc04,,0.0
+q7_csa.orig,prenestoff,6.663,6.700,10,1,yes,"4,f9675934a681e70a",53d59b0020c2cc04,,0.0
+q7_csa.orig,prenest,6.577,6.611,10,1,yes,"4,f9675934a681e70a",53d59b0020c2cc04,,0.0
+q7_csa.orig,flat,10.995,10.995,10,1,yes,"4,f9675934a681e70a",b0e58b2abafda381,,0.0
+q7_csa.orig,pureflat,7.371,7.561,10,1,yes,"4,f9675934a681e70a",524ec013ea38dcb2,,0.0
+q7_csa.fixed,base,11.171,11.242,10,1,yes,"4,f9675934a681e70a",53d59b0020c2cc04,same plan as q7_csa.orig,
+q7_csa.fixed,prenestoff,6.663,6.700,10,1,yes,"4,f9675934a681e70a",53d59b0020c2cc04,same plan as q7_csa.orig,
+q7_csa.fixed,prenest,6.577,6.611,10,1,yes,"4,f9675934a681e70a",53d59b0020c2cc04,same plan as q7_csa.orig,
+q7_csa.fixed,flat,28.350,28.350,10,1,yes,"4,f9675934a681e70a",3d514ea6909a81b2,,0.0
+q7_csa.fixed,pureflat,9.196,9.373,10,1,yes,"4,f9675934a681e70a",7e9266a674bc4a8b,,0.0
+q7_csa.preagg,base,11.146,11.216,10,1,yes,"4,f9675934a681e70a",94c43118dd2a0cee,,0.0
+q7_csa.preagg,prenestoff,6.673,6.709,10,1,yes,"4,f9675934a681e70a",94c43118dd2a0cee,,0.0
+q7_csa.preagg,prenest,6.626,6.664,10,1,yes,"4,f9675934a681e70a",94c43118dd2a0cee,,0.0
+q7_csa.preagg,flat,32.040,32.040,10,1,yes,"4,f9675934a681e70a",baefb3d88d2932f5,,0.0
+q7_csa.preagg,pureflat,9.296,9.579,10,1,yes,"4,f9675934a681e70a",38da8c78440b2cd6,,0.0
+q7_plots.orig,base,39.655,39.760,10,1,yes,"3,8ce1e3241350c500",a9db0d3ddc9d1454,,0.0
+q7_plots.orig,prenestoff,33.734,33.793,10,1,yes,"3,8ce1e3241350c500",a9db0d3ddc9d1454,,0.0
+q7_plots.orig,prenest,33.692,33.751,10,1,yes,"3,8ce1e3241350c500",a9db0d3ddc9d1454,,0.0
+q7_plots.orig,flat,91.524,91.535,10,1,yes,"3,8ce1e3241350c500",a232a5dc2266a44e,,0.0
+q7_plots.orig,pureflat,93.425,94.424,10,1,yes,"3,8ce1e3241350c500",de14b6f1fec4ed0d,,0.0
+q7_plots.fixed,base,39.655,39.760,10,1,yes,"3,8ce1e3241350c500",a9db0d3ddc9d1454,same plan as q7_plots.orig,
+q7_plots.fixed,prenestoff,33.734,33.793,10,1,yes,"3,8ce1e3241350c500",a9db0d3ddc9d1454,same plan as q7_plots.orig,
+q7_plots.fixed,prenest,33.692,33.751,10,1,yes,"3,8ce1e3241350c500",a9db0d3ddc9d1454,same plan as q7_plots.orig,
+q7_plots.fixed,flat,76.282,76.283,10,1,yes,"3,8ce1e3241350c500",dfd9ef76d70d5189,,0.0
+q7_plots.fixed,pureflat,77.933,78.736,10,1,yes,"3,8ce1e3241350c500",d97154b4fd5112d7,,0.0
+q7_plots.preagg,base,22.522,22.581,10,1,yes,"3,8ce1e3241350c500",3cf5d0370ed59354,,0.0
+q7_plots.preagg,prenestoff,16.365,16.455,10,1,yes,"3,8ce1e3241350c500",3cf5d0370ed59354,,0.0
+q7_plots.preagg,prenest,16.251,16.305,10,1,yes,"3,8ce1e3241350c500",3cf5d0370ed59354,,0.0
+q7_plots.preagg,flat,35.830,35.829,10,1,yes,"3,8ce1e3241350c500",bf30822a05afb3c4,,0.0
+q7_plots.preagg,pureflat,36.492,36.951,10,1,yes,"3,8ce1e3241350c500",17d8bd1b558e7e6f,,0.0

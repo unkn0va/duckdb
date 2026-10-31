@@ -168,7 +168,8 @@
 - 이슈 1(Unnest 오버헤드 분해)과 이슈 2(join 예상 오류)의 스크립트는 `issues_20261030/`에 있습니다(README.md). 이 PC 시험 결과는 `issues_20261030/local_2m/`입니다.
 - 서버 결과(2026-10-30): `issues_20261030/server_20261030/`. 정리는 `analysis.md`입니다.
   - 이슈 1과 이슈 2의 cardinality는 끝났습니다.
-  - **2-1 variants는 다시 돌려야 합니다.** 다른 프로세스가 CPU를 써서 시작하지 않았습니다. 명령: `./run_issue2.sh --out server_issue2b --steps "info variants summary"`, 확인: `grep -c 'result yes' server_issue2b/variants.log`가 60.
+  - 2-1 variants도 2026-10-31에 다시 돌려 끝났습니다(`issue2/variants.csv`, 60개 결과 일치).
+  - 2-1 결론: 예상 오류가 시간을 크게 바꾼 것은 q7_plots뿐입니다(순서 고정 −17%, 합계 먼저 −61%). 같은 변형을 nested에도 적용하면 flat / nested는 2.7배 → 2.2배입니다.
 - 주요 결론: 조립은 주로 원소당이고 행 조건과 상관없이 파일의 모든 리스트에서 일어납니다. UNNEST는 리스트당입니다. 문자열 복사 1.2초와 `SetInvalid` 2.2초는 가지치기된 필드의 NULL 복사입니다.
   B의 자식 노드 예상은 num_values와 같고, A의 UNNEST는 리스트 길이를 1로 봅니다.
 - perf 범주는 이제 call stack 기준입니다(`categories.py`). 잎 함수만 보던 `profile_breakdown.py`와 숫자가 다르고, 특히 "식·벡터"의 많은 부분이 리스트 조립으로 갑니다.

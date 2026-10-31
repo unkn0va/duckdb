@@ -13,6 +13,41 @@ data:     /home/layun03/nested-bench/duckdb_rey/benchmark/nested_parquet/trade_2
 runs:     10 at 1 thread (variants), cardinality at 20 threads
 ```
 
+## 2-1 실행 계획 변형 (1스레드, RUNS 중 최소, 초)
+
+- fixed: `join_order`를 끄고 원소 → 부모 → 차원 표 순서로 씀(build 쪽은 build_side_probe_side가 정함). builtin·flat은 글이 같고 설정만 다름.
+- preagg: 차원 표 join 앞에서 집계(q7_csa: c0, c1별 / q7_plots: c8별). q1, q6은 차원 표 join이 없어 해당 없음.
+- 괄호: 원래 대비 배수(< 1이면 빠름). '=': 원래와 같은 실행 계획이라 다시 재지 않음. 결과: 모든 변형이 원래 쿼리(base builtin)와 같으면 yes.
+- 계획: `variant_plans/<쿼리>.<변형>.<구성>.txt`
+
+| 쿼리 | 구성 | orig | fixed | preagg | 결과 |
+|---|---|---|---|---|---|
+| q1_s01 | base | 16.915 | = | · | yes |
+| q1_s01 | prenestoff | 10.947 | = | · | yes |
+| q1_s01 | prenest | 11.077 | = | · | yes |
+| q1_s01 | flat | 11.862 | 11.757 (0.99) | · | yes |
+| q1_s01 | pureflat | 10.601 | 10.568 (1.00) | · | yes |
+| q1_s50 | base | 18.671 | = | · | yes |
+| q1_s50 | prenestoff | 12.835 | = | · | yes |
+| q1_s50 | prenest | 12.861 | = | · | yes |
+| q1_s50 | flat | 20.837 | 20.377 (0.98) | · | yes |
+| q1_s50 | pureflat | 20.120 | 20.006 (0.99) | · | yes |
+| q6_group | base | 22.468 | = | · | yes |
+| q6_group | prenestoff | 16.528 | = | · | yes |
+| q6_group | prenest | 12.710 | = | · | yes |
+| q6_group | flat | 25.165 | 25.815 (1.03) | · | yes |
+| q6_group | pureflat | 25.198 | 26.435 (1.05) | · | yes |
+| q7_csa | base | 11.171 | = | 11.146 (1.00) | yes |
+| q7_csa | prenestoff | 6.663 | = | 6.673 (1.00) | yes |
+| q7_csa | prenest | 6.577 | = | 6.626 (1.01) | yes |
+| q7_csa | flat | 10.995 | 28.350 (2.58) | 32.040 (2.91) | yes |
+| q7_csa | pureflat | 7.371 | 9.196 (1.25) | 9.296 (1.26) | yes |
+| q7_plots | base | 39.655 | = | 22.522 (0.57) | yes |
+| q7_plots | prenestoff | 33.734 | = | 16.365 (0.49) | yes |
+| q7_plots | prenest | 33.692 | = | 16.251 (0.48) | yes |
+| q7_plots | flat | 91.524 | 76.282 (0.83) | 35.830 (0.39) | yes |
+| q7_plots | pureflat | 93.425 | 77.933 (0.83) | 36.492 (0.39) | yes |
+
 ## 2-2 예상 행 수 vs 실제 행 수
 
 전체 기록은 `cardinality.csv`(join, UNNEST, 그 입력 스캔마다 한 행: est, actual, q_error, 종류, 동적 필터 여부, flat 노드의 num_values).

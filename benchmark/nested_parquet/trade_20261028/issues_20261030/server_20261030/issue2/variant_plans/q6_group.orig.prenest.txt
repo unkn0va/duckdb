@@ -1,0 +1,9 @@
+ORDER_BY                0.000s  rows            3  est     18126924  
+  HASH_GROUP_BY           0.731s  rows            3  est     18126924  group: #0; aggregate: sum(#1)
+    PROJECTION              0.012s  rows    174970000  est     20000000  
+      PROJECTION              0.082s  rows    174970000  est     20000000  
+        PROJECTION              0.017s  rows    174970000  est     20000000  
+          FILTER                  0.257s  rows    174970000  est     20000000  
+            UNNEST                  2.792s  rows    174970000  est               
+              TABLE_SCAN              8.601s  rows    100000000  est    100000000  filename: trade_B.parquet
+total 12.997 s

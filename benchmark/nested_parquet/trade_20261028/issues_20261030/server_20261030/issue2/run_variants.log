@@ -1,0 +1,75 @@
+[03:10:00] step info
+date:     2026-10-31T03:10:00+00:00
+host:     apache10, 40 hardware threads, 125 GiB memory
+cpu:      Intel(R) Xeon(R) Gold 5215 CPU @ 2.50GHz
+uptime:    03:10:00 up 2 days, 10:04,  2 users,  load average: 0.00, 0.00, 0.00
+base:     v2.1.0-dev88383 a809d3cd51  /home/layun03/nested-bench/duckdb_base/build/release/duckdb
+prenest:  v2.1.0-dev88385 fabde05fe6  /home/layun03/nested-bench/duckdb_prenest_base/build/release/duckdb
+final:    v2.1.0-dev88410 2d6066fd4d  /home/layun03/nested-bench/duckdb_rey/build/release/duckdb
+scripts:  d07a1fb8dd6 nested_parquet: trade issue 1, categories of the samples whose stack perf could not unwind
+data:     /home/layun03/nested-bench/duckdb_rey/benchmark/nested_parquet/trade_20261028/data/full, earlier datasets /home/layun03/nested-bench/data
+runs:     10 at 1 thread (variants), cardinality at 20 threads
+[03:10:01] step variants
+q1_s01.orig            base          16.915 s  result yes  
+q1_s01.orig            prenestoff    10.947 s  result yes  
+q1_s01.orig            prenest       11.077 s  result yes  
+q1_s01.orig            flat          11.862 s  result yes  
+q1_s01.orig            pureflat      10.601 s  result yes  
+q1_s01.fixed           base          16.915 s  result yes  same plan as q1_s01.orig
+q1_s01.fixed           prenestoff    10.947 s  result yes  same plan as q1_s01.orig
+q1_s01.fixed           prenest       11.077 s  result yes  same plan as q1_s01.orig
+q1_s01.fixed           flat          11.757 s  result yes  
+q1_s01.fixed           pureflat      10.568 s  result yes  
+q1_s50.orig            base          18.671 s  result yes  
+q1_s50.orig            prenestoff    12.835 s  result yes  
+q1_s50.orig            prenest       12.861 s  result yes  
+q1_s50.orig            flat          20.837 s  result yes  
+q1_s50.orig            pureflat      20.120 s  result yes  
+q1_s50.fixed           base          18.671 s  result yes  same plan as q1_s50.orig
+q1_s50.fixed           prenestoff    12.835 s  result yes  same plan as q1_s50.orig
+q1_s50.fixed           prenest       12.861 s  result yes  same plan as q1_s50.orig
+q1_s50.fixed           flat          20.377 s  result yes  
+q1_s50.fixed           pureflat      20.006 s  result yes  
+q6_group.orig          base          22.468 s  result yes  
+q6_group.orig          prenestoff    16.528 s  result yes  
+q6_group.orig          prenest       12.710 s  result yes  
+q6_group.orig          flat          25.165 s  result yes  
+q6_group.orig          pureflat      25.198 s  result yes  
+q6_group.fixed         base          22.468 s  result yes  same plan as q6_group.orig
+q6_group.fixed         prenestoff    16.528 s  result yes  same plan as q6_group.orig
+q6_group.fixed         prenest       12.710 s  result yes  same plan as q6_group.orig
+q6_group.fixed         flat          25.815 s  result yes  
+q6_group.fixed         pureflat      26.435 s  result yes  
+q7_csa.orig            base          11.171 s  result yes  
+q7_csa.orig            prenestoff     6.663 s  result yes  
+q7_csa.orig            prenest        6.577 s  result yes  
+q7_csa.orig            flat          10.995 s  result yes  
+q7_csa.orig            pureflat       7.371 s  result yes  
+q7_csa.fixed           base          11.171 s  result yes  same plan as q7_csa.orig
+q7_csa.fixed           prenestoff     6.663 s  result yes  same plan as q7_csa.orig
+q7_csa.fixed           prenest        6.577 s  result yes  same plan as q7_csa.orig
+q7_csa.fixed           flat          28.350 s  result yes  
+q7_csa.fixed           pureflat       9.196 s  result yes  
+q7_csa.preagg          base          11.146 s  result yes  
+q7_csa.preagg          prenestoff     6.673 s  result yes  
+q7_csa.preagg          prenest        6.626 s  result yes  
+q7_csa.preagg          flat          32.040 s  result yes  
+q7_csa.preagg          pureflat       9.296 s  result yes  
+q7_plots.orig          base          39.655 s  result yes  
+q7_plots.orig          prenestoff    33.734 s  result yes  
+q7_plots.orig          prenest       33.692 s  result yes  
+q7_plots.orig          flat          91.524 s  result yes  
+q7_plots.orig          pureflat      93.425 s  result yes  
+q7_plots.fixed         base          39.655 s  result yes  same plan as q7_plots.orig
+q7_plots.fixed         prenestoff    33.734 s  result yes  same plan as q7_plots.orig
+q7_plots.fixed         prenest       33.692 s  result yes  same plan as q7_plots.orig
+q7_plots.fixed         flat          76.282 s  result yes  
+q7_plots.fixed         pureflat      77.933 s  result yes  
+q7_plots.preagg        base          22.522 s  result yes  
+q7_plots.preagg        prenestoff    16.365 s  result yes  
+q7_plots.preagg        prenest       16.251 s  result yes  
+q7_plots.preagg        flat          35.830 s  result yes  
+q7_plots.preagg        pureflat      36.492 s  result yes  
+[06:55:55] step summary
+[06:55:55] summary: /home/layun03/nested-bench/duckdb_rey/benchmark/nested_parquet/trade_20261028/issues_20261030/server_issue2b/summary.md
+[06:55:55] done: /home/layun03/nested-bench/duckdb_rey/benchmark/nested_parquet/trade_20261028/issues_20261030/server_issue2b
