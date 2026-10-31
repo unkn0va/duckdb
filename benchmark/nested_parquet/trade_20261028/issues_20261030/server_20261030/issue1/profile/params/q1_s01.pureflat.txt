@@ -1,0 +1,57 @@
+q1_s01,pureflat: threads=1 wall 11553 ms, CPU 13541 ms (13541 samples, 1000 Hz)
+stack depth: median 28 frames, 4% of the samples with fewer than 3
+truncated stacks: 47.2% of the samples
+CPU ms per category (sub-categories in brackets):
+  값 디코드        8164   60.3%  [decode 6586, levels/skip 1161, scan 417]
+  원소 다루기       1432   10.6%  [스캔 필터 1346, PROJECTION 85, 식 1]
+  join         2982   22.0%  [join 필터 2350, hash join 632]
+  집계             10    0.1%  [aggregate 10]
+  기타            953    7.0%  [실행기/결과 873, 잘린 스택 62, duckdb 미분류 18]
+hottest sampled functions per category:
+  값 디코드       2932 ms  void duckdb_snappy::SnappyDecompressor::DecompressAllTags<duckdb_snappy::SnappyArrayWriter>
+  값 디코드       1854 ms  [unknown]
+  값 디코드        740 ms  void duckdb::RleBpDecoder::GetBatch<unsigned int>
+  값 디코드        496 ms  __memcpy_evex_unaligned_erms
+  값 디코드        282 ms  duckdb::ValidityMask::CopySel
+  원소 다루기       828 ms  bool duckdb::VectorCastHelpers::TryCastLoop<long, int, duckdb::NumericTryCast>
+  원소 다루기        81 ms  duckdb::OptionalFilterSelect
+  원소 다루기        33 ms  duckdb::ExpressionExecutor::Select
+  원소 다루기        25 ms  std::_Sp_counted_base<(__gnu_cxx::_Lock_policy)2>::_M_release
+  원소 다루기        24 ms  duckdb::ExpressionExecutor::Execute
+  join        1478 ms  duckdb::BloomFilter::LookupOne
+  join         490 ms  duckdb::BloomFilter::LookupHashes
+  join         310 ms  duckdb::VectorOperations::Hash
+  join         153 ms  duckdb::JoinHashTable::GetRowPointers
+  join          49 ms  [unknown]
+  집계             5 ms  void duckdb::AggregateExecutor::ExecuteUnaryClustered<duckdb::SumState<duckdb::hugeint_t>, long, duckdb::(anon
+  집계             2 ms  void duckdb::AggregateExecutor::ExecuteUnaryClustered<duckdb::(anonymous namespace)::MinMaxState<int>, int, du
+  집계             1 ms  void duckdb::AggregateExecutor::ExecuteUnaryClustered<duckdb::(anonymous namespace)::MinMaxState<int>, int, du
+  집계             1 ms  duckdb::BoundAggregateExpression& duckdb::BaseExpression::Cast<duckdb::BoundAggregateExpression>
+  집계             1 ms  duckdb::DataChunk::Reset
+  기타           297 ms  [unknown]
+  기타           196 ms  duckdb::TaskSchedulerPool::Wait
+  기타            41 ms  std::_Sp_counted_base<(__gnu_cxx::_Lock_policy)2>::_M_release
+  기타            30 ms  duckdb::VectorCacheEntry::ResetFromCache
+  기타            14 ms  duckdb::PipelineExecutor::Execute
+  기타            12 ms  duckdb::ClientContext::InterruptCheck
+  기타            11 ms  duckdb::PipelineExecutor::FetchFromSource
+  기타            11 ms  duckdb::AppendToCache
+callers of the watched functions (category of the sample / the next three frames up):
+  ValidityMask::CopySel: 291 ms
+       142 ms  값 디코드/decode  < VectorBuffer::Copy < VectorOperations::Copy < DictionaryDecoder::Read
+       141 ms  값 디코드/decode  < StandardVectorBuffer::FlattenSliceInternal < VectorBuffer::FlattenSlice < DictionaryBuffer::Flatten
+         6 ms  기타/실행기/결과  < VectorBuffer::Copy < VectorBuffer::Append < AppendToCache
+         1 ms  값 디코드/decode  < [unknown]
+         1 ms  join/hash join  < VectorBuffer::Copy < VectorOperations::Copy < JoinHashTable::GetRowPointers
+  VectorBuffer::Copy: 85 ms
+        57 ms  값 디코드/decode  < VectorOperations::Copy < DictionaryDecoder::Read < ColumnReader::ReadData
+        14 ms  join/hash join  < VectorOperations::Copy < JoinHashTable::GetRowPointers < JoinHashTable::Probe
+        13 ms  기타/실행기/결과  < VectorBuffer::Append < AppendToCache < CachingPhysicalOperator::Execute
+         1 ms  join/hash join  < [unknown]
+  SelectionVector::Slice: 63 ms
+        41 ms  값 디코드/scan  < DictionaryBuffer::SliceInternal < VectorBuffer::Slice < DictionaryBuffer::SliceWithCache
+        11 ms  원소 다루기/스캔 필터  < DictionaryBuffer::SliceInternal < VectorBuffer::Slice < Vector::Slice
+        10 ms  join/hash join  < DictionaryBuffer::SliceInternal < VectorBuffer::Slice < Vector::Slice
+         1 ms  join/hash join  < [unknown]
+  TemplatedValidityMask<unsigned long>::SetInvalid: 1 ms
+         1 ms  기타/잘린 스택  < [unknown]

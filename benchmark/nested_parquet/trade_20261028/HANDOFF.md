@@ -166,7 +166,11 @@
 ## 6-1. 2026-10-30 주 이슈 (진행 중)
 
 - 이슈 1(Unnest 오버헤드 분해)과 이슈 2(join 예상 오류)의 스크립트는 `issues_20261030/`에 있습니다(README.md). 이 PC 시험 결과는 `issues_20261030/local_2m/`입니다.
-- 서버 측정은 아직 하지 않았습니다. 순서: 이슈 1(`run_issue1.sh`, 약 2시간) → 이슈 2(`run_issue2.sh`, 약 4시간). 둘을 동시에 돌리지 않습니다.
+- 서버 결과(2026-10-30): `issues_20261030/server_20261030/`. 정리는 `analysis.md`입니다.
+  - 이슈 1과 이슈 2의 cardinality는 끝났습니다.
+  - **2-1 variants는 다시 돌려야 합니다.** 다른 프로세스가 CPU를 써서 시작하지 않았습니다. 명령: `./run_issue2.sh --out server_issue2b --steps "info variants summary"`, 확인: `grep -c 'result yes' server_issue2b/variants.log`가 60.
+- 주요 결론: 조립은 주로 원소당이고 행 조건과 상관없이 파일의 모든 리스트에서 일어납니다. UNNEST는 리스트당입니다. 문자열 복사 1.2초와 `SetInvalid` 2.2초는 가지치기된 필드의 NULL 복사입니다.
+  B의 자식 노드 예상은 num_values와 같고, A의 UNNEST는 리스트 길이를 1로 봅니다.
 - perf 범주는 이제 call stack 기준입니다(`categories.py`). 잎 함수만 보던 `profile_breakdown.py`와 숫자가 다르고, 특히 "식·벡터"의 많은 부분이 리스트 조립으로 갑니다.
   사용자 지시: 서버 결과를 정리할 때 **옛 기준과 새 기준을 모두** 보이고, q2_s50 prenestoff의 옛 "식·벡터 6.9초"가 새 기준에서 어디로 가는지 표로 보입니다(`summarize_issue1.py`가 자동으로 만듦).
 - 서버 1단계 시험(25만 행, 2026-10-30)은 통과했습니다(stage_check 20 ok, 결과 일치 20/60, 스택 중앙값 35프레임, 3프레임 미만 8%).

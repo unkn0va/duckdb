@@ -1,0 +1,11 @@
+date:     2026-10-30T05:35:13+00:00
+host:     apache10, 40 hardware threads, 125 GiB memory
+cpu:      Intel(R) Xeon(R) Gold 5215 CPU @ 2.50GHz
+uptime:    05:35:13 up 1 day, 12:29,  2 users,  load average: 0.00, 0.07, 0.10
+base:     v2.1.0-dev88383 a809d3cd51  /home/layun03/nested-bench/duckdb_base/build/release/duckdb
+prenest:  v2.1.0-dev88385 fabde05fe6  /home/layun03/nested-bench/duckdb_prenest_base/build/release/duckdb
+final:    v2.1.0-dev88410 2d6066fd4d  /home/layun03/nested-bench/duckdb_rey/build/release/duckdb
+perf:     perf version 6.8.12  (sudo perf)
+scripts:  d07a1fb8dd6 nested_parquet: trade issue 1, categories of the samples whose stack perf could not unwind
+data:     /home/layun03/nested-bench/duckdb_rey/benchmark/nested_parquet/trade_20261028/data/full
+runs:     10, perf 1000 Hz

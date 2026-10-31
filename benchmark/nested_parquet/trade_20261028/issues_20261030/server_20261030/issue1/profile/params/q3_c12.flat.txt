@@ -1,0 +1,44 @@
+q3_c12,flat: threads=1 wall 5030 ms, CPU 5036 ms (5036 samples, 1000 Hz)
+stack depth: median 26 frames, 1% of the samples with fewer than 3
+truncated stacks: 1.5% of the samples
+CPU ms per category (sub-categories in brackets):
+  값 디코드        1455   28.9%  [decode 670, levels/skip 520, scan 265]
+  원소 다루기        462    9.2%  [스캔 필터 453, PROJECTION 9]
+  키 생성         2834   56.3%  [node keys 2834]
+  집계            234    4.6%  [aggregate 234]
+  기타             51    1.0%  [실행기/결과 37, 잘린 스택 12, duckdb 미분류 2]
+hottest sampled functions per category:
+  값 디코드        265 ms  duckdb::DictionaryDecoder::GetValidValues
+  값 디코드        195 ms  void duckdb::RleBpDecoder::GetBatch<unsigned int>
+  값 디코드        135 ms  void duckdb_snappy::SnappyDecompressor::DecompressAllTags<duckdb_snappy::SnappyArrayWriter>
+  값 디코드        119 ms  void duckdb::RleBpDecoder::GetBatch<unsigned char>
+  값 디코드         93 ms  duckdb::ReadParquetNodeScan
+  원소 다루기       424 ms  unsigned long duckdb::ComparisonFilterExecutor::SelectTyped<long>
+  원소 다루기        12 ms  duckdb::DictionaryBuffer::ToUnifiedFormat
+  원소 다루기         9 ms  std::_Sp_counted_base<(__gnu_cxx::_Lock_policy)2>::_M_release
+  원소 다루기         4 ms  duckdb::StandardVectorBuffer::GetValidityMask
+  원소 다루기         3 ms  duckdb::ComparisonFilterExecutor::FilterSelection
+  키 생성        2831 ms  duckdb::ParquetNodeKeyGenerator::Process
+  키 생성           3 ms  [unknown]
+  집계           204 ms  bool duckdb::AggregateExecutor::UpdateUnaryClusteredOpt<true, duckdb::SumState<duckdb::hugeint_t>, long, duckd
+  집계             5 ms  duckdb::DictionaryBuffer::ToUnifiedFormat
+  집계             4 ms  void duckdb::(anonymous namespace)::ClusteredSumOperation<duckdb::BaseSumOperation<duckdb::(anonymous namespac
+  집계             3 ms  duckdb::LocalUngroupedAggregateState::Sink
+  집계             2 ms  std::_Sp_counted_base<(__gnu_cxx::_Lock_policy)2>::_M_release
+  기타            13 ms  duckdb::VectorCacheEntry::ResetFromCache
+  기타             6 ms  std::_Sp_counted_base<(__gnu_cxx::_Lock_policy)2>::_M_release
+  기타             5 ms  duckdb::PipelineExecutor::FetchFromSource
+  기타             3 ms  duckdb::DataChunk::Reset
+  기타             2 ms  duckdb::AllocatedData::~AllocatedData
+  기타             2 ms  duckdb::PhysicalOperator::GetData
+  기타             2 ms  duckdb::StandardVectorBuffer::ResetCapacity
+  기타             2 ms  duckdb::DataChunk::VerifyInternal
+callers of the watched functions (category of the sample / the next three frames up):
+  SelectionVector::Slice: 79 ms
+        79 ms  값 디코드/scan  < DictionaryBuffer::SliceInternal < VectorBuffer::Slice < Vector::Slice
+  ValidityMask::CopySel: 26 ms
+        16 ms  값 디코드/decode  < VectorBuffer::Copy < VectorOperations::Copy < DictionaryDecoder::Read
+         9 ms  값 디코드/decode  < StandardVectorBuffer::FlattenSliceInternal < VectorBuffer::FlattenSlice < DictionaryBuffer::Flatten
+         1 ms  값 디코드/decode  < [unknown]
+  VectorBuffer::Copy: 2 ms
+         2 ms  값 디코드/decode  < VectorOperations::Copy < DictionaryDecoder::Read < ColumnReader::ReadData

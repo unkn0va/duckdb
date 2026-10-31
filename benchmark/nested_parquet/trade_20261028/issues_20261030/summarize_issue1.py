@@ -25,7 +25,7 @@ import sys
 from contextlib import redirect_stdout
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from categories import CATEGORIES, OLD_COLUMNS, classify_samples, old_classify, read_folded, truncated  # noqa: E402
+from categories import CATEGORIES, OLD_COLUMNS, classify_samples, decide, old_classify, read_folded, truncated  # noqa: E402
 from categories import table as category_table  # noqa: E402
 
 OUT = sys.argv[1] if __name__ == "__main__" else ""
@@ -52,6 +52,8 @@ def load_profile(folder):
         samples = sum(n for _, n, _ in stacks)
         run["cpu"] = samples / freq
         run["truncated"] = sum(n for stack, n, _ in stacks if truncated(stack)) / max(samples, 1)
+        # cut below every decisive frame: these samples are shared out by their leaf function
+        run["undecided"] = sum(n for stack, n, _ in stacks if truncated(stack) and not decide(stack)[2]) / max(samples, 1)
         for (stack, n, symbol), shares in zip(stacks, classify_samples(stacks)):
             old = old_classify(symbol, stack[0][1])
             run[("old", old)] += n / freq
@@ -324,19 +326,25 @@ def categories_section():
         category_table()
     print(buffer.getvalue())
     print("### 잘린 스택\n")
-    print("perf가 스레드 시작까지 풀지 못한 스택(맨 위 프레임이 `[heap]`·`[stack]`·`[unknown]` 주소)입니다. 잘린 아래쪽에서 확정 규칙을 만나면 그 범주를 쓰고,")
-    print("못 만나면 같은 실행에서 같은 잎 함수를 가진 온전한 샘플들의 범주 비율로 나눕니다(그런 샘플이 없으면 기타/잘린 스택).\n")
+    print("perf가 스레드 시작까지 풀지 못한 스택(맨 위 프레임이 `[heap]`·`[stack]`·`[unknown]` 주소)입니다. 두 가지가 섞여 있습니다.")
+    print("- 위쪽에서 잘린 것: 16KB 스택 복사 한계에서 shell 프레임(`RunShell` 등) 위가 잘림. 연산자·리더 프레임은 남아 있어 분류에 영향이 없습니다.")
+    print("- 잎 바로 위에서 잘린 것: 확정 규칙을 만나기 전에 끊김. 같은 실행에서 같은 잎 함수를 가진 온전한 샘플들의 범주 비율로 나눕니다")
+    print("  (그런 샘플이 없으면 기타/잘린 스택).\n")
     shares = []
     for folder in ("stage", "params", "tpch_sf1", "tpch_sf10"):
         for (q, config), run in load_profile(folder).items():
-            shares.append((run["truncated"], folder, q, config))
+            shares.append((run["undecided"], run["truncated"], run[("기타", "잘린 스택")] / max(run["cpu"], 1e-9),
+                           folder, q, config))
     if shares:
-        values = sorted(v for v, *_ in shares)
-        print(f"실행 {len(values)}개: 중앙값 {100 * statistics.median(values):.1f}%, 최댓값 {100 * values[-1]:.1f}%."
-              " 5%를 넘는 실행:\n")
-        for v, folder, q, config in sorted(shares, reverse=True):
-            if v > 0.05:
-                print(f"- {folder} {q} {config}: {100 * v:.1f}%")
+        cut = sorted(v[1] for v in shares)
+        shared = sorted(v[0] for v in shares)
+        print(f"실행 {len(shares)}개. 잘린 스택: 중앙값 {100 * statistics.median(cut):.1f}%, 최댓값 {100 * cut[-1]:.1f}%. "
+              f"그중 나눠 준 것(확정 프레임 없음): 중앙값 {100 * statistics.median(shared):.1f}%, 최댓값 {100 * shared[-1]:.1f}%.\n")
+        print("나눠 준 것이 5%를 넘는 실행:\n")
+        print("| 폴더 | 쿼리 | 구성 | 나눠 준 샘플 | 잘린 샘플 (전체) | 기타/잘린 스택으로 남은 것 |\n|---|---|---|---|---|---|")
+        for undecided, truncated_, left, folder, q, config in sorted(shares, reverse=True):
+            if undecided > 0.05:
+                print(f"| {folder} | {q} | {config} | {100 * undecided:.1f}% | {100 * truncated_:.1f}% | {100 * left:.2f}% |")
         print()
     found = other_review()
     print("### '기타'가 10%를 넘는 실행\n")

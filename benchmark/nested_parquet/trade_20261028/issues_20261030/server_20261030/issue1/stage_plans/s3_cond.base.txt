@@ -1,0 +1,8 @@
+UNGROUPED_AGGREGATE     0.291s  rows            1  est            1  aggregate: sum(#0)
+  PROJECTION              0.022s  rows    174620000  est     20000000  
+    PROJECTION              0.178s  rows    174620000  est     20000000  
+      PROJECTION              0.029s  rows    174620000  est     20000000  
+        FILTER                  5.963s  rows    174620000  est     20000000  
+          UNNEST                  2.805s  rows    349900000  est               
+            TABLE_SCAN             16.035s  rows    100000000  est    100000000  filename: trade_B.parquet
+total 25.984 s

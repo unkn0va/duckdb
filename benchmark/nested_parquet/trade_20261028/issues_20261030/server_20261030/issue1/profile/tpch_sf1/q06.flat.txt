@@ -1,0 +1,34 @@
+q06,flat: threads=1 wall 334 ms, CPU 341 ms (341 samples, 1000 Hz)
+stack depth: median 29 frames, 1% of the samples with fewer than 3
+truncated stacks: 0.6% of the samples
+CPU ms per category (sub-categories in brackets):
+  값 디코드         179   52.5%  [decode 119, levels/skip 45, scan 15]
+  원소 다루기         60   17.6%  [스캔 필터 59, PROJECTION 1]
+  키 생성           91   26.7%  [node keys 91]
+  집계              2    0.6%  [aggregate 2]
+  기타              9    2.6%  [실행기/결과 8, 잘린 스택 1]
+hottest sampled functions per category:
+  값 디코드         62 ms  void duckdb_snappy::SnappyDecompressor::DecompressAllTags<duckdb_snappy::SnappyArrayWriter>
+  값 디코드         22 ms  duckdb::DictionaryDecoder::ConvertDictToSelVec
+  값 디코드         18 ms  void duckdb::RleBpDecoder::GetBatch<unsigned char>
+  값 디코드         16 ms  duckdb::DictionaryDecoder::GetValidValues
+  값 디코드         12 ms  void duckdb::RleBpDecoder::GetBatch<unsigned int>
+  원소 다루기        46 ms  unsigned long duckdb::ComparisonFilterExecutor::SelectTyped<double>
+  원소 다루기         7 ms  bool duckdb::GreaterThanEquals::Operation<double>
+  원소 다루기         4 ms  bool duckdb::GreaterThan::Operation<double>
+  원소 다루기         1 ms  void duckdb::ScalarFunction::BinaryFunction<double, double, double, duckdb::MultiplyOperator>
+  원소 다루기         1 ms  duckdb::ColumnReader::Select
+  키 생성          91 ms  duckdb::ParquetNodeKeyGenerator::Process
+  집계             1 ms  duckdb::UngroupedAggregateState::UngroupedAggregateState
+  집계             1 ms  duckdb::VectorCacheEntry::ResetFromCache
+  기타             1 ms  _int_malloc
+  기타             1 ms  duckdb::Tokenizer::TokenizeInputInternal
+  기타             1 ms  duckdb::ListMatchProcess::Resume
+  기타             1 ms  duckdb::MatchStep::Child
+  기타             1 ms  duckdb::MatchStack::ExecuteFrame
+  기타             1 ms  duckdb::ColumnRefExpression::ColumnRefExpression
+  기타             1 ms  duckdb::Identifier& std::vector<duckdb::Identifier, std::allocator<duckdb::Identifier> >::emplace_back<duckdb:
+  기타             1 ms  tsd_tcache_data_init_impl.isra.0
+callers of the watched functions (category of the sample / the next three frames up):
+  SelectionVector::Slice: 7 ms
+         7 ms  값 디코드/scan  < DictionaryBuffer::SliceInternal < VectorBuffer::Slice < Vector::Slice

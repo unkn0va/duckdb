@@ -1,0 +1,164 @@
+[05:35:13] step info
+date:     2026-10-30T05:35:13+00:00
+host:     apache10, 40 hardware threads, 125 GiB memory
+cpu:      Intel(R) Xeon(R) Gold 5215 CPU @ 2.50GHz
+uptime:    05:35:13 up 1 day, 12:29,  2 users,  load average: 0.00, 0.07, 0.10
+base:     v2.1.0-dev88383 a809d3cd51  /home/layun03/nested-bench/duckdb_base/build/release/duckdb
+prenest:  v2.1.0-dev88385 fabde05fe6  /home/layun03/nested-bench/duckdb_prenest_base/build/release/duckdb
+final:    v2.1.0-dev88410 2d6066fd4d  /home/layun03/nested-bench/duckdb_rey/build/release/duckdb
+perf:     perf version 6.8.12  (sudo perf)
+scripts:  d07a1fb8dd6 nested_parquet: trade issue 1, categories of the samples whose stack perf could not unwind
+data:     /home/layun03/nested-bench/duckdb_rey/benchmark/nested_parquet/trade_20261028/data/full
+runs:     10, perf 1000 Hz
+[05:35:13] step stages
+| stage | config | operators (root → scan) | scan reads | scan filters | check |
+|---|---|---|---|---|---|
+| s1_box | base | UNGROUPED_AGGREGATE → PROJECTION → PARQUET_SCAN | legs |  | ok |
+| s1_box | prenestoff | UNGROUPED_AGGREGATE → PROJECTION → PARQUET_SCAN | legs |  | ok |
+| s1_box | prenest | UNGROUPED_AGGREGATE → PROJECTION → PARQUET_SCAN | legs |  | ok |
+| s1_box | flat | UNGROUPED_AGGREGATE → PROJECTION → READ_PARQUET_NODE | legs: _sk |  | ok |
+| s1_box | pureflat | UNGROUPED_AGGREGATE → PROJECTION → PARQUET_SCAN | ak0 |  | ok |
+| s2_unnest | base | PROJECTION → UNGROUPED_AGGREGATE → PROJECTION → UNNEST → PARQUET_SCAN | legs |  | ok |
+| s2_unnest | prenestoff | PROJECTION → UNGROUPED_AGGREGATE → PROJECTION → UNNEST → PARQUET_SCAN | legs |  | ok |
+| s2_unnest | prenest | PROJECTION → UNGROUPED_AGGREGATE → PROJECTION → UNNEST → PARQUET_SCAN | legs |  | ok |
+| s2_unnest | flat | UNGROUPED_AGGREGATE → PROJECTION → READ_PARQUET_NODE | legs: leg_id, value |  | ok |
+| s2_unnest | pureflat | UNGROUPED_AGGREGATE → PROJECTION → PARQUET_SCAN | leg_id, value |  | ok |
+| s2f_fields | base | UNGROUPED_AGGREGATE → PROJECTION → PROJECTION → UNNEST → PARQUET_SCAN | legs |  | ok |
+| s2f_fields | prenestoff | UNGROUPED_AGGREGATE → PROJECTION → PROJECTION → UNNEST → PARQUET_SCAN | legs.leg_id, legs.value |  | ok |
+| s2f_fields | prenest | UNGROUPED_AGGREGATE → PROJECTION → PROJECTION → UNNEST → PARQUET_SCAN | legs.leg_id, legs.value |  | ok |
+| s2f_fields | flat | UNGROUPED_AGGREGATE → PROJECTION → READ_PARQUET_NODE | legs: leg_id, value |  | ok |
+| s2f_fields | pureflat | UNGROUPED_AGGREGATE → PROJECTION → PARQUET_SCAN | leg_id, value |  | ok |
+| s3_cond | base | UNGROUPED_AGGREGATE → PROJECTION → PROJECTION → PROJECTION → FILTER → UNNEST → PARQUET_SCAN | legs |  | ok |
+| s3_cond | prenestoff | UNGROUPED_AGGREGATE → PROJECTION → PROJECTION → PROJECTION → FILTER → UNNEST → PARQUET_SCAN | legs.value, legs.leg_id |  | ok |
+| s3_cond | prenest | UNGROUPED_AGGREGATE → PROJECTION → PROJECTION → PROJECTION → FILTER → UNNEST → PARQUET_SCAN | legs.value, legs.leg_id |  | ok |
+| s3_cond | flat | UNGROUPED_AGGREGATE → PROJECTION → PROJECTION → READ_PARQUET_NODE | legs: leg_id, value | (leg_id < 'leg270') | ok |
+| s3_cond | pureflat | UNGROUPED_AGGREGATE → PROJECTION → PARQUET_SCAN | value | (leg_id < 'leg270') | ok |
+s1_box                 base          16.370 s  result yes  
+s1_box                 prenestoff    15.653 s  result yes  
+s1_box                 prenest       15.513 s  result yes  
+s1_box                 flat           4.953 s  result yes  
+s1_box                 pureflat       2.930 s  result yes  
+s2_unnest              base          19.034 s  result yes  
+s2_unnest              prenestoff    18.621 s  result yes  
+s2_unnest              prenest       18.579 s  result yes  
+s2_unnest              flat           6.963 s  result yes  
+s2_unnest              pureflat       3.855 s  result yes  
+s2f_fields             base          19.694 s  result yes  
+s2f_fields             prenestoff    14.764 s  result yes  
+s2f_fields             prenest       14.775 s  result yes  
+s2f_fields             flat           6.985 s  result yes  
+s2f_fields             pureflat       3.839 s  result yes  
+s3_cond                base          25.633 s  result yes  
+s3_cond                prenestoff    20.882 s  result yes  
+s3_cond                prenest       15.272 s  result yes  
+s3_cond                flat          11.224 s  result yes  
+s3_cond                pureflat       4.476 s  result yes  
+[06:29:14] profile stage s1_box base
+[06:29:53] profile stage s1_box prenestoff
+[06:30:31] profile stage s1_box prenest
+[06:31:09] profile stage s1_box flat
+[06:31:23] profile stage s1_box pureflat
+[06:31:32] profile stage s2_unnest base
+[06:32:17] profile stage s2_unnest prenestoff
+[06:33:02] profile stage s2_unnest prenest
+[06:33:48] profile stage s2_unnest flat
+[06:34:05] profile stage s2_unnest pureflat
+[06:34:17] profile stage s2f_fields base
+[06:35:04] profile stage s2f_fields prenestoff
+[06:35:40] profile stage s2f_fields prenest
+[06:36:16] profile stage s2f_fields flat
+[06:36:34] profile stage s2f_fields pureflat
+[06:36:46] profile stage s3_cond base
+[06:37:47] profile stage s3_cond prenestoff
+[06:38:37] profile stage s3_cond prenest
+[06:39:14] profile stage s3_cond flat
+[06:39:42] profile stage s3_cond pureflat
+[06:39:55] step params
+q2_c01 legs 100000000 349900000 100000000 349900000 3270000
+q2_c10 legs 100000000 349900000 100000000 349900000 35400000
+q2_c25 legs 100000000 349900000 100000000 349900000 87920000
+q2_c50 legs 100000000 349900000 100000000 349900000 174620000
+q2_c75 legs 100000000 349900000 100000000 349900000 263670000
+q3_c13 c13 100000000 192360000 100000000 192360000 103315430
+q3_c12 c12 100000000 279810000 100000000 279810000 139890000
+q3_c11 c11 100000000 667290000 100000000 667290000 333620000
+q1_s01 legs 100000000 349900000 1000000 3530000 3530000
+q1_s50 legs 100000000 349900000 50000000 174970000 174970000
+q1_s90 legs 100000000 349900000 90000000 314940000 314940000
+q2_s50 legs 100000000 349900000 100000000 349900000 174970000
+[06:40:18] profile params q2_c01 base
+[06:41:13] profile params q2_c01 prenestoff
+[06:41:56] profile params q2_c01 prenest
+[06:42:13] profile params q2_c01 flat
+[06:42:35] profile params q2_c01 pureflat
+[06:42:47] profile params q2_c10 base
+[06:43:43] profile params q2_c10 prenestoff
+[06:44:27] profile params q2_c10 prenest
+[06:44:51] profile params q2_c10 flat
+[06:45:14] profile params q2_c10 pureflat
+[06:45:27] profile params q2_c25 base
+[06:46:22] profile params q2_c25 prenestoff
+[06:47:06] profile params q2_c25 prenest
+[06:47:36] profile params q2_c25 flat
+[06:47:59] profile params q2_c25 pureflat
+[06:48:11] profile params q2_c50 base
+[06:49:12] profile params q2_c50 prenestoff
+[06:50:02] profile params q2_c50 prenest
+[06:50:40] profile params q2_c50 flat
+[06:51:07] profile params q2_c50 pureflat
+[06:51:20] profile params q2_c75 base
+[06:52:21] profile params q2_c75 prenestoff
+[06:53:10] profile params q2_c75 prenest
+[06:53:54] profile params q2_c75 flat
+[06:54:21] profile params q2_c75 pureflat
+[06:54:35] profile params q3_c13 base
+[06:54:51] profile params q3_c13 prenestoff
+[06:55:05] profile params q3_c13 prenest
+[06:55:20] profile params q3_c13 flat
+[06:55:30] profile params q3_c13 pureflat
+[06:55:35] profile params q3_c12 base
+[06:55:53] profile params q3_c12 prenestoff
+[06:56:11] profile params q3_c12 prenest
+[06:56:28] profile params q3_c12 flat
+[06:56:42] profile params q3_c12 pureflat
+[06:56:50] profile params q3_c11 base
+[06:57:24] profile params q3_c11 prenestoff
+[06:57:57] profile params q3_c11 prenest
+[06:58:31] profile params q3_c11 flat
+[06:59:00] profile params q3_c11 pureflat
+[06:59:16] profile params q1_s01 base
+[06:59:58] profile params q1_s01 prenestoff
+[07:00:27] profile params q1_s01 prenest
+[07:00:55] profile params q1_s01 flat
+[07:01:24] profile params q1_s01 pureflat
+[07:01:53] profile params q1_s50 base
+[07:02:37] profile params q1_s50 prenestoff
+[07:03:09] profile params q1_s50 prenest
+[07:03:41] profile params q1_s50 flat
+[07:04:30] profile params q1_s50 pureflat
+[07:05:20] profile params q1_s90 base
+[07:06:10] profile params q1_s90 prenestoff
+[07:06:45] profile params q1_s90 prenest
+[07:07:21] profile params q1_s90 flat
+[07:08:25] profile params q1_s90 pureflat
+[07:09:30] profile params q2_s50 base
+[07:10:20] profile params q2_s50 prenestoff
+[07:10:57] profile params q2_s50 prenest
+[07:11:27] profile params q2_s50 flat
+[07:11:42] profile params q2_s50 pureflat
+[07:11:53] step tpch
+[07:11:55] profile tpch_sf1 q01 base
+[07:12:13] profile tpch_sf1 q01 prenestoff
+[07:12:25] profile tpch_sf1 q01 flat
+[07:12:28] profile tpch_sf1 q06 base
+[07:12:46] profile tpch_sf1 q06 prenestoff
+[07:12:57] profile tpch_sf1 q06 flat
+[07:13:00] profile tpch_sf10 q01 base
+[07:14:26] profile tpch_sf10 q01 prenestoff
+[07:15:13] profile tpch_sf10 q01 flat
+[07:15:30] profile tpch_sf10 q06 base
+[07:16:47] profile tpch_sf10 q06 prenestoff
+[07:17:24] profile tpch_sf10 q06 flat
+[07:17:32] step summary
+[07:18:03] summary: /home/layun03/nested-bench/duckdb_rey/benchmark/nested_parquet/trade_20261028/issues_20261030/server_issue1/summary.md
+[07:18:03] done: /home/layun03/nested-bench/duckdb_rey/benchmark/nested_parquet/trade_20261028/issues_20261030/server_issue1

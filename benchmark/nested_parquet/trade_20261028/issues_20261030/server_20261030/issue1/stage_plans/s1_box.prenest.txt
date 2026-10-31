@@ -1,0 +1,4 @@
+UNGROUPED_AGGREGATE     0.106s  rows            1  est            1  aggregate: sum(#0)
+  PROJECTION              0.063s  rows    100000000  est    100000000  
+    TABLE_SCAN             15.280s  rows    100000000  est    100000000  filename: trade_B.parquet
+total 15.571 s
