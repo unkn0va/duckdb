@@ -17,6 +17,8 @@ queries_plans/<query>.<form>.<variant>.sql - q1_s01, q1_s50, q6_group, q7_csa, q
   preagg  the aggregation before the dimension join (q7_csa: by c0, c1; q7_plots: by c8), in every configuration.
           q1 and q6 have no dimension join - aggregating per parent before the parent-child join is not written
 
+queries_build/q4_two.{orig,small_build}.builtin.sql - q4_two with the smaller unnested list (c14) built (issue 2-2)
+
 Usage: make_issue_queries.py
 """
 import os
@@ -83,6 +85,14 @@ PLANS[("q7_plots", "preagg")] = tuple(
 )
 
 
+# q4_two (issue 2-2): both UNNESTs are estimated at the rows of the file, so build_side_probe_side cannot tell that
+# c11 (6.7 elements per row) is larger than c14 (2.5); with it off the second side of the text, c14, is built
+BUILD = {
+    "q4_two.orig": (QUERIES["q4_two"][0],),
+    "q4_two.small_build": ("SET disabled_optimizers = 'build_side_probe_side';\n" + QUERIES["q4_two"][0],),
+}
+
+
 def write(folder, queries):
     os.makedirs(folder, exist_ok=True)
     for name in os.listdir(folder):
@@ -97,4 +107,5 @@ def write(folder, queries):
 if __name__ == "__main__":
     write(os.path.join(HERE, "queries_stage"), STAGES)
     write(os.path.join(HERE, "queries_plans"), {f"{q}.{form}": texts for (q, form), texts in PLANS.items()})
+    write(os.path.join(HERE, "queries_build"), BUILD)
     print(f"{len(STAGES)} stages, {len(PLANS)} plan variants x 3 -> {HERE}/queries_stage, queries_plans")

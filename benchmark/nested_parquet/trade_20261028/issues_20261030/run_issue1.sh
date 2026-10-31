@@ -5,13 +5,17 @@
 #            thread, results compared), stage_plans/ (EXPLAIN ANALYZE), profile/stage/ (perf of every stage query)
 #   params   1-2: counts.csv (lists and elements per query) and profile/params/ (perf of PARAM_QUERIES)
 #   tpch     1-3: profile/tpch/ (perf of TPC-H SF1 and SF10 q01, q06 in base, prenestoff, flat)
+#   branches 1-2: branches.csv / branches.md (branch_stats.py: perf stat branch misses of BRANCH_QUERIES at 1 thread)
+#   build    2-2: build.csv (time_queries.py over queries_build/: q4_two with the larger or the smaller unnested list
+#            built, in BUILD_CONFIGS, BUILD_RUNS at 1 thread) and build_plans/
 #   summary  summary.md (summarize_issue1.py over everything present in --out)
+# branches and build are not in the default steps.
 # perf: 1 thread, FREQ Hz, user stacks (profile_stacks.py); per run <query>.<config>.txt and .folded.gz, and one row
 # per category in profile.csv.
 #
 # Usage: run_issue1.sh [--data <trade data folder>] [--out <folder>] [--steps "info stages params tpch summary"]
 # Environment: RUNS (10), PERF ("perf" or "sudo perf"), FREQ (1000), PARAM_QUERIES, ORIG_DATA ($NB/data), ALLOW_BUSY,
-#              BASE, PRENEST, FINAL, NB
+#              BRANCH_QUERIES, BUILD_CONFIGS ("base prenest"), BUILD_RUNS (3), BASE, PRENEST, FINAL, NB
 set -uo pipefail
 
 NB=${NB:-$HOME/nested-bench}
@@ -33,7 +37,7 @@ while [ $# -gt 0 ]; do
 	--data) DATA=$2; shift 2 ;;
 	--out) OUT=$2; shift 2 ;;
 	--steps) STEPS=$2; shift 2 ;;
-	*) sed -n '2,16p' "$0"; exit 2 ;;
+	*) sed -n '2,21p' "$0"; exit 2 ;;
 	esac
 done
 DATA=$(cd "$DATA" && pwd)
@@ -132,6 +136,14 @@ for step in $STEPS; do
 				profile "$OUT/profile/$name" "$ORIG_DATA/$dir" "$TRADE/../queries/$name" $q base prenestoff flat
 			done
 		done
+		;;
+	branches)
+		QUERIES=${BRANCH_QUERIES:-q2_c01 q2_c10 q2_c25 q2_c50 q2_c75 q2_s01 q2_s10 q2_s50 q2_s90} THREADS=1 PERF="$PERF" \
+			python3 "$HERE/branch_stats.py" "$DATA" "$OUT/branches.csv" | tee "$OUT/branches.md"
+		;;
+	build)
+		RUNS=${BUILD_RUNS:-3} THREADS=1 SAME_PLAN=1 CONFIGS=${BUILD_CONFIGS:-base prenest} PLAN_DIR="$OUT/build_plans" \
+			python3 "$HERE/time_queries.py" "$HERE/queries_build" "$DATA" "$OUT/build.csv" | tee "$OUT/build.log"
 		;;
 	summary)
 		python3 "$HERE/summarize_issue1.py" "$OUT" >"$OUT/summary.md" && log "summary: $OUT/summary.md"

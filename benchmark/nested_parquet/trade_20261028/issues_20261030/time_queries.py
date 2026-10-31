@@ -14,8 +14,8 @@ With PLAN_DIR, the EXPLAIN ANALYZE plan of every timed (name, configuration) is 
 PLAN_DIR/<name>.<configuration>.txt (plans.py: build/probe sides, estimated and actual rows per operator) - one more
 run of the query.
 
-With SAME_PLAN=1 a configuration's file whose physical plan (operators, build/probe sides, files and nodes - not the
-estimates) equals the plan of its reference name's file in the same configuration is not timed again: the row
+With SAME_PLAN=1 a configuration's file whose physical plan (operators, build/probe sides, files, nodes and the
+columns of the scans - not the estimates) equals the plan of its reference name's file in the same configuration is not timed again: the row
 records "same plan as <reference>" and copies the reference's time.
 
 Before the first query the CPU use of the other processes is sampled; the run does not start when more than half a
@@ -128,6 +128,9 @@ def plan_signature(binary, setup, query):
     def walk(node):
         extra = node.get("extra_info", {})
         keep = {k: v for k, v in extra.items() if k in ("Table", "File", "Node", "Conditions", "Join Type", "Groups")}
+        if not node.get("children"):
+            # the columns a scan reads tell apart two scans of one file swapped between build and probe
+            keep["Projections"] = extra.get("Projections")
         return [node["name"], keep, [walk(c) for c in node.get("children", [])]]
 
     return hashlib.sha1(json.dumps([walk(n) for n in plan], sort_keys=True).encode()).hexdigest()[:16]
