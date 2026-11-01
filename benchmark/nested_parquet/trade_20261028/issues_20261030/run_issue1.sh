@@ -11,13 +11,17 @@
 #   summary  summary.md (summarize_issue1.py over everything present in --out)
 #   branchprof where the branch misses are: perf record of branch-misses (every BRANCH_PERIOD-th, with stacks) of
 #            BRANCH_RUNS (config:query ...) into profile/branchmiss/
-# branches, build and branchprof are not in the default steps.
+#   bn       follow-up A: trade_Bn1/Bn2 next to trade_B (write_trade.py --narrow, if missing), bn_verify.md
+#            (verify_narrow.py), bn_time.csv (time_queries.py over queries_bn/, RUNS at 1 thread), profile/bn/
+#   repro    follow-up B: profile/repro1/, profile/repro2/ - REPRO_QUERIES in all five configurations, twice more
+# branches, build, branchprof, bn and repro are not in the default steps.
 # perf: 1 thread, FREQ Hz, user stacks (profile_stacks.py); per run <query>.<config>.txt and .folded.gz, and one row
 # per category in profile.csv.
 #
 # Usage: run_issue1.sh [--data <trade data folder>] [--out <folder>] [--steps "info stages params tpch summary"]
 # Environment: RUNS (10), PERF ("perf" or "sudo perf"), FREQ (1000), PARAM_QUERIES, ORIG_DATA ($NB/data), ALLOW_BUSY,
 #              BRANCH_QUERIES, BUILD_CONFIGS ("base prenest"), BUILD_RUNS (3), BRANCH_RUNS, BRANCH_PERIOD (20000),
+#              REPRO_QUERIES ("q2_s50 q1_s50 q3_c11"), PY (python with pyarrow 26.0.0),
 #              BASE, PRENEST, FINAL, NB
 set -uo pipefail
 
@@ -26,6 +30,7 @@ BASE=${BASE:-$NB/duckdb_base/build/release/duckdb}
 PRENEST=${PRENEST:-$NB/duckdb_prenest_base/build/release/duckdb}
 FINAL=${FINAL:-$NB/duckdb_rey/build/release/duckdb}
 export BASE PRENEST FINAL
+PY=${PY:-$NB/venv/bin/python}
 PERF=${PERF:-perf}
 export FREQ=${FREQ:-1000}
 PARAM_QUERIES=${PARAM_QUERIES:-q2_c01 q2_c10 q2_c25 q2_c50 q2_c75 q3_c13 q3_c12 q3_c11 q1_s01 q1_s50 q1_s90 q2_s50}
@@ -40,7 +45,7 @@ while [ $# -gt 0 ]; do
 	--data) DATA=$2; shift 2 ;;
 	--out) OUT=$2; shift 2 ;;
 	--steps) STEPS=$2; shift 2 ;;
-	*) sed -n '2,24p' "$0"; exit 2 ;;
+	*) sed -n '2,29p' "$0"; exit 2 ;;
 	esac
 done
 DATA=$(cd "$DATA" && pwd)
@@ -160,6 +165,33 @@ for step in $STEPS; do
 				python3 "$HERE/profile_stacks.py" "$binary" "$DATA" "$TRADE/queries/$query.$variant.sql" "$dir/$query.$label" \
 				>/dev/null 2>"$dir/$query.$label.err" || log "  failed: $(tail -1 "$dir/$query.$label.err")"
 			[ -s "$dir/$query.$label.err" ] || rm -f "$dir/$query.$label.err"
+		done
+		;;
+	bn)
+		narrow="trade_Bn1.parquet:value trade_Bn2.parquet:leg_id,value"
+		for spec in $narrow; do
+			file=${spec%%:*} fields=${spec#*:}
+			if [ ! -f "$DATA/$file" ]; then
+				log "writing $file"
+				"$PY" -I "$TRADE/write_trade.py" --narrow "$DATA/trade_B.parquet" "$DATA/$file" "$fields" &
+			fi
+		done
+		wait
+		for spec in $narrow; do python3 "$HERE/verify_narrow.py" "$DATA" "${spec%%:*}" "${spec#*:}"; echo; done | tee "$OUT/bn_verify.md"
+		if grep -q '| NO |' "$OUT/bn_verify.md"; then log "WARNING: a narrowed file differs from trade_B, see bn_verify.md"; fi
+		RUNS=$RUNS THREADS=1 CONFIGS="base prenestoff prenest flat" python3 "$HERE/time_queries.py" "$HERE/queries_bn" \
+			"$DATA" "$OUT/bn_time.csv" | tee "$OUT/bn_time.log"
+		perf_works || continue
+		for q in q2_s50.orig q2_s50.bn1 q2_c50.orig q2_c50.bn2; do
+			profile "$OUT/profile/bn" "$DATA" "$HERE/queries_bn" "$q" base prenestoff prenest flat
+		done
+		;;
+	repro)
+		perf_works || continue
+		for pass in 1 2; do
+			for q in ${REPRO_QUERIES:-q2_s50 q1_s50 q3_c11}; do
+				profile "$OUT/profile/repro$pass" "$DATA" "$TRADE/queries" "$q" $ALL
+			done
 		done
 		;;
 	summary)

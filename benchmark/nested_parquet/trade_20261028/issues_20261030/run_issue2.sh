@@ -8,10 +8,14 @@
 #   cardinality  2-2: cardinality.csv (cardinality.py: estimated and actual rows of every join, UNNEST and input scan)
 #                of the 40 trade queries in all five configurations and of the earlier datasets' builtin and flat
 #                queries (TPC-H SF1, SF10, XMark, DBLP, selectivity) - CARD_THREADS threads, one run each
+#   fanout       follow-up D: dims_k/ and fanout/fanout.duckdb (make_fanout.py), fanout.csv (time_queries.py over
+#                queries_fanout/ in base, prenest, flat, pure flat, FANOUT_RUNS at 1 thread, plan_flag = whether
+#                partial_aggregate_pushdown put an aggregate below the join) and fanout_plans/. Not in the default steps.
 #   summary      summary.md (summarize_issue2.py)
 #
 # Usage: run_issue2.sh [--data <trade data folder>] [--out <folder>] [--steps "info variants cardinality summary"]
-# Environment: RUNS (10), CARD_THREADS (20), ORIG_DATA ($NB/data), ALLOW_BUSY, BASE, PRENEST, FINAL, NB
+# Environment: RUNS (10), CARD_THREADS (20), ORIG_DATA ($NB/data), ALLOW_BUSY, BASE, PRENEST, FINAL, NB,
+#              FANOUT_RUNS (RUNS), FANOUT_STORAGES ("a b c"), FANOUT_FACT (1; 0 = no fact tables in the database)
 set -uo pipefail
 
 NB=${NB:-$HOME/nested-bench}
@@ -31,7 +35,7 @@ while [ $# -gt 0 ]; do
 	--data) DATA=$2; shift 2 ;;
 	--out) OUT=$2; shift 2 ;;
 	--steps) STEPS=$2; shift 2 ;;
-	*) sed -n '2,15p' "$0"; exit 2 ;;
+	*) sed -n '2,19p' "$0"; exit 2 ;;
 	esac
 done
 DATA=$(cd "$DATA" && pwd)
@@ -80,6 +84,15 @@ dblp nested-parquet-datasets/dblp
 selectivity_random selectivity_random
 selectivity_sorted selectivity_sorted
 EOF
+		;;
+	fanout)
+		FACT=${FANOUT_FACT:-1} python3 "$HERE/make_fanout.py" "$DATA" | tee "$OUT/fanout_data.md"
+		pattern="^($(echo ${FANOUT_STORAGES:-a b c} | tr ' ' '|'))_"
+		names=$(ls "$HERE/queries_fanout" | sed -E 's/\.(builtin|flat|split)\.sql$//' | sort -u | grep -E "$pattern")
+		# shellcheck disable=SC2086
+		RUNS=${FANOUT_RUNS:-$RUNS} THREADS=1 PLAN_FLAG=EXPORT_STATE CONFIGS="base prenest flat pureflat" \
+			PLAN_DIR="$OUT/fanout_plans" python3 "$HERE/time_queries.py" "$HERE/queries_fanout" "$DATA" \
+			"$OUT/fanout.csv" $names | tee "$OUT/fanout.log"
 		;;
 	summary)
 		python3 "$HERE/summarize_issue2.py" "$OUT" >"$OUT/summary.md" && log "summary: $OUT/summary.md"

@@ -2,8 +2,8 @@
 """Time query files in the five configurations and check their results (issues 1-1 and 2-1).
 
 A query directory holds <name>.<variant>.sql: base, prenestoff and prenest run the builtin files, flat (main_rey)
-the flat ones, pure flat (base) the split ones. Leading SET lines of a file are setup: they run before the timer,
-like the configuration's own setup. Every (name, configuration) runs RUNS times in one CLI process at THREADS; the
+the flat ones, pure flat (base) the split ones. Leading SET, ATTACH and USE lines of a file are setup: they run before
+the timer, like the configuration's own setup. Every (name, configuration) runs RUNS times in one CLI process at THREADS; the
 fastest wall-clock time and the smallest CPU time (user + sys) are kept, as in ../../run_bench.py.
 
 Results: every run's rows are compared with the reference - the base builtin result of <name> with its first dotted
@@ -13,6 +13,9 @@ Integers and strings exactly, floats to a relative 1e-9, rows sorted (the compar
 With PLAN_DIR, the EXPLAIN ANALYZE plan of every timed (name, configuration) is written to
 PLAN_DIR/<name>.<configuration>.txt (plans.py: build/probe sides, estimated and actual rows per operator) - one more
 run of the query.
+
+With PLAN_FLAG (e.g. EXPORT_STATE: an aggregate below a join exports its state - partial_aggregate_pushdown), the
+column plan_flag says whether the physical plan (EXPLAIN, FORMAT json) contains that text.
 
 With SAME_PLAN=1 a configuration's file whose physical plan (operators, build/probe sides, files, nodes and the
 columns of the scans - not the estimates) equals the plan of its reference name's file in the same configuration is not timed again: the row
@@ -57,10 +60,10 @@ REL_TOL = 1e-9
 
 
 def read_query(path):
-    """(setup: the leading SET lines, query)"""
+    """(setup: the leading SET / ATTACH / USE lines, query)"""
     setup, rest = [], []
     for line in open(path).read().strip().splitlines():
-        if not rest and line.strip().upper().startswith("SET "):
+        if not rest and line.strip().upper().startswith(("SET ", "ATTACH ", "USE ")):
             setup.append(line.strip())
         else:
             rest.append(line)
@@ -119,10 +122,12 @@ def fingerprint(rows):
 
 
 def plan_signature(binary, setup, query):
-    """The physical plan without estimates: operator, extra info naming files, nodes, conditions, children."""
+    """(The physical plan without estimates: operator, extra info naming files, nodes, conditions, children; whether
+    the plan contains PLAN_FLAG)"""
     code, out, err = duckdb(binary, f"SET threads = {THREADS};\n{setup}EXPLAIN (FORMAT json) {query};\n", ("-list", "-noheader"))
     if code or "[" not in out:
-        return "error"
+        return "error", ""
+    flag = ("yes" if os.environ["PLAN_FLAG"] in out else "no") if os.environ.get("PLAN_FLAG") else ""
     plan = json.loads(out[out.index("[") : out.rindex("]") + 1])
 
     def walk(node):
@@ -133,7 +138,7 @@ def plan_signature(binary, setup, query):
             keep["Projections"] = extra.get("Projections")
         return [node["name"], keep, [walk(c) for c in node.get("children", [])]]
 
-    return hashlib.sha1(json.dumps([walk(n) for n in plan], sort_keys=True).encode()).hexdigest()[:16]
+    return hashlib.sha1(json.dumps([walk(n) for n in plan], sort_keys=True).encode()).hexdigest()[:16], flag
 
 
 def run_timed(binary, setup, query):
@@ -181,7 +186,8 @@ def main():
         if busy > 0.5:
             sys.exit(f"other processes keep {busy:.1f} cores busy - not starting (ALLOW_BUSY=1 starts anyway)")
     references, plans, timings = {}, {}, {}
-    fields = ["name", "config", "wall_s", "cpu_s", "runs", "threads", "same_result", "result", "plan", "note", "busy_cores"]
+    fields = ["name", "config", "wall_s", "cpu_s", "runs", "threads", "same_result", "result", "plan", "plan_flag",
+              "note", "busy_cores"]
     with open(out_csv + ".partial", "w", newline="") as f:
         writer = csv.DictWriter(f, fields)
         writer.writeheader()
@@ -201,7 +207,8 @@ def main():
                 rows = result_rows(binary, setup, query)
                 row["result"] = fingerprint(rows)
                 row["same_result"] = "yes" if same_rows(rows, references[ref]) else "NO"
-                plan = plans[(name, config)] = plan_signature(binary, setup, query)
+                plan, row["plan_flag"] = plan_signature(binary, setup, query)
+                plans[(name, config)] = plan
                 row["plan"] = plan
                 if os.environ.get("SAME_PLAN") == "1" and ref != name and plans.get((ref, config)) == plan:
                     row["wall_s"], row["cpu_s"] = timings.get((ref, config), ("", ""))

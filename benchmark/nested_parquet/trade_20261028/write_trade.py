@@ -17,6 +17,9 @@ exactly ROW_GROUP_ROWS rows (the last one is smaller):
 
 Usage: write_trade.py <distinct.parquet> <order.parquet | -> <out dir> <A|B|C|flat>
        write_trade.py --rewrite <in.parquet> <out.parquet>   (any small file, e.g. the dimension tables)
+       write_trade.py --narrow <trade_B.parquet> <out.parquet> <field,field>
+                      B with only the given fields of the legs elements, the rest of B as it is: same rows in the
+                      same order, same writer settings and row groups (trade_Bn1 = value, trade_Bn2 = leg_id,value)
 """
 import os
 import sys
@@ -123,7 +126,25 @@ def chunks(distinct_path, order_path):
         yield table.take(batch.column(0))
 
 
+def narrow(chunk, fields):
+    """The legs column of a chunk of B with only the given fields of its elements."""
+    array, _ = plain_list(chunk["legs"])
+    children = dict(zip([f.name for f in array.type.value_type], array.values.flatten()))
+    struct = pa.StructArray.from_arrays([children[f] for f in fields], names=fields)
+    return chunk.set_column(chunk.column_names.index("legs"), "legs", pa.ListArray.from_arrays(array.offsets, struct))
+
+
 def main():
+    if sys.argv[1] == "--narrow":
+        source, target, fields = sys.argv[2], sys.argv[3], sys.argv[4].split(",")
+        writer = None
+        for batch in pq.ParquetFile(source).iter_batches(batch_size=CHUNK_ROWS):
+            table = narrow(pa.Table.from_batches([batch]), fields)
+            writer = writer or RowGroupWriter(target, table.schema)
+            writer.write(table)
+        writer.close()
+        print(f"{target}: {writer.rows} rows, legs fields {fields}")
+        return
     if sys.argv[1] == "--rewrite":
         source, target = sys.argv[2:4]
         table = pq.read_table(source)

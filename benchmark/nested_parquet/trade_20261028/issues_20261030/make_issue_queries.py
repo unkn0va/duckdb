@@ -19,6 +19,15 @@ queries_plans/<query>.<form>.<variant>.sql - q1_s01, q1_s50, q6_group, q7_csa, q
 
 queries_build/q4_two.{orig,small_build}.builtin.sql - q4_two with the smaller unnested list (c14) built (issue 2-2)
 
+queries_bn/ - the cost of the NULL copies of pruned struct fields (follow-up A): q2_s50 on trade_B (.orig) and on
+  trade_Bn1 (legs = LIST<STRUCT<value>>, .bn1); q2_c50 on trade_B (.orig) and on trade_Bn2 (leg_id, value; .bn2)
+
+queries_fanout/<storage>_k<k>.<orig|preagg>.<variant>.sql - q7_plots' shape on a dimension table with k dates per
+  scenario (dims_k/dim_k<k>.parquet, k = 1, 2, 4, 8, 16; follow-up D), as written and with the aggregation before
+  the dimension join, in three storages: a = fact and dimension parquet, b = fact parquet and the dimension a DuckDB
+  table, c = both DuckDB tables (fanout/fanout.duckdb, attached read-only; no flat query - read_parquet_flat reads
+  parquet only)
+
 Usage: make_issue_queries.py
 """
 import os
@@ -93,6 +102,29 @@ BUILD = {
 }
 
 
+BN = {}
+for q, file, name in (("q2_s50", "trade_Bn1.parquet", "bn1"), ("q2_c50", "trade_Bn2.parquet", "bn2")):
+    BN[f"{q}.orig"] = QUERIES[q][:2]
+    BN[f"{q}.{name}"] = tuple(t.replace(B, f"'{file}'") for t in QUERIES[q][:2])
+    assert all(f"'{file}'" in t for t in BN[f"{q}.{name}"])
+
+ATTACH = "ATTACH '../fanout/fanout.duckdb' AS fw (READ_ONLY);\n"
+FANOUT_K = (1, 2, 4, 8, 16)
+FANOUT = {}
+for k in FANOUT_K:
+    dim = f"'../dims_k/dim_k{k}.parquet'"
+    for form, texts in (("orig", QUERIES["q7_plots"]), ("preagg", PLANS[("q7_plots", "preagg")])):
+        a = tuple(t.replace(PLOTS, dim) for t in texts)
+        assert all(dim in t for t in a)
+        b = tuple(ATTACH + t.replace(dim, f"fw.dim_k{k}") for t in a)
+        c = tuple(
+            t.replace(B, "fw.trade_b").replace(PARENT, "fw.parent").replace(LEGS, "fw.legs") for t in (b[0], b[2])
+        )
+        FANOUT[f"a_k{k:02d}.{form}"] = a
+        FANOUT[f"b_k{k:02d}.{form}"] = b
+        FANOUT[f"c_k{k:02d}.{form}"] = (c[0], None, c[1])
+
+
 def write(folder, queries):
     os.makedirs(folder, exist_ok=True)
     for name in os.listdir(folder):
@@ -100,6 +132,8 @@ def write(folder, queries):
             os.remove(os.path.join(folder, name))
     for name, texts in queries.items():
         for variant, text in zip(VARIANTS, texts):
+            if text is None:
+                continue
             with open(os.path.join(folder, f"{name}.{variant}.sql"), "w") as f:
                 f.write(text + "\n")
 
@@ -108,4 +142,6 @@ if __name__ == "__main__":
     write(os.path.join(HERE, "queries_stage"), STAGES)
     write(os.path.join(HERE, "queries_plans"), {f"{q}.{form}": texts for (q, form), texts in PLANS.items()})
     write(os.path.join(HERE, "queries_build"), BUILD)
+    write(os.path.join(HERE, "queries_bn"), BN)
+    write(os.path.join(HERE, "queries_fanout"), FANOUT)
     print(f"{len(STAGES)} stages, {len(PLANS)} plan variants x 3 -> {HERE}/queries_stage, queries_plans")

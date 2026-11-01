@@ -17,6 +17,10 @@
 | `cardinality.py` | 2-2: join, UNNEST, 그 입력 스캔의 예상·실제 행 수, q-error, join 종류, flat 노드의 `num_values`와 실제 노드 행 수 |
 | `plans.py` | EXPLAIN ANALYZE JSON을 연산자 목록과 트리 글로 바꿈 |
 | `summarize_issue1.py`, `summarize_issue2.py` | 결과 폴더 → `summary.md` |
+| `write_trade.py --narrow`(상위 폴더), `verify_narrow.py` | 후속 A: legs 필드를 줄인 trade_Bn1(value), trade_Bn2(leg_id, value)를 B와 같은 행·순서·row group·쓰기 설정으로 쓰고 B와 비교 |
+| `make_fanout.py` | 후속 D: `dims_k/dim_k<k>.parquet`(k = 1, 2, 4, 8, 16)와 `fanout/fanout.duckdb`(차원 표, 사실 표의 내부 테이블) |
+| `summarize_extra.py` | 후속 A, B, D의 표 |
+| `make_figures.py` | 후속 E: 발표용 그래프 데이터 `server_20261030/figures/*.csv`와 그 README |
 | `local_2m/` | 이 PC의 시험 결과. trade는 2백만 행 샘플, TPC-H는 `synthetic_tpch.sql`로 만든 작은 합성 데이터(구조만 같고 값은 실제와 다름) |
 
 ## 정의
