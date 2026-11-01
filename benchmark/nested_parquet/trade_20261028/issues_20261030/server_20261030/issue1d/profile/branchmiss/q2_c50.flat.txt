@@ -1,0 +1,44 @@
+q2_c50,flat: threads=1 wall 11461 ms, branch-misses 344000000 (17200 samples, every 20000); numbers below are branch-misses
+stack depth: median 28 frames, 0% of the samples with fewer than 3
+truncated stacks: 0.0% of the samples
+branch-misses per category (sub-categories in brackets):
+  값 디코드     9740000    2.8%  [levels/skip 4980000, decode 2700000, scan 2060000]
+  원소 다루기   251880000   73.2%  [스캔 필터 251880000]
+  키 생성     81540000   23.7%  [node keys 81540000]
+  집계         280000    0.1%  [aggregate 280000]
+  기타         560000    0.2%  [실행기/결과 540000, libc 20000]
+hottest sampled functions per category:
+  값 디코드    2400000 ms  void duckdb::RleBpDecoder::GetBatch<unsigned char>
+  값 디코드    2220000 ms  void duckdb::RleBpDecoder::GetBatch<unsigned int>
+  값 디코드     860000 ms  duckdb::DictionaryDecoder::Read
+  값 디코드     480000 ms  duckdb::ReadParquetNodeScan
+  값 디코드     200000 ms  duckdb::VectorBuffer::SetVectorSize
+  원소 다루기   141000000 ms  duckdb::string_t::StringComparisonOperators::GreaterThan
+  원소 다루기   77880000 ms  unsigned long duckdb::ComparisonFilterExecutor::SelectTyped<duckdb::string_t>
+  원소 다루기   29620000 ms  __memcmp_evex_movbe
+  원소 다루기   2340000 ms  memcmp@plt
+  원소 다루기    480000 ms  duckdb::DictionaryBuffer::ToUnifiedFormat
+  키 생성     81480000 ms  duckdb::ParquetNodeKeyGenerator::Process
+  키 생성       60000 ms  [unknown]
+  집계        100000 ms  duckdb::UnifiedVectorFormat::~UnifiedVectorFormat
+  집계        100000 ms  void duckdb::AggregateExecutor::ExecuteUnaryClustered<duckdb::SumState<duckdb::hugeint_t>, long, duckdb::(anon
+  집계         40000 ms  duckdb::DictionaryBuffer::ToUnifiedFormat
+  집계         20000 ms  std::_Sp_counted_base<(__gnu_cxx::_Lock_policy)2>::_M_release
+  집계         20000 ms  [unknown]
+  기타        120000 ms  duckdb::PipelineExecutor::ExecutePushInternal
+  기타        100000 ms  duckdb::PipelineExecutor::Execute
+  기타         60000 ms  duckdb::VectorBuffer::ClearAuxiliaryData
+  기타         40000 ms  duckdb::SimpleBufferedData::ReplenishSatisfied
+  기타         40000 ms  duckdb::DataChunk::Reset
+  기타         40000 ms  duckdb::OperatorProfiler::StartOperator
+  기타         20000 ms  duckdb::PipelineExecutor::IsFinished
+  기타         20000 ms  duckdb_je_free_default
+callers of the watched functions (category of the sample / the next three frames up):
+  VectorStringBuffer::CopyInternal: 40000 ms
+     40000 ms  값 디코드/decode  < VectorBuffer::Copy < VectorOperations::Copy < DictionaryDecoder::Read
+  ValidityMask::CopySel: 60000 ms
+     60000 ms  값 디코드/decode  < StandardVectorBuffer::FlattenSliceInternal < VectorBuffer::FlattenSlice < DictionaryBuffer::Flatten
+  SelectionVector::Slice: 160000 ms
+    160000 ms  값 디코드/scan  < DictionaryBuffer::SliceInternal < VectorBuffer::Slice < Vector::Slice
+  VectorBuffer::Copy: 40000 ms
+     40000 ms  값 디코드/decode  < VectorOperations::Copy < DictionaryDecoder::Read < ColumnReader::ReadData

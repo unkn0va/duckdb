@@ -152,7 +152,7 @@ trade만: A 중첩 126개 중앙값 3.50 / 90% 8.75 / 최대 1,250, B 중첩 18�
 
 ## 남은 일
 
-- 이슈 1·2는 끝났습니다. 확인하지 않은 것: prenest의 q2_s50에서 branch-miss가 높은 이유(E절).
+- 이슈 1·2는 끝났습니다. prenest q2_s50의 branch-miss 원인도 F절에서 확인했습니다.
 - 1-2에서 "통과 50%에서 가장 큼"의 원인은 분기 예측으로 확인했습니다(E절).
 
 
@@ -331,3 +331,32 @@ branch-miss % (괄호는 miss 수, 백만):
 - **가설 확인 (q2_c):** 행 순서와 상관없는 leg_id 조건에서, 네 구성 모두 통과율 50%에서 branch-miss 비율이 가장 높습니다. c25 → c50에서 miss가 약 1.3억 번 늘어납니다(base, prenestoff, flat 모두).
 - **대조 (q2_s):** 행 순서를 따라가는 value 조건은 통과율이 같아도 base, prenestoff, flat에 봉우리가 없습니다. 조건 결과가 연속으로 같아서 예측하기 쉽기 때문입니다. prenest만 q2_s50에서 높은데(2.05%), 리더 안에서 평가하는 부분으로 보이며 확인하지 않았습니다.
 - **크기 (추정):** 늘어난 1.3억 번 × miss당 15–20사이클(2.5GHz에서 6–8ns) ≈ 0.8–1.0초입니다. base의 원소 다루기는 c25 → c50에 2.4초 늘었으니, 그중 35–45%를 설명합니다. 나머지는 통과 원소가 두 배가 되어 늘어난 처리로 봅니다. c75가 c50보다 빠른 것(5.5초 대 6.1초)도 miss 수(5.70억 대 6.25억)와 맞습니다.
+
+### F. prenest q2_s50의 branch-miss는 어디서 생기나 (perf record -e branch-misses, `issue1d/`, 2026-11-01)
+
+2만 번에 한 번씩 call stack과 함께 샘플링했습니다(1억 행, 1스레드). miss 합계는 앞의 perf stat과 같습니다(prenest q2_s50 318백만 대 317백만).
+
+miss 수(백만), 잎 함수별:
+
+| 함수 (범주) | prenest s01 | s10 | s50 | s90 | base s50 |
+|---|---|---|---|---|---|
+| `ListColumnReader::ReadFilteredInternal` (조립, prenest의 리더) | 85 | 96 | **132** | 91 | (`ReadInternal` 91) |
+| `PhysicalUnnest::ExecuteInternal` (UNNEST) | ~2 | 22 | **107** | 104 | 101 |
+| `UnnestOperatorState::PrepareInput` (UNNEST) | · | 12 | **51** | 11 | · |
+| 합계 | 105 | 149 | **318** | 238 | 372 |
+
+s50의 봉우리(s10과 s90의 평균보다 +125백만)는 두 곳에서 나옵니다.
+
+1. **UNNEST, +84백만 (약 2/3)**
+   - prenest는 원소가 모두 떨어진 행의 리스트를 빈 리스트로 남깁니다. q2_s는 한 행의 원소가 함께 통과하거나 함께 떨어지고 행은 섞여 있으므로, 통과 50%에서는 리스트가 비었는지가 행마다 동전 던지기가 됩니다.
+   - UNNEST는 행마다 리스트 길이로 갈라집니다(`PrepareInput`의 `if (list_entry.length > unnest_lengths[r])`, `src/execution/operator/projection/physical_unnest.cpp:121`; `ExecuteInternal`의 `if (current_row_length > 0)`과 그 안의 루프).
+   - `PrepareInput`의 miss가 s10·s90에서 11–12백만(1억 행 × 0.1), s50에서 51백만(1억 행 × 0.5)으로, 행마다 무작위인 분기의 예상과 정확히 맞습니다.
+   - base는 빈 리스트가 없어 이 분기가 항상 같은 쪽이고, 그래서 봉우리가 없습니다.
+2. **prenest 리더의 `keep` 분기, +38백만 (약 1/3)**
+   - `ReadFilteredInternal`의 조립 루프에서 원소마다 `if (keep[child_idx])`로 갈라집니다. 이것은 앞에서 추정한 원인입니다.
+
+- 비용(추정): 늘어난 1.25억 번 × 6–8ns ≈ 0.8–1.0초입니다. prenest q2_s50 12.2초의 7–8%입니다.
+- 앞의 설명 고침:
+  - "base FILTER의 선택 루프에는 분기가 없다"는 정수 비교에만 맞습니다.
+  - base q2_c25 → c50의 FILTER miss 증가(+127백만)는 `GreaterThan` +36, 그 비교가 인라인된 `ScalarExecutor::SelectOutputDispatch` +81, memcmp +약 10에서 나옵니다. 문자열 비교 분기가 선택 루프 안으로 인라인된 것입니다.
+  - flat q2_c50에서도 스캔 필터의 `GreaterThan`(141)과 `ComparisonFilterExecutor::SelectTyped`(78)에 몰려 있습니다.

@@ -175,6 +175,7 @@
     - q4_two는 UNNEST 예상 때문에 큰 쪽을 build해서 21% 느립니다.
     - q2_c의 50% 봉우리는 분기 예측 실패입니다.
     - DuckDB의 eager aggregation(`partial_aggregate_pushdown`)은 parquet에 고유값 통계가 없어 q7에서 작동하지 않습니다.
+    - prenest q2_s50의 branch-miss 봉우리: 2/3은 UNNEST, 1/3은 리더의 `keep` 분기입니다(`analysis.md` F절, `issue1d/`). prenest가 남긴 빈 리스트 때문에 UNNEST의 행별 길이 분기가 무작위가 됩니다.
 - 주요 결론: 조립은 주로 원소당이고 행 조건과 상관없이 파일의 모든 리스트에서 일어납니다. UNNEST는 리스트당입니다. 문자열 복사 1.2초와 `SetInvalid` 2.2초는 가지치기된 필드의 NULL 복사입니다.
   B의 자식 노드 예상은 num_values와 같고, A의 UNNEST는 리스트 길이를 1로 봅니다.
 - perf 범주는 이제 call stack 기준입니다(`categories.py`). 잎 함수만 보던 `profile_breakdown.py`와 숫자가 다르고, 특히 "식·벡터"의 많은 부분이 리스트 조립으로 갑니다.

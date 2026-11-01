@@ -1,0 +1,26 @@
+[13:04:31] step info
+date:     2026-11-01T13:04:31+00:00
+host:     apache10, 40 hardware threads, 125 GiB memory
+cpu:      Intel(R) Xeon(R) Gold 5215 CPU @ 2.50GHz
+uptime:    13:04:31 up 3 days, 19:58,  2 users,  load average: 0.00, 0.00, 0.00
+base:     v2.1.0-dev88383 a809d3cd51  /home/layun03/nested-bench/duckdb_base/build/release/duckdb
+prenest:  v2.1.0-dev88385 fabde05fe6  /home/layun03/nested-bench/duckdb_prenest_base/build/release/duckdb
+final:    v2.1.0-dev88410 2d6066fd4d  /home/layun03/nested-bench/duckdb_rey/build/release/duckdb
+perf:     perf version 6.8.12  (sudo perf)
+scripts:  137eeb15dc1 nested_parquet: trade, where the branch misses of prenest's q2_s50 are (sampling script)
+data:     /home/layun03/nested-bench/duckdb_rey/benchmark/nested_parquet/trade_20261028/data/full
+runs:     10, perf 1000 Hz
+[13:04:31] step branchprof
+[13:04:32] branch misses q2_s01 prenest
+[13:04:46] branch misses q2_s10 prenest
+[13:05:02] branch misses q2_s50 prenest
+[13:05:31] branch misses q2_s90 prenest
+[13:06:07] branch misses q2_s50 base
+[13:06:54] branch misses q2_s50 prenestoff
+[13:07:29] branch misses q2_c25 base
+[13:08:23] branch misses q2_c50 base
+[13:09:27] branch misses q2_c50 prenest
+[13:10:05] branch misses q2_c50 flat
+[13:10:34] step summary
+[13:10:35] summary: /home/layun03/nested-bench/duckdb_rey/benchmark/nested_parquet/trade_20261028/issues_20261030/server_issue1d/summary.md
+[13:10:35] done: /home/layun03/nested-bench/duckdb_rey/benchmark/nested_parquet/trade_20261028/issues_20261030/server_issue1d
