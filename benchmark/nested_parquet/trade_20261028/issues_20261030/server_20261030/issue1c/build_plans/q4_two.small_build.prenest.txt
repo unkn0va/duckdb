@@ -1,0 +1,12 @@
+UNGROUPED_AGGREGATE     4.396s  rows            1  est            1  aggregate: count_star(), sum(#0), sum(#1)
+  PROJECTION             13.178s  rows   1678290000  est    100000000  
+    HASH_JOIN              35.691s  rows   1678290000  est    100000000  condition: rn = rn
+      probe: PROJECTION              0.489s  rows    667290000  est    100000000  
+        PROJECTION              0.065s  rows    667290000  est    100000000  
+          UNNEST                  3.502s  rows    667290000  est               
+            TABLE_SCAN             10.745s  rows    100000000  est    100000000  filename: trade_A.parquet
+      build: PROJECTION              0.189s  rows    249970000  est    100000000  
+        PROJECTION              0.027s  rows    249970000  est    100000000  
+          UNNEST                  2.703s  rows    249970000  est               
+            TABLE_SCAN              4.312s  rows    100000000  est    100000000  filename: trade_A.parquet
+total 86.265 s

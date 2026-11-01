@@ -1,0 +1,5 @@
+name,config,wall_s,cpu_s,runs,threads,same_result,result,plan,note,busy_cores
+q4_two.orig,base,109.473,109.483,3,1,yes,"1,e2fc1fb4362dee4a",aed2919fa7973914,,0.0
+q4_two.orig,prenest,109.095,109.106,3,1,yes,"1,e2fc1fb4362dee4a",aed2919fa7973914,,0.0
+q4_two.small_build,base,85.905,85.918,3,1,yes,"1,e2fc1fb4362dee4a",c807a2ab57c2a1fa,,0.0
+q4_two.small_build,prenest,86.135,86.145,3,1,yes,"1,e2fc1fb4362dee4a",c807a2ab57c2a1fa,,0.0
