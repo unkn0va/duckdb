@@ -1,0 +1,380 @@
+데이터 (dataset),쿼리 (query),구성 (config),"방식 (method: A nested, B flat)",join 종류 (kind),예상 행 (est),실제 행 (actual),오차 배수 (q_error)
+trade,q1_s01,base,A,UNNEST,20000000,3530000,5.666
+trade,q1_s01,prenestoff,A,UNNEST,20000000,3530000,5.666
+trade,q1_s01,prenest,A,UNNEST,20000000,3530000,5.666
+trade,q1_s01,flat,B,부모⋈자식 (parent-child),69980000,3530000,19.824
+trade,q1_s01,pureflat,B,부모⋈자식 (parent-child),69980000,3530000,19.824
+trade,q1_s10,base,A,UNNEST,20000000,35100000,1.755
+trade,q1_s10,prenestoff,A,UNNEST,20000000,35100000,1.755
+trade,q1_s10,prenest,A,UNNEST,20000000,35100000,1.755
+trade,q1_s10,flat,B,부모⋈자식 (parent-child),69980000,35100000,1.994
+trade,q1_s10,pureflat,B,부모⋈자식 (parent-child),69980000,35100000,1.994
+trade,q1_s100,base,A,UNNEST,100000000,349900000,3.499
+trade,q1_s100,prenestoff,A,UNNEST,100000000,349900000,3.499
+trade,q1_s100,prenest,A,UNNEST,100000000,349900000,3.499
+trade,q1_s100,flat,B,부모⋈자식 (parent-child),69980000,349900000,5.000
+trade,q1_s100,pureflat,B,부모⋈자식 (parent-child),349900000,349900000,1.000
+trade,q1_s50,base,A,UNNEST,20000000,174970000,8.748
+trade,q1_s50,prenestoff,A,UNNEST,20000000,174970000,8.748
+trade,q1_s50,prenest,A,UNNEST,20000000,174970000,8.748
+trade,q1_s50,flat,B,부모⋈자식 (parent-child),69980000,174970000,2.500
+trade,q1_s50,pureflat,B,부모⋈자식 (parent-child),69980000,174970000,2.500
+trade,q1_s90,base,A,UNNEST,20000000,314940000,15.747
+trade,q1_s90,prenestoff,A,UNNEST,20000000,314940000,15.747
+trade,q1_s90,prenest,A,UNNEST,20000000,314940000,15.747
+trade,q1_s90,flat,B,부모⋈자식 (parent-child),69980000,314940000,4.500
+trade,q1_s90,pureflat,B,부모⋈자식 (parent-child),69980000,314940000,4.500
+trade,q2_c01,base,A,UNNEST,100000000,349900000,3.499
+trade,q2_c01,prenestoff,A,UNNEST,100000000,349900000,3.499
+trade,q2_c01,prenest,A,UNNEST,100000000,3270000,30.581
+trade,q2_c10,base,A,UNNEST,100000000,349900000,3.499
+trade,q2_c10,prenestoff,A,UNNEST,100000000,349900000,3.499
+trade,q2_c10,prenest,A,UNNEST,100000000,35400000,2.825
+trade,q2_c100,base,A,UNNEST,100000000,349900000,3.499
+trade,q2_c100,prenestoff,A,UNNEST,100000000,349900000,3.499
+trade,q2_c100,prenest,A,UNNEST,100000000,349900000,3.499
+trade,q2_c25,base,A,UNNEST,100000000,349900000,3.499
+trade,q2_c25,prenestoff,A,UNNEST,100000000,349900000,3.499
+trade,q2_c25,prenest,A,UNNEST,100000000,87920000,1.137
+trade,q2_c50,base,A,UNNEST,100000000,349900000,3.499
+trade,q2_c50,prenestoff,A,UNNEST,100000000,349900000,3.499
+trade,q2_c50,prenest,A,UNNEST,100000000,174620000,1.746
+trade,q2_c75,base,A,UNNEST,100000000,349900000,3.499
+trade,q2_c75,prenestoff,A,UNNEST,100000000,349900000,3.499
+trade,q2_c75,prenest,A,UNNEST,100000000,263670000,2.637
+trade,q2_cat_common,base,A,UNNEST,100000000,349900000,3.499
+trade,q2_cat_common,prenestoff,A,UNNEST,100000000,349900000,3.499
+trade,q2_cat_common,prenest,A,UNNEST,100000000,93800000,1.066
+trade,q2_cat_rare,base,A,UNNEST,100000000,349900000,3.499
+trade,q2_cat_rare,prenestoff,A,UNNEST,100000000,349900000,3.499
+trade,q2_cat_rare,prenest,A,UNNEST,100000000,80000,1250.000
+trade,q2_m01,base,A,UNNEST,100000000,349900000,3.499
+trade,q2_m01,prenestoff,A,UNNEST,100000000,349900000,3.499
+trade,q2_m01,prenest,A,UNNEST,100000000,349900000,3.499
+trade,q2_m10,base,A,UNNEST,100000000,349900000,3.499
+trade,q2_m10,prenestoff,A,UNNEST,100000000,349900000,3.499
+trade,q2_m10,prenest,A,UNNEST,100000000,349900000,3.499
+trade,q2_m100,base,A,UNNEST,100000000,349900000,3.499
+trade,q2_m100,prenestoff,A,UNNEST,100000000,349900000,3.499
+trade,q2_m100,prenest,A,UNNEST,100000000,349900000,3.499
+trade,q2_m50,base,A,UNNEST,100000000,349900000,3.499
+trade,q2_m50,prenestoff,A,UNNEST,100000000,349900000,3.499
+trade,q2_m50,prenest,A,UNNEST,100000000,349900000,3.499
+trade,q2_m90,base,A,UNNEST,100000000,349900000,3.499
+trade,q2_m90,prenestoff,A,UNNEST,100000000,349900000,3.499
+trade,q2_m90,prenest,A,UNNEST,100000000,349900000,3.499
+trade,q2_or1,base,A,UNNEST,100000000,349900000,3.499
+trade,q2_or1,prenestoff,A,UNNEST,100000000,349900000,3.499
+trade,q2_or1,prenest,A,UNNEST,100000000,85980000,1.163
+trade,q2_or2,base,A,UNNEST,100000000,349900000,3.499
+trade,q2_or2,prenestoff,A,UNNEST,100000000,349900000,3.499
+trade,q2_or2,prenest,A,UNNEST,100000000,171190000,1.712
+trade,q2_or3,base,A,UNNEST,100000000,349900000,3.499
+trade,q2_or3,prenestoff,A,UNNEST,100000000,349900000,3.499
+trade,q2_or3,prenest,A,UNNEST,100000000,256100000,2.561
+trade,q2_or4,base,A,UNNEST,100000000,349900000,3.499
+trade,q2_or4,prenestoff,A,UNNEST,100000000,349900000,3.499
+trade,q2_or4,prenest,A,UNNEST,100000000,349900000,3.499
+trade,q2_s01,base,A,UNNEST,100000000,349900000,3.499
+trade,q2_s01,prenestoff,A,UNNEST,100000000,349900000,3.499
+trade,q2_s01,prenest,A,UNNEST,100000000,3540000,28.249
+trade,q2_s10,base,A,UNNEST,100000000,349900000,3.499
+trade,q2_s10,prenestoff,A,UNNEST,100000000,349900000,3.499
+trade,q2_s10,prenest,A,UNNEST,100000000,35000000,2.857
+trade,q2_s100,base,A,UNNEST,100000000,349900000,3.499
+trade,q2_s100,prenestoff,A,UNNEST,100000000,349900000,3.499
+trade,q2_s100,prenest,A,UNNEST,100000000,349900000,3.499
+trade,q2_s50,base,A,UNNEST,100000000,349900000,3.499
+trade,q2_s50,prenestoff,A,UNNEST,100000000,349900000,3.499
+trade,q2_s50,prenest,A,UNNEST,100000000,174970000,1.750
+trade,q2_s90,base,A,UNNEST,100000000,349900000,3.499
+trade,q2_s90,prenestoff,A,UNNEST,100000000,349900000,3.499
+trade,q2_s90,prenest,A,UNNEST,100000000,314920000,3.149
+trade,q3_c11,base,A,UNNEST,100000000,667290000,6.673
+trade,q3_c11,prenestoff,A,UNNEST,100000000,667290000,6.673
+trade,q3_c11,prenest,A,UNNEST,100000000,667290000,6.673
+trade,q3_c12,base,A,UNNEST,100000000,279810000,2.798
+trade,q3_c12,prenestoff,A,UNNEST,100000000,279810000,2.798
+trade,q3_c12,prenest,A,UNNEST,100000000,279810000,2.798
+trade,q3_c13,base,A,UNNEST,100000000,192360000,1.924
+trade,q3_c13,prenestoff,A,UNNEST,100000000,192360000,1.924
+trade,q3_c13,prenest,A,UNNEST,100000000,192360000,1.924
+trade,q3w_c11,base,A,UNNEST,100000000,667290000,6.673
+trade,q3w_c11,prenestoff,A,UNNEST,100000000,667290000,6.673
+trade,q3w_c11,prenest,A,UNNEST,100000000,333620000,3.336
+trade,q3w_c12,base,A,UNNEST,100000000,279810000,2.798
+trade,q3w_c12,prenestoff,A,UNNEST,100000000,279810000,2.798
+trade,q3w_c12,prenest,A,UNNEST,100000000,139890000,1.399
+trade,q3w_c13,base,A,UNNEST,100000000,192360000,1.924
+trade,q3w_c13,prenestoff,A,UNNEST,100000000,192360000,1.924
+trade,q3w_c13,prenest,A,UNNEST,100000000,103315430,1.033
+trade,q4_one,base,A,UNNEST,100000000,667290000,6.673
+trade,q4_one,prenestoff,A,UNNEST,100000000,667290000,6.673
+trade,q4_one,prenest,A,UNNEST,100000000,667290000,6.673
+trade,q4_two,base,A,형제 (sibling),100000000,1678290000,16.783
+trade,q4_two,base,A,UNNEST,100000000,249970000,2.500
+trade,q4_two,base,A,UNNEST,100000000,667290000,6.673
+trade,q4_two,prenestoff,A,형제 (sibling),100000000,1678290000,16.783
+trade,q4_two,prenestoff,A,UNNEST,100000000,249970000,2.500
+trade,q4_two,prenestoff,A,UNNEST,100000000,667290000,6.673
+trade,q4_two,prenest,A,형제 (sibling),100000000,1678290000,16.783
+trade,q4_two,prenest,A,UNNEST,100000000,249970000,2.500
+trade,q4_two,prenest,A,UNNEST,100000000,667290000,6.673
+trade,q4_two,flat,B,형제 (sibling),1668024813,1678290000,1.006
+trade,q4_two,pureflat,B,형제 (sibling),1668024813,1678290000,1.006
+trade,q5_or,base,A,UNNEST,100000000,349900000,3.499
+trade,q5_or,prenestoff,A,UNNEST,100000000,349900000,3.499
+trade,q5_or,prenest,A,UNNEST,100000000,178970000,1.790
+trade,q6_count,base,A,UNNEST,100000000,349900000,3.499
+trade,q6_count,prenestoff,A,UNNEST,100000000,349900000,3.499
+trade,q6_count,prenest,A,UNNEST,100000000,174970000,1.750
+trade,q6_group,base,A,UNNEST,100000000,349900000,3.499
+trade,q6_group,prenestoff,A,UNNEST,100000000,349900000,3.499
+trade,q6_group,prenest,A,UNNEST,100000000,174970000,1.750
+trade,q6_group,flat,B,부모⋈자식 (parent-child),69980000,174970000,2.500
+trade,q6_group,pureflat,B,부모⋈자식 (parent-child),69980000,174970000,2.500
+trade,q7_csa,base,A,일반 (regular),4,82000,20500.000
+trade,q7_csa,base,A,UNNEST,100000000,82000,1219.512
+trade,q7_csa,prenestoff,A,일반 (regular),4,82000,20500.000
+trade,q7_csa,prenestoff,A,UNNEST,100000000,82000,1219.512
+trade,q7_csa,prenest,A,일반 (regular),4,82000,20500.000
+trade,q7_csa,prenest,A,UNNEST,100000000,82000,1219.512
+trade,q7_csa,flat,B,부모⋈자식 (parent-child),349900000,82000,4267.073
+trade,q7_csa,flat,B,일반 (regular),100000000,28000,3571.429
+trade,q7_csa,pureflat,B,부모⋈자식 (parent-child),13,82000,6307.692
+trade,q7_csa,pureflat,B,일반 (regular),4,28000,7000.000
+trade,q7_plots,base,A,일반 (regular),100000000,1341262610,13.413
+trade,q7_plots,base,A,UNNEST,100000000,349900000,3.499
+trade,q7_plots,prenestoff,A,일반 (regular),100000000,1341262610,13.413
+trade,q7_plots,prenestoff,A,UNNEST,100000000,349900000,3.499
+trade,q7_plots,prenest,A,일반 (regular),100000000,1341262610,13.413
+trade,q7_plots,prenest,A,UNNEST,100000000,349900000,3.499
+trade,q7_plots,flat,B,부모⋈자식 (parent-child),349900000,1341262610,3.833
+trade,q7_plots,flat,B,일반 (regular),100000000,383333350,3.833
+trade,q7_plots,pureflat,B,부모⋈자식 (parent-child),349900000,1341262610,3.833
+trade,q7_plots,pureflat,B,일반 (regular),100000000,383333350,3.833
+tpch_sf1,q01,base,A,UNNEST,5,6001215,1200243.000
+tpch_sf1,q01,base,A,UNNEST,5,1500000,300000.000
+tpch_sf1,q01,base,A,UNNEST,5,150000,30000.000
+tpch_sf1,q01,base,A,UNNEST,5,25,5.000
+tpch_sf1,q01,prenestoff,A,UNNEST,5,6001215,1200243.000
+tpch_sf1,q01,prenestoff,A,UNNEST,5,1500000,300000.000
+tpch_sf1,q01,prenestoff,A,UNNEST,5,150000,30000.000
+tpch_sf1,q01,prenestoff,A,UNNEST,5,25,5.000
+tpch_sf1,q01,prenest,A,UNNEST,5,5916591,1183318.200
+tpch_sf1,q01,prenest,A,UNNEST,5,1500000,300000.000
+tpch_sf1,q01,prenest,A,UNNEST,5,150000,30000.000
+tpch_sf1,q01,prenest,A,UNNEST,5,25,5.000
+tpch_sf1,q03,base,A,UNNEST,0,588507,588507.000
+tpch_sf1,q03,base,A,UNNEST,1,303959,303959.000
+tpch_sf1,q03,base,A,UNNEST,5,150000,30000.000
+tpch_sf1,q03,base,A,UNNEST,5,25,5.000
+tpch_sf1,q03,prenestoff,A,UNNEST,0,588507,588507.000
+tpch_sf1,q03,prenestoff,A,UNNEST,1,303959,303959.000
+tpch_sf1,q03,prenestoff,A,UNNEST,5,150000,30000.000
+tpch_sf1,q03,prenestoff,A,UNNEST,5,25,5.000
+tpch_sf1,q03,prenest,A,UNNEST,0,588507,588507.000
+tpch_sf1,q03,prenest,A,UNNEST,1,303959,303959.000
+tpch_sf1,q03,prenest,A,UNNEST,5,30142,6028.400
+tpch_sf1,q03,prenest,A,UNNEST,5,25,5.000
+tpch_sf1,q03,flat,B,부모⋈자식 (parent-child),48409,30519,1.586
+tpch_sf1,q03,flat,B,부모⋈자식 (parent-child),62000,147126,2.373
+tpch_sf1,q04,base,A,UNNEST,1,229691,229691.000
+tpch_sf1,q04,base,A,UNNEST,5,1500000,300000.000
+tpch_sf1,q04,base,A,UNNEST,5,150000,30000.000
+tpch_sf1,q04,base,A,UNNEST,5,25,5.000
+tpch_sf1,q04,prenestoff,A,UNNEST,1,229691,229691.000
+tpch_sf1,q04,prenestoff,A,UNNEST,5,1500000,300000.000
+tpch_sf1,q04,prenestoff,A,UNNEST,5,150000,30000.000
+tpch_sf1,q04,prenestoff,A,UNNEST,5,25,5.000
+tpch_sf1,q04,prenest,A,UNNEST,1,229691,229691.000
+tpch_sf1,q04,prenest,A,UNNEST,5,57218,11443.600
+tpch_sf1,q04,prenest,A,UNNEST,5,150000,30000.000
+tpch_sf1,q04,prenest,A,UNNEST,5,25,5.000
+tpch_sf1,q04,flat,B,부모⋈자식 (parent-child),242047,144869,1.671
+tpch_sf1,q06,base,A,UNNEST,5,6001215,1200243.000
+tpch_sf1,q06,base,A,UNNEST,5,1500000,300000.000
+tpch_sf1,q06,base,A,UNNEST,5,150000,30000.000
+tpch_sf1,q06,base,A,UNNEST,5,25,5.000
+tpch_sf1,q06,prenestoff,A,UNNEST,5,6001215,1200243.000
+tpch_sf1,q06,prenestoff,A,UNNEST,5,1500000,300000.000
+tpch_sf1,q06,prenestoff,A,UNNEST,5,150000,30000.000
+tpch_sf1,q06,prenestoff,A,UNNEST,5,25,5.000
+tpch_sf1,q06,prenest,A,UNNEST,5,76033,15206.600
+tpch_sf1,q06,prenest,A,UNNEST,5,1500000,300000.000
+tpch_sf1,q06,prenest,A,UNNEST,5,150000,30000.000
+tpch_sf1,q06,prenest,A,UNNEST,5,25,5.000
+tpch_sf1,q10,base,A,UNNEST,1,228772,228772.000
+tpch_sf1,q10,base,A,UNNEST,5,1500000,300000.000
+tpch_sf1,q10,base,A,UNNEST,5,150000,30000.000
+tpch_sf1,q10,base,A,UNNEST,5,25,5.000
+tpch_sf1,q10,prenestoff,A,UNNEST,1,228772,228772.000
+tpch_sf1,q10,prenestoff,A,UNNEST,5,1500000,300000.000
+tpch_sf1,q10,prenestoff,A,UNNEST,5,150000,30000.000
+tpch_sf1,q10,prenestoff,A,UNNEST,5,25,5.000
+tpch_sf1,q10,prenest,A,UNNEST,1,228772,228772.000
+tpch_sf1,q10,prenest,A,UNNEST,5,57069,11413.800
+tpch_sf1,q10,prenest,A,UNNEST,5,150000,30000.000
+tpch_sf1,q10,prenest,A,UNNEST,5,25,5.000
+tpch_sf1,q10,flat,B,부모⋈자식 (parent-child),242047,114705,2.110
+tpch_sf1,q10,flat,B,부모⋈자식 (parent-child),150000,150000,1.000
+tpch_sf1,q10,flat,B,부모⋈자식 (parent-child),242047,114705,2.110
+tpch_sf1,q12,base,A,UNNEST,5,6001215,1200243.000
+tpch_sf1,q12,base,A,UNNEST,5,1500000,300000.000
+tpch_sf1,q12,base,A,UNNEST,5,150000,30000.000
+tpch_sf1,q12,base,A,UNNEST,5,25,5.000
+tpch_sf1,q12,prenestoff,A,UNNEST,5,6001215,1200243.000
+tpch_sf1,q12,prenestoff,A,UNNEST,5,1500000,300000.000
+tpch_sf1,q12,prenestoff,A,UNNEST,5,150000,30000.000
+tpch_sf1,q12,prenestoff,A,UNNEST,5,25,5.000
+tpch_sf1,q12,prenest,A,UNNEST,5,30988,6197.600
+tpch_sf1,q12,prenest,A,UNNEST,5,1500000,300000.000
+tpch_sf1,q12,prenest,A,UNNEST,5,150000,30000.000
+tpch_sf1,q12,prenest,A,UNNEST,5,25,5.000
+tpch_sf1,q12,flat,B,부모⋈자식 (parent-child),242048,30988,7.811
+tpch_sf10,q01,base,A,UNNEST,1500000,59986052,39.991
+tpch_sf10,q01,base,A,UNNEST,1500000,15000000,10.000
+tpch_sf10,q01,prenestoff,A,UNNEST,1500000,59986052,39.991
+tpch_sf10,q01,prenestoff,A,UNNEST,1500000,15000000,10.000
+tpch_sf10,q01,prenest,A,UNNEST,1500000,59142609,39.428
+tpch_sf10,q01,prenest,A,UNNEST,1500000,15000000,10.000
+tpch_sf10,q03,base,A,UNNEST,60000,5845603,97.427
+tpch_sf10,q03,base,A,UNNEST,300000,3004382,10.015
+tpch_sf10,q03,prenestoff,A,UNNEST,60000,5845603,97.427
+tpch_sf10,q03,prenestoff,A,UNNEST,300000,3004382,10.015
+tpch_sf10,q03,prenest,A,UNNEST,60000,302114,5.035
+tpch_sf10,q03,prenest,A,UNNEST,300000,1461923,4.873
+tpch_sf10,q03,flat,B,부모⋈자식 (parent-child),483888,302114,1.602
+tpch_sf10,q03,flat,B,부모⋈자식 (parent-child),620000,1461923,2.358
+tpch_sf10,q04,base,A,UNNEST,300000,2294856,7.650
+tpch_sf10,q04,base,A,UNNEST,1500000,15000000,10.000
+tpch_sf10,q04,prenestoff,A,UNNEST,300000,2294856,7.650
+tpch_sf10,q04,prenestoff,A,UNNEST,1500000,15000000,10.000
+tpch_sf10,q04,prenest,A,UNNEST,300000,1450571,4.835
+tpch_sf10,q04,prenest,A,UNNEST,1500000,573671,2.615
+tpch_sf10,q04,flat,B,부모⋈자식 (parent-child),2419442,1450571,1.668
+tpch_sf10,q06,base,A,UNNEST,1500000,59986052,39.991
+tpch_sf10,q06,base,A,UNNEST,1500000,15000000,10.000
+tpch_sf10,q06,prenestoff,A,UNNEST,1500000,59986052,39.991
+tpch_sf10,q06,prenestoff,A,UNNEST,1500000,15000000,10.000
+tpch_sf10,q06,prenest,A,UNNEST,1500000,1139264,1.317
+tpch_sf10,q06,prenest,A,UNNEST,1500000,15000000,10.000
+tpch_sf10,q12,base,A,UNNEST,1500000,59986052,39.991
+tpch_sf10,q12,base,A,UNNEST,1500000,15000000,10.000
+tpch_sf10,q12,prenestoff,A,UNNEST,1500000,59986052,39.991
+tpch_sf10,q12,prenestoff,A,UNNEST,1500000,15000000,10.000
+tpch_sf10,q12,prenest,A,UNNEST,1500000,310803,4.826
+tpch_sf10,q12,prenest,A,UNNEST,1500000,15000000,10.000
+tpch_sf10,q12,flat,B,부모⋈자식 (parent-child),2419442,310803,7.784
+xmark,q02,base,A,UNNEST,1,120000,120000.000
+xmark,q02,prenestoff,A,UNNEST,1,120000,120000.000
+xmark,q02,prenest,A,UNNEST,1,120000,120000.000
+xmark,q02,flat,B,일반 (regular),119252,108414,1.100
+xmark,q02,flat,B,부모⋈자식 (parent-child),609363,597777,1.019
+xmark,q02,flat,B,일반 (regular),60936,108414,1.779
+xmark,q02,flat,B,일반 (regular),60936,108414,1.779
+xmark,q02,flat,B,부모⋈자식 (parent-child),121872,597777,4.905
+xmark,q03,base,A,UNNEST,1,120000,120000.000
+xmark,q03,prenestoff,A,UNNEST,1,120000,120000.000
+xmark,q03,prenest,A,UNNEST,1,120000,120000.000
+xmark,q03,flat,B,일반 (regular),10110152,29928,337.816
+xmark,q03,flat,B,부모⋈자식 (parent-child),119252,108414,1.100
+xmark,q03,flat,B,일반 (regular),119252,108414,1.100
+xmark,q03,flat,B,부모⋈자식 (parent-child),609363,597777,1.019
+xmark,q03,flat,B,일반 (regular),51661630,1805277,28.617
+xmark,q03,flat,B,부모⋈자식 (parent-child),609363,597777,1.019
+xmark,q03,flat,B,일반 (regular),120000,120000,1.000
+xmark,q03,flat,B,일반 (regular),5166137,163848,31.530
+xmark,q03,flat,B,부모⋈자식 (parent-child),121872,561554,4.608
+xmark,q03,flat,B,일반 (regular),24000,81784,3.408
+xmark,q03,flat,B,일반 (regular),516611,29928,17.262
+xmark,q03,flat,B,부모⋈자식 (parent-child),121872,380807,3.125
+xmark,q03,flat,B,일반 (regular),24000,50451,2.102
+xmark,q04,base,A,UNNEST,1,120000,120000.000
+xmark,q04,prenestoff,A,UNNEST,1,120000,120000.000
+xmark,q04,prenest,A,UNNEST,1,120000,120000.000
+xmark,q04,flat,B,일반 (regular),23850,0,23850.000
+xmark,q04,flat,B,부모⋈자식 (parent-child),609363,597777,1.019
+xmark,q04,flat,B,부모⋈자식 (parent-child),2066444,0,2066444.000
+xmark,q04,flat,B,부모⋈자식 (parent-child),121872,3,40624.000
+xmark,q04,flat,B,일반 (regular),120000,120000,1.000
+xmark,q04p,base,A,UNNEST,1,120000,120000.000
+xmark,q04p,prenestoff,A,UNNEST,1,120000,120000.000
+xmark,q04p,prenest,A,UNNEST,1,120000,120000.000
+xmark,q04p,flat,B,일반 (regular),23850,41,581.707
+xmark,q04p,flat,B,부모⋈자식 (parent-child),609363,597777,1.019
+xmark,q04p,flat,B,부모⋈자식 (parent-child),2066444,41,50401.073
+xmark,q04p,flat,B,부모⋈자식 (parent-child),121872,43,2834.233
+xmark,q04p,flat,B,일반 (regular),120000,120000,1.000
+dblp,q06,base,A,UNNEST,6150738,13879081,2.256
+dblp,q06,prenestoff,A,UNNEST,6150738,13879081,2.256
+dblp,q06,prenest,A,UNNEST,6150738,13879081,2.256
+dblp,q06,flat,B,부모⋈자식 (parent-child),13940104,13879081,1.004
+dblp,q07,base,A,UNNEST,6150738,13879081,2.256
+dblp,q07,prenestoff,A,UNNEST,6150738,13879081,2.256
+dblp,q07,prenest,A,UNNEST,6150738,13879081,2.256
+dblp,q07,flat,B,부모⋈자식 (parent-child),13940104,13879081,1.004
+dblp,q08,base,A,UNNEST,1230147,69,17828.217
+dblp,q08,prenestoff,A,UNNEST,1230147,69,17828.217
+dblp,q08,prenest,A,UNNEST,1230147,69,17828.217
+dblp,q08,flat,B,부모⋈자식 (parent-child),2788019,69,40406.072
+dblp,q09,base,A,UNNEST,1230147,240436,5.116
+dblp,q09,prenestoff,A,UNNEST,1230147,240436,5.116
+dblp,q09,prenest,A,UNNEST,1230147,240436,5.116
+dblp,q09,flat,B,부모⋈자식 (parent-child),2788019,240436,11.596
+selectivity_random,n0,base,A,UNNEST,1000000,10000000,10.000
+selectivity_random,n0,prenestoff,A,UNNEST,1000000,10000000,10.000
+selectivity_random,n0,prenest,A,UNNEST,1000000,10000000,10.000
+selectivity_random,n0,flat,B,부모⋈자식 (parent-child),10000000,10000000,1.000
+selectivity_random,n1,base,A,UNNEST,1,998240,998240.000
+selectivity_random,n1,prenestoff,A,UNNEST,1,998240,998240.000
+selectivity_random,n1,prenest,A,UNNEST,1,998240,998240.000
+selectivity_random,n1,flat,B,부모⋈자식 (parent-child),10000000,998240,10.018
+selectivity_random,n2,base,A,UNNEST,1,99740,99740.000
+selectivity_random,n2,prenestoff,A,UNNEST,1,99740,99740.000
+selectivity_random,n2,prenest,A,UNNEST,1,99740,99740.000
+selectivity_random,n2,flat,B,부모⋈자식 (parent-child),10000000,99740,100.261
+selectivity_random,n3,base,A,UNNEST,1,9830,9830.000
+selectivity_random,n3,prenestoff,A,UNNEST,1,9830,9830.000
+selectivity_random,n3,prenest,A,UNNEST,1,9830,9830.000
+selectivity_random,n3,flat,B,부모⋈자식 (parent-child),10000000,9830,1017.294
+selectivity_random,n4,base,A,UNNEST,1,810,810.000
+selectivity_random,n4,prenestoff,A,UNNEST,1,810,810.000
+selectivity_random,n4,prenest,A,UNNEST,1,810,810.000
+selectivity_random,n4,flat,B,부모⋈자식 (parent-child),10000000,810,12345.679
+selectivity_random,n5,base,A,UNNEST,1,130,130.000
+selectivity_random,n5,prenestoff,A,UNNEST,1,130,130.000
+selectivity_random,n5,prenest,A,UNNEST,1,130,130.000
+selectivity_random,n5,flat,B,부모⋈자식 (parent-child),10000000,130,76923.077
+selectivity_random,n6,base,A,UNNEST,1,10,10.000
+selectivity_random,n6,prenestoff,A,UNNEST,1,10,10.000
+selectivity_random,n6,prenest,A,UNNEST,1,10,10.000
+selectivity_random,n6,flat,B,부모⋈자식 (parent-child),10000000,10,1000000.000
+selectivity_sorted,n0,base,A,UNNEST,1000000,10000000,10.000
+selectivity_sorted,n0,prenestoff,A,UNNEST,1000000,10000000,10.000
+selectivity_sorted,n0,prenest,A,UNNEST,1000000,10000000,10.000
+selectivity_sorted,n0,flat,B,부모⋈자식 (parent-child),10000000,10000000,1.000
+selectivity_sorted,n1,base,A,UNNEST,200000,1000000,5.000
+selectivity_sorted,n1,prenestoff,A,UNNEST,200000,1000000,5.000
+selectivity_sorted,n1,prenest,A,UNNEST,200000,1000000,5.000
+selectivity_sorted,n1,flat,B,부모⋈자식 (parent-child),2000000,1000000,2.000
+selectivity_sorted,n2,base,A,UNNEST,200000,100000,2.000
+selectivity_sorted,n2,prenestoff,A,UNNEST,200000,100000,2.000
+selectivity_sorted,n2,prenest,A,UNNEST,200000,100000,2.000
+selectivity_sorted,n2,flat,B,부모⋈자식 (parent-child),2000000,100000,20.000
+selectivity_sorted,n3,base,A,UNNEST,200000,10000,20.000
+selectivity_sorted,n3,prenestoff,A,UNNEST,200000,10000,20.000
+selectivity_sorted,n3,prenest,A,UNNEST,200000,10000,20.000
+selectivity_sorted,n3,flat,B,부모⋈자식 (parent-child),2000000,10000,200.000
+selectivity_sorted,n4,base,A,UNNEST,200000,1000,200.000
+selectivity_sorted,n4,prenestoff,A,UNNEST,200000,1000,200.000
+selectivity_sorted,n4,prenest,A,UNNEST,200000,1000,200.000
+selectivity_sorted,n4,flat,B,부모⋈자식 (parent-child),2000000,1000,2000.000
+selectivity_sorted,n5,base,A,UNNEST,200000,100,2000.000
+selectivity_sorted,n5,prenestoff,A,UNNEST,200000,100,2000.000
+selectivity_sorted,n5,prenest,A,UNNEST,200000,100,2000.000
+selectivity_sorted,n5,flat,B,부모⋈자식 (parent-child),2000000,100,20000.000
+selectivity_sorted,n6,base,A,UNNEST,200000,10,20000.000
+selectivity_sorted,n6,prenestoff,A,UNNEST,200000,10,20000.000
+selectivity_sorted,n6,prenest,A,UNNEST,200000,10,20000.000
+selectivity_sorted,n6,flat,B,부모⋈자식 (parent-child),2000000,10,200000.000

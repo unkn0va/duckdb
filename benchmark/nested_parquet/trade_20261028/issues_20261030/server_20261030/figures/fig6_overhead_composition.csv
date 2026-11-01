@@ -1,0 +1,121 @@
+쿼리 (query),구성 (config),방식 (method),구성 요소 (part),CPU 초 (cpu_s),실행 시간 초 (wall_s)
+q1_s01,base,A,리스트 조립,11.173,17.786
+q1_s01,base,A,UNNEST,0.147,17.786
+q1_s01,base,A,원소 다루기,0.133,17.786
+q1_s01,base,A,값 디코드,6.127,17.786
+q1_s01,base,A,집계,0.037,17.786
+q1_s01,base,A,기타,0.548,17.786
+q1_s01,prenest,A,리스트 조립,8.231,11.501
+q1_s01,prenest,A,UNNEST,0.133,11.501
+q1_s01,prenest,A,원소 다루기,0.099,11.501
+q1_s01,prenest,A,값 디코드,2.662,11.501
+q1_s01,prenest,A,집계,0.025,11.501
+q1_s01,prenest,A,기타,0.671,11.501
+q1_s01,flat,B,부모⋈자식 등 hash join,4.698,12.197
+q1_s01,flat,B,키 생성,4.399,12.197
+q1_s01,flat,B,원소 다루기,0.298,12.197
+q1_s01,flat,B,값 디코드,2.495,12.197
+q1_s01,flat,B,집계,0.008,12.197
+q1_s01,flat,B,기타,0.303,12.197
+q1_s01,pureflat,B,부모⋈자식 등 hash join,2.982,11.553
+q1_s01,pureflat,B,키 생성,0.000,11.553
+q1_s01,pureflat,B,원소 다루기,1.432,11.553
+q1_s01,pureflat,B,값 디코드,8.164,11.553
+q1_s01,pureflat,B,집계,0.010,11.553
+q1_s01,pureflat,B,기타,0.953,11.553
+q1_s50,base,A,리스트 조립,11.057,19.293
+q1_s50,base,A,UNNEST,1.550,19.293
+q1_s50,base,A,원소 다루기,0.136,19.293
+q1_s50,base,A,값 디코드,6.037,19.293
+q1_s50,base,A,집계,0.236,19.293
+q1_s50,base,A,기타,0.609,19.293
+q1_s50,prenest,A,리스트 조립,7.905,13.086
+q1_s50,prenest,A,UNNEST,1.571,13.086
+q1_s50,prenest,A,원소 다루기,0.132,13.086
+q1_s50,prenest,A,값 디코드,2.435,13.086
+q1_s50,prenest,A,집계,0.224,13.086
+q1_s50,prenest,A,기타,1.182,13.086
+q1_s50,flat,B,부모⋈자식 등 hash join,13.224,21.581
+q1_s50,flat,B,키 생성,4.362,21.581
+q1_s50,flat,B,원소 다루기,0.358,21.581
+q1_s50,flat,B,값 디코드,2.838,21.581
+q1_s50,flat,B,집계,0.526,21.581
+q1_s50,flat,B,기타,0.280,21.581
+q1_s50,pureflat,B,부모⋈자식 등 hash join,11.311,21.298
+q1_s50,pureflat,B,키 생성,0.000,21.298
+q1_s50,pureflat,B,원소 다루기,1.241,21.298
+q1_s50,pureflat,B,값 디코드,8.765,21.298
+q1_s50,pureflat,B,집계,0.469,21.298
+q1_s50,pureflat,B,기타,1.488,21.298
+q6_group,base,A,리스트 조립,11.227,22.958
+q6_group,base,A,UNNEST,3.029,22.958
+q6_group,base,A,원소 다루기,1.696,22.958
+q6_group,base,A,값 디코드,5.574,22.958
+q6_group,base,A,집계,0.758,22.958
+q6_group,base,A,기타,1.111,22.958
+q6_group,prenest,A,리스트 조립,5.580,13.037
+q6_group,prenest,A,UNNEST,2.825,13.037
+q6_group,prenest,A,원소 다루기,1.392,13.037
+q6_group,prenest,A,값 디코드,2.222,13.037
+q6_group,prenest,A,집계,0.691,13.037
+q6_group,prenest,A,기타,0.815,13.037
+q6_group,flat,B,부모⋈자식 등 hash join,16.443,25.999
+q6_group,flat,B,키 생성,4.529,25.999
+q6_group,flat,B,원소 다루기,0.802,25.999
+q6_group,flat,B,값 디코드,3.081,25.999
+q6_group,flat,B,집계,0.939,25.999
+q6_group,flat,B,기타,0.209,25.999
+q6_group,pureflat,B,부모⋈자식 등 hash join,15.068,26.075
+q6_group,pureflat,B,키 생성,0.000,26.075
+q6_group,pureflat,B,원소 다루기,1.483,26.075
+q6_group,pureflat,B,값 디코드,10.052,26.075
+q6_group,pureflat,B,집계,0.963,26.075
+q6_group,pureflat,B,기타,0.805,26.075
+q7_csa,base,A,리스트 조립,5.540,11.366
+q7_csa,base,A,UNNEST,0.074,11.366
+q7_csa,base,A,원소 다루기,0.060,11.366
+q7_csa,base,A,값 디코드,5.560,11.366
+q7_csa,base,A,집계,0.001,11.366
+q7_csa,base,A,기타,0.506,11.366
+q7_csa,prenest,A,리스트 조립,4.249,6.812
+q7_csa,prenest,A,UNNEST,0.046,6.812
+q7_csa,prenest,A,원소 다루기,0.063,6.812
+q7_csa,prenest,A,값 디코드,2.244,6.812
+q7_csa,prenest,A,집계,0.000,6.812
+q7_csa,prenest,A,기타,0.533,6.812
+q7_csa,flat,B,부모⋈자식 등 hash join,3.948,11.135
+q7_csa,flat,B,키 생성,4.473,11.135
+q7_csa,flat,B,원소 다루기,0.110,11.135
+q7_csa,flat,B,값 디코드,2.429,11.135
+q7_csa,flat,B,집계,0.002,11.135
+q7_csa,flat,B,기타,0.181,11.135
+q7_csa,pureflat,B,부모⋈자식 등 hash join,1.105,7.689
+q7_csa,pureflat,B,키 생성,0.000,7.689
+q7_csa,pureflat,B,원소 다루기,0.355,7.689
+q7_csa,pureflat,B,값 디코드,7.869,7.689
+q7_csa,pureflat,B,집계,0.002,7.689
+q7_csa,pureflat,B,기타,0.639,7.689
+q7_plots,base,A,리스트 조립,11.250,40.355
+q7_plots,base,A,UNNEST,2.895,40.355
+q7_plots,base,A,원소 다루기,0.302,40.355
+q7_plots,base,A,값 디코드,5.722,40.355
+q7_plots,base,A,집계,9.318,40.355
+q7_plots,base,A,기타,1.500,40.355
+q7_plots,prenest,A,리스트 조립,7.793,34.146
+q7_plots,prenest,A,UNNEST,3.076,34.146
+q7_plots,prenest,A,원소 다루기,0.246,34.146
+q7_plots,prenest,A,값 디코드,2.276,34.146
+q7_plots,prenest,A,집계,9.061,34.146
+q7_plots,prenest,A,기타,2.085,34.146
+q7_plots,flat,B,부모⋈자식 등 hash join,56.841,93.643
+q7_plots,flat,B,키 생성,4.465,93.643
+q7_plots,flat,B,원소 다루기,0.505,93.643
+q7_plots,flat,B,값 디코드,2.670,93.643
+q7_plots,flat,B,집계,28.348,93.643
+q7_plots,flat,B,기타,0.821,93.643
+q7_plots,pureflat,B,부모⋈자식 등 hash join,58.050,97.214
+q7_plots,pureflat,B,키 생성,0.000,97.214
+q7_plots,pureflat,B,원소 다루기,1.626,97.214
+q7_plots,pureflat,B,값 디코드,9.143,97.214
+q7_plots,pureflat,B,집계,29.077,97.214
+q7_plots,pureflat,B,기타,2.631,97.214

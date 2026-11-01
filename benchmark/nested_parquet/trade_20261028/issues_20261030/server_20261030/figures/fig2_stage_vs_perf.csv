@@ -1,0 +1,151 @@
+구성 (config),단계 전환 (step),항목 (item: 시간 차이 또는 perf 범주),차이 초 (delta_s)
+base,s1→s2,측정 시간 차이 (wall),2.664
+base,s1→s2,perf CPU 차이 (cpu),3.008
+base,s1→s2,값 디코드,-0.078
+base,s1→s2,리스트 조립,0.149
+base,s1→s2,UNNEST,2.854
+base,s1→s2,원소 다루기,-0.027
+base,s1→s2,키 생성,0.000
+base,s1→s2,join,0.000
+base,s1→s2,집계,-0.102
+base,s1→s2,기타,0.212
+base,s2→s2f,측정 시간 차이 (wall),0.660
+base,s2→s2f,perf CPU 차이 (cpu),0.508
+base,s2→s2f,값 디코드,0.176
+base,s2→s2f,리스트 조립,0.046
+base,s2→s2f,UNNEST,-0.025
+base,s2→s2f,원소 다루기,0.247
+base,s2→s2f,키 생성,0.000
+base,s2→s2f,join,0.000
+base,s2→s2f,집계,0.068
+base,s2→s2f,기타,-0.004
+base,s2f→s3,측정 시간 차이 (wall),5.939
+base,s2f→s3,perf CPU 차이 (cpu),6.298
+base,s2f→s3,값 디코드,0.039
+base,s2f→s3,리스트 조립,0.077
+base,s2f→s3,UNNEST,0.014
+base,s2f→s3,원소 다루기,5.803
+base,s2f→s3,키 생성,0.000
+base,s2f→s3,join,0.000
+base,s2f→s3,집계,0.207
+base,s2f→s3,기타,0.157
+prenestoff,s1→s2,측정 시간 차이 (wall),2.968
+prenestoff,s1→s2,perf CPU 차이 (cpu),2.735
+prenestoff,s1→s2,값 디코드,-0.020
+prenestoff,s1→s2,리스트 조립,-0.074
+prenestoff,s1→s2,UNNEST,2.819
+prenestoff,s1→s2,원소 다루기,-0.037
+prenestoff,s1→s2,키 생성,0.000
+prenestoff,s1→s2,join,0.000
+prenestoff,s1→s2,집계,-0.116
+prenestoff,s1→s2,기타,0.163
+prenestoff,s2→s2f,측정 시간 차이 (wall),-3.857
+prenestoff,s2→s2f,perf CPU 차이 (cpu),-3.618
+prenestoff,s2→s2f,값 디코드,-2.000
+prenestoff,s2→s2f,리스트 조립,-1.875
+prenestoff,s2→s2f,UNNEST,-0.028
+prenestoff,s2→s2f,원소 다루기,0.225
+prenestoff,s2→s2f,키 생성,0.000
+prenestoff,s2→s2f,join,0.000
+prenestoff,s2→s2f,집계,0.073
+prenestoff,s2→s2f,기타,-0.014
+prenestoff,s2f→s3,측정 시간 차이 (wall),6.118
+prenestoff,s2f→s3,perf CPU 차이 (cpu),6.127
+prenestoff,s2f→s3,값 디코드,-0.172
+prenestoff,s2f→s3,리스트 조립,0.061
+prenestoff,s2f→s3,UNNEST,0.050
+prenestoff,s2f→s3,원소 다루기,5.817
+prenestoff,s2f→s3,키 생성,0.000
+prenestoff,s2f→s3,join,0.000
+prenestoff,s2f→s3,집계,0.197
+prenestoff,s2f→s3,기타,0.175
+prenest,s1→s2,측정 시간 차이 (wall),3.066
+prenest,s1→s2,perf CPU 차이 (cpu),2.904
+prenest,s1→s2,값 디코드,0.133
+prenest,s1→s2,리스트 조립,-0.090
+prenest,s1→s2,UNNEST,2.759
+prenest,s1→s2,원소 다루기,-0.034
+prenest,s1→s2,키 생성,0.000
+prenest,s1→s2,join,0.000
+prenest,s1→s2,집계,-0.093
+prenest,s1→s2,기타,0.229
+prenest,s2→s2f,측정 시간 차이 (wall),-3.804
+prenest,s2→s2f,perf CPU 차이 (cpu),-3.943
+prenest,s2→s2f,값 디코드,-1.998
+prenest,s2→s2f,리스트 조립,-2.164
+prenest,s2→s2f,UNNEST,-0.004
+prenest,s2→s2f,원소 다루기,0.206
+prenest,s2→s2f,키 생성,0.000
+prenest,s2→s2f,join,0.000
+prenest,s2→s2f,집계,0.081
+prenest,s2→s2f,기타,-0.064
+prenest,s2f→s3,측정 시간 차이 (wall),0.497
+prenest,s2f→s3,perf CPU 차이 (cpu),0.276
+prenest,s2f→s3,값 디코드,-0.258
+prenest,s2f→s3,리스트 조립,-1.488
+prenest,s2f→s3,UNNEST,-0.373
+prenest,s2f→s3,원소 다루기,2.230
+prenest,s2f→s3,키 생성,0.000
+prenest,s2f→s3,join,0.000
+prenest,s2f→s3,집계,0.146
+prenest,s2f→s3,기타,0.019
+flat,s1→s2,측정 시간 차이 (wall),2.010
+flat,s1→s2,perf CPU 차이 (cpu),1.954
+flat,s1→s2,값 디코드,1.277
+flat,s1→s2,리스트 조립,0.000
+flat,s1→s2,UNNEST,0.000
+flat,s1→s2,원소 다루기,0.014
+flat,s1→s2,키 생성,-0.031
+flat,s1→s2,join,0.000
+flat,s1→s2,집계,0.672
+flat,s1→s2,기타,0.022
+flat,s2→s2f,측정 시간 차이 (wall),0.022
+flat,s2→s2f,perf CPU 차이 (cpu),-0.024
+flat,s2→s2f,값 디코드,-0.004
+flat,s2→s2f,리스트 조립,0.000
+flat,s2→s2f,UNNEST,0.000
+flat,s2→s2f,원소 다루기,-0.008
+flat,s2→s2f,키 생성,-0.010
+flat,s2→s2f,join,0.000
+flat,s2→s2f,집계,-0.005
+flat,s2→s2f,기타,0.003
+flat,s2f→s3,측정 시간 차이 (wall),4.239
+flat,s2f→s3,perf CPU 차이 (cpu),4.482
+flat,s2f→s3,값 디코드,0.426
+flat,s2f→s3,리스트 조립,0.000
+flat,s2f→s3,UNNEST,0.000
+flat,s2f→s3,원소 다루기,4.275
+flat,s2f→s3,키 생성,0.083
+flat,s2f→s3,join,0.000
+flat,s2f→s3,집계,-0.325
+flat,s2f→s3,기타,0.023
+pureflat,s1→s2,측정 시간 차이 (wall),0.925
+pureflat,s1→s2,perf CPU 차이 (cpu),1.461
+pureflat,s1→s2,값 디코드,0.802
+pureflat,s1→s2,리스트 조립,0.000
+pureflat,s1→s2,UNNEST,0.000
+pureflat,s1→s2,원소 다루기,0.003
+pureflat,s1→s2,키 생성,0.000
+pureflat,s1→s2,join,0.000
+pureflat,s1→s2,집계,0.353
+pureflat,s1→s2,기타,0.303
+pureflat,s2→s2f,측정 시간 차이 (wall),-0.016
+pureflat,s2→s2f,perf CPU 차이 (cpu),0.177
+pureflat,s2→s2f,값 디코드,0.330
+pureflat,s2→s2f,리스트 조립,0.000
+pureflat,s2→s2f,UNNEST,0.000
+pureflat,s2→s2f,원소 다루기,-0.003
+pureflat,s2→s2f,키 생성,0.000
+pureflat,s2→s2f,join,0.002
+pureflat,s2→s2f,집계,0.026
+pureflat,s2→s2f,기타,-0.179
+pureflat,s2f→s3,측정 시간 차이 (wall),0.637
+pureflat,s2f→s3,perf CPU 차이 (cpu),0.474
+pureflat,s2f→s3,값 디코드,0.242
+pureflat,s2f→s3,리스트 조립,0.000
+pureflat,s2f→s3,UNNEST,0.000
+pureflat,s2f→s3,원소 다루기,0.473
+pureflat,s2f→s3,키 생성,0.000
+pureflat,s2f→s3,join,-0.001
+pureflat,s2f→s3,집계,-0.394
+pureflat,s2f→s3,기타,0.154

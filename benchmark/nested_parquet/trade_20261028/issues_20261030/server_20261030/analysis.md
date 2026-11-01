@@ -360,3 +360,62 @@ s50의 봉우리(s10과 s90의 평균보다 +125백만)는 두 곳에서 나옵�
   - "base FILTER의 선택 루프에는 분기가 없다"는 정수 비교에만 맞습니다.
   - base q2_c25 → c50의 FILTER miss 증가(+127백만)는 `GreaterThan` +36, 그 비교가 인라인된 `ScalarExecutor::SelectOutputDispatch` +81, memcmp +약 10에서 나옵니다. 문자열 비교 분기가 선택 루프 안으로 인라인된 것입니다.
   - flat q2_c50에서도 스캔 필터의 `GreaterThan`(141)과 `ComparisonFilterExecutor::SelectTyped`(78)에 몰려 있습니다.
+
+
+## 후속 실험 (2026-11, 진행 중)
+
+결과 구분: **[실측]** 서버 1억 행 측정, **[시험]** 이 PC 2백만 행 시험(서버 측정 전), **[추정]** 계산이나 해석.
+
+### C. q4_two build 쪽 (1억 행, `issue1c/build.csv`, `issue1c/build_plans/`) [실측]
+
+| 구성 | 원래 (큰 c11 build) | 작은 c14 build | 차이 | 결과 |
+|---|---|---|---|---|
+| base | 109.47초 | 85.91초 | −23.6초 (−21.5%) | 같음 |
+| prenest | 109.10초 | 86.14초 | −23.0초 (−21.0%) | 같음 |
+
+(3회 중 최소, 1스레드)
+
+- **실행 계획은 실제로 바뀌었습니다.**
+  - 원래는 build가 6.67억 행(c11의 UNNEST), probe가 2.5억 행(c14)입니다.
+  - 변형은 그 반대입니다(build 2.5억, probe 6.67억).
+  - 두 경우 모두 양쪽 예상은 1억 행입니다.
+- 시간이 줄어든 곳(EXPLAIN ANALYZE, base):
+  - HASH_JOIN 연산자: 37.2 → 35.8초로 거의 같습니다.
+  - join 위의 PROJECTION: 19.1 → 13.1초(−5.9초). build 쪽 열을 꺼내는 비용입니다.
+  - 연산자 시간 합과 전체 시간의 차이: 24.7초 → 11.0초(−13.7초). [추정] 큰 해시 테이블을 만들고 정리하는 시간이 연산자 시간에 잡히지 않은 것으로 봅니다.
+
+### D. 합계 먼저 곡선 [시험, 2백만 행, 1회]
+
+서버 측정 전, 이 PC에서 2백만 행으로 한 번 돌린 결과입니다. 110개 조합 모두 결과가 원래와 같았습니다.
+
+| 저장 방식 | 자동 적용 (EXPORT_STATE) | 원래 / 합계 먼저 (base, k = 1 → 16) |
+|---|---|---|
+| (a) 사실·차원 parquet | 모든 k, 모든 구성에서 안 됨 | 0.89 → 0.25배. k가 커질수록 원래가 느려짐 (flat 0.41 → 3.21초) |
+| (b) 사실 parquet, 차원 내부 테이블 | base·prenest는 k ≥ 2, flat·pure flat은 k ≥ 4에서 됨 | 적용되면 원래 ≈ 합계 먼저 (0.95–1.07배) |
+| (c) 둘 다 내부 테이블 | (b)와 같음 | (b)와 같음 |
+
+**(b)에서 자동 적용되는 이유 (코드와 실행 계획) [시험, 서버 확인 대기]**
+
+필요한 것은 작은 차원 표 쪽의 고유값 통계 하나입니다.
+
+1. join 예상 행 수는 join 키 쌍마다 `DomainEstimate`로 정합니다(`src/optimizer/join_order/cardinality_estimator.cpp:40-88`).
+   - 어느 한쪽이라도 믿을 수 있는 고유값 수(HLL 또는 정확값)가 있으면 그것을 씁니다.
+   - 둘 다 없으면 두 쪽 행 수 중 작은 것을 대신 씁니다.
+2. 고유값 수는 스캔의 통계에서 옵니다(`src/optimizer/relation_statistics/relation_statistics_scan.cpp:101-111, 175-178`).
+   - DuckDB 테이블의 열에는 HLL이 있습니다.
+   - parquet의 문자열 열(c8, reg_scenario)에는 HLL도 min/max 기반 값도 없어서, 행 수로 대신합니다.
+3. 그래서 예상이 저장 방식에 따라 갈립니다.
+   - (a): 대신 쓰는 값이 차원 표 행 수 3k가 되어, join 예상이 사실 쪽 행 수 그대로(1:1)입니다. 예: k=4, 실제 2,800만 행에 예상 200만 행.
+   - (b): 차원 표 열의 HLL(시나리오 3개)이 쓰여 예상이 정확해집니다. 예: pure flat k=2, 부모 ⋈ 차원 표 예상 400만 행 = 실제.
+4. double-eager 조건은 ndv = c0·c1/cj입니다(`partial_aggregate_pushdown.cpp:582-597`).
+   - (b)에서는 ndv = 3이고, 차원 표 행 수 3k ≥ 2·3이어야 하므로 k ≥ 2에서 적용됩니다. k = 1은 3 < 6이라 빠집니다.
+   - (a)에서는 ndv = 3k라 차원 표가 그 2배 이상일 수 없어 적용되지 않습니다.
+5. flat·pure flat은 k = 2에서 빠집니다. 옵티마이저가 차원 표 join을 부모 쪽에 먼저 붙여 부모 ⋈ 자식 join 아래로 넣기 때문입니다. 그러면 집계 바로 아래가 부모 ⋈ 자식 join이 됩니다. k ≥ 4에서는 순서가 바뀌어 차원 표 join이 위로 올라가고 적용됩니다.
+6. 사실 쪽(parquet)의 고유값 통계는 필요 없습니다. (b)의 사실 쪽은 여전히 parquet입니다.
+
+### A, B, D(1억 행) — 서버 측정 대기
+
+- A: `run_issue1.sh --steps "info bn repro summary"`의 `bn` 단계
+- B: 같은 실행의 `repro` 단계
+- D: `run_issue2.sh --steps "info fanout"`
+- 결과가 오면 이 절을 채웁니다(`summarize_extra.py`, 그래프 데이터는 `figures/`).

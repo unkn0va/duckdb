@@ -1,0 +1,31 @@
+쿼리 (query),구성 (config),변형 (variant),"시간 초 (wall_s, 10회 중 최소)",원래 대비 배수 (ratio),원래와 같은 계획 (same_plan),결과 일치 (same_result)
+q7_csa,base,원래,11.171,1.000,no,yes
+q7_csa,base,join 순서 고정,11.171,1.000,yes,yes
+q7_csa,base,합계 먼저,11.146,0.998,no,yes
+q7_csa,prenestoff,원래,6.663,1.000,no,yes
+q7_csa,prenestoff,join 순서 고정,6.663,1.000,yes,yes
+q7_csa,prenestoff,합계 먼저,6.673,1.002,no,yes
+q7_csa,prenest,원래,6.577,1.000,no,yes
+q7_csa,prenest,join 순서 고정,6.577,1.000,yes,yes
+q7_csa,prenest,합계 먼저,6.626,1.007,no,yes
+q7_csa,flat,원래,10.995,1.000,no,yes
+q7_csa,flat,join 순서 고정,28.350,2.578,no,yes
+q7_csa,flat,합계 먼저,32.040,2.914,no,yes
+q7_csa,pureflat,원래,7.371,1.000,no,yes
+q7_csa,pureflat,join 순서 고정,9.196,1.248,no,yes
+q7_csa,pureflat,합계 먼저,9.296,1.261,no,yes
+q7_plots,base,원래,39.655,1.000,no,yes
+q7_plots,base,join 순서 고정,39.655,1.000,yes,yes
+q7_plots,base,합계 먼저,22.522,0.568,no,yes
+q7_plots,prenestoff,원래,33.734,1.000,no,yes
+q7_plots,prenestoff,join 순서 고정,33.734,1.000,yes,yes
+q7_plots,prenestoff,합계 먼저,16.365,0.485,no,yes
+q7_plots,prenest,원래,33.692,1.000,no,yes
+q7_plots,prenest,join 순서 고정,33.692,1.000,yes,yes
+q7_plots,prenest,합계 먼저,16.251,0.482,no,yes
+q7_plots,flat,원래,91.524,1.000,no,yes
+q7_plots,flat,join 순서 고정,76.282,0.833,no,yes
+q7_plots,flat,합계 먼저,35.830,0.391,no,yes
+q7_plots,pureflat,원래,93.425,1.000,no,yes
+q7_plots,pureflat,join 순서 고정,77.933,0.834,no,yes
+q7_plots,pureflat,합계 먼저,36.492,0.391,no,yes
