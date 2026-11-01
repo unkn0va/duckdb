@@ -1,6 +1,7 @@
-# 인수인계: trade fact 중첩 처리 vs join 처리 (2026-10-30 기준)
+# 인수인계: trade fact 중첩 처리 vs join 처리 (2026-11-01 기준)
 
 새 세션은 이 파일부터 읽습니다. 자세한 절차는 `README.md`, 서버 결과와 분석은 `server_20261029/summary.md`에 있습니다.
+2026-10-30 ~ 11-01 주의 이슈 1·2(Unnest 오버헤드 분해, join 예상 오류)는 끝났습니다. 보고서는 `issues_20261030/report_20261101.md`, 근거와 전체 표는 `issues_20261030/server_20261030/analysis.md`입니다(6-1절).
 
 ## 0. 작업 규칙 (사용자 지시)
 
@@ -102,6 +103,20 @@
 | `analysis_20261030/q7_variants.sh` | q7_plots 원래 / join 순서 고정 / 집계를 앞으로, 시간과 결과 해시. `PLANS=1`이면 실행 계획 트리(`plan_tree.py`) |
 | `analysis_20261030/csv_profile.sql` | 원본 CSV 프로파일 매크로 (첫 단계 데이터셋 조사) |
 
+`issues_20261030/`(이슈 1·2, 사용법은 그 폴더의 `README.md`):
+
+| 파일 | 역할 |
+|---|---|
+| `run_issue1.sh` | 이슈 1. 단계 `info stages params tpch summary`(기본), `branches`, `build`, `branchprof`(따로 지정) |
+| `run_issue2.sh` | 이슈 2. 단계 `info variants cardinality summary` |
+| `profile_stacks.py` | perf를 call stack(dwarf)과 함께, 측정하는 두 번째 실행만 샘플링(perf control fifo + CLI `.shell`). `EVENT`/`PERIOD`로 branch-misses 같은 이벤트 샘플링 |
+| `categories.py` | 새 범주 규칙(call stack 기준). 옛 기준(`profile_breakdown.py`의 규칙을 그 파일에서 읽음)도 같은 샘플에 다시 적용. `table`, `classify`, `compare` |
+| `time_queries.py` | 다섯 구성 시간 측정 + 결과 비교. 파일 앞 `SET`은 시간 밖, `SAME_PLAN=1`이면 원래와 같은 계획은 다시 재지 않음, `PLAN_DIR`로 EXPLAIN ANALYZE 트리 |
+| `cardinality.py` | join·UNNEST·입력 스캔의 예상/실제 행 수, q-error, join 종류, flat 노드의 `num_values`와 실제 노드 행 수 |
+| `branch_stats.py` | perf stat branches/branch-misses (두 번째 실행만) |
+| `make_issue_queries.py` | `queries_stage/`(1-1 단계), `queries_plans/`(2-1 변형), `queries_build/`(q4_two build 쪽) |
+| `summarize_issue1.py`, `summarize_issue2.py` | 결과 폴더 → `summary.md`. 범주 표는 옛 기준과 새 기준 둘 다 |
+
 상위 폴더(`benchmark/nested_parquet/`):
 
 | 파일 | 역할 |
@@ -118,6 +133,10 @@
   - **`summary.md`에 결과표와 추가 분석이 있습니다.**
 - 서버 쪽 원래 폴더: `.../trade_20261028/server_trade/`. 재부팅으로 끊긴 첫 bench는 `server_trade/before_reboot/`에만 있습니다.
 - 분석 보조 파일: `analysis_20261030/` (q7 변형 SQL, plan_tree.py, 재현성 해시, 샘플 생성 로그)
+- 이슈 1·2 서버 결과(커밋됨): `issues_20261030/server_20261030/`
+  - `issue1/`(10-30, 단계 쿼리, 파라미터 perf, TPC-H), `issue2/`(cardinality 10-30, 계획 변형 10-31)
+  - `issue1c/`(10-31, 분기 예측, q4_two build 쪽, q6·q7 perf), `issue1d/`(11-01, branch-miss 함수별 샘플링)
+  - `analysis.md`(정리), `../report_20261101.md`(주간 보고서). 이 PC 시험은 `issues_20261030/local_2m/`
 
 주요 결론 (1스레드, base 대비 배수):
 - **원소만 쓰는 쿼리(q2, q3, q6_count)는 pure flat이 이깁니다(2.3~7.4배).** flat은 1.2~3.6배, prenest는 1.0~3.7배입니다.
@@ -129,10 +148,12 @@
 - q7_plots의 원인은 **주로 집계 위치이고, 옵티마이저의 순서 선택이 그다음입니다.** 2백만 행 샘플에서 확인했습니다.
   - flat·pure flat은 parent ⋈ dim(실제 3.83배로 불어남, 추정은 1배)을 build로 둡니다. 그리고 불어난 행을 문자열 키로 집계합니다.
   - 순서만 고치면 −12%, 집계를 dim join 앞으로 옮기면 −61%로 base보다 빨라집니다.
+  - 1억 행에서도 확인했습니다(2026-10-31): 순서 고정 −17%, 합계 먼저 −61%. 같은 변형을 nested에도 적용하면 flat / nested는 2.7배 → 2.2배입니다.
 - q2_c50에서 flat이 prenestoff보다 2배 빠른 것은 조건 위치 때문입니다.
   - flat은 조건을 스캔 필터로 평가합니다.
   - prenestoff는 UNNEST 뒤 FILTER에서 원소마다 문자열로 비교합니다.
   - perf로 보면 차이는 UNNEST 뒤 "식·벡터" 범주(6.9초 대 0.4초)에서 나옵니다. 중첩을 푸는 비용(조립 1.8초 대 키 생성 3.4초)이 아닙니다.
+  - **정정(2026-10-31):** 이 숫자들은 잎 함수 이름 기준(옛 기준)입니다. call stack 기준으로 다시 나누면 그 "식·벡터"의 78%는 리스트 조립입니다(가지치기된 필드의 NULL 복사). 6-1절과 5절을 보세요.
 - 시간 분해 표(6개 쿼리 × 5개 구성, 범주별 %)는 `summary.md`의 "시간 분해"에 있습니다.
 
 ## 5. 확인된 사실과 정정된 내용
@@ -147,43 +168,47 @@
 | 결과 검사 | `run_bench.py`는 원래 첫 번째 열만 비교했습니다(커밋 ff891acd2dd에서 모든 열로 고침). 그 뒤 반올림한 해시 비교가 TPC-H q01 flat 두 건(상대 2~4e-14 차이)에서 거짓 실패를 냈습니다. **지금은 정수·문자열은 정확히, 실수만 상대 1e-9로 비교합니다**(4b5b4c37892) |
 | read_parquet_flat의 행 수 | 결과 행 수가 쓰는 열에 따라 바뀝니다. 리스트 열을 버리면 최상위 행을 셉니다(README "알려진 차이") |
 | 결과 일치 | 서버 bench 80행 모두 일치했습니다. check_queries에도 불일치가 없습니다 |
+| perf 범주 기준 (2026-10-31) | `profile_breakdown.py`는 잎 함수의 전체 이름(인자 포함)만 봅니다. memcpy·validity 도우미가 "식·벡터"나 "기타"로 가고, 인자 타입 이름에도 맞습니다. 이번 주부터는 call stack 기준(`issues_20261030/categories.py`)을 쓰고, 표는 두 기준을 함께 보입니다 |
+| 리스트 조립의 정체 | 리더가 원소 값을 리스트 자식 벡터로 복사하는 일이고, 주로 원소당 비용입니다(BIGINT 6 ns). 행 조건이나 동적 필터로 행이 걸러져도 파일의 모든 리스트를 조립합니다. nested CPU의 30–70%(trade), 45–86%(TPC-H) |
+| 가지치기된 STRUCT 필드 | 리더가 NULL 상수로 채우고(`reader/struct_column_reader.cpp:88`), 리스트에 붙일 때 행마다 복사합니다. prenestoff q2_s50의 문자열 복사 1.2초와 `SetInvalid` 2.2초가 이것입니다 |
+| 예상 행 수 | flat 자식 노드 = 첫 leaf의 `num_values` 합(빈 리스트 자리 포함, 실제보다 0–3.3% 많음). UNNEST = 입력과 같음(`src/planner/logical_operator.cpp:261-272`, 리스트 길이 1). 부모 ⋈ 자식 join = 자식 × 부모 필터 선택도(기본 0.2) |
+| eager aggregation | DuckDB에 `partial_aggregate_pushdown`이 있습니다(기본 켜짐). parquet에는 고유값 통계가 없어 차원 표 join을 1:1로 예상하므로, q7에서는 작동하지 않습니다. 메모리 테이블에서는 작동합니다 |
+| 분기 | 정수 비교의 FILTER 선택 루프에는 분기가 없습니다(`SelectFlatLoop`). 문자열 비교에는 분기가 있습니다(`string_t::GreaterThan`) |
+| flat − pure flat | 키 생성 비용이 아닙니다(pure flat은 저장된 키를 디코드하고, 동적 필터로 자식을 거름). 키 생성은 perf 값(legs 약 4.5초)으로 봅니다 |
 
 ## 6. 아직 설명 못 한 것 / 남은 일
 
-- (이 PC에서 찾음, 서버 확인 대기) **prenestoff 문자열 복사 1.2초와 `SetInvalid` 2.2초**(q2_s50)는 UNNEST 뒤가 아니라 리스트 리더 안에서 생깁니다.
-  - 가지치기된 STRUCT 필드는 `StructColumnReader::Read`가 `ConstantVector::SetNull`로 채웁니다(`extension/parquet/reader/struct_column_reader.cpp:88`).
-  - `ListColumnReader::ReadInternal` → `VectorBuffer::Append` → `VectorStructBuffer::CopyInternal`이 이 NULL을 리스트 자식에 행마다 복사합니다. 문자열 필드 세 개(leg_id, currency, option_type)의 복사입니다.
-  - call stack으로 확인했습니다(`issues_20261030/local_2m/issue1/summary.md` 1-4 끝).
+- (끝남, 서버에서 확인) prenestoff 문자열 복사 1.2초와 `SetInvalid` 2.2초 = 가지치기된 필드의 NULL 복사(5절).
+- 가지치기된 필드의 NULL 복사를 없앴을 때의 이득(3.4–4.9초)은 추정일 뿐, 엔진을 고쳐 재지는 않았습니다.
 - flat의 100% 점: 스캔 필터가 실행 중에 통계로 건너뛰어지는지 확인하지 못했습니다.
 - q3w: prenest가 발동하는데도 이득이 없는 이유를 분해하지 않았습니다.
 - OR 조건의 리더 평가가 단일 비교보다 약 9배 비싼 이유(`Apply` 내부)를 분석하지 않았습니다.
-- base → prenestoff 1.3~1.6배를 "쓰지 않는 legs 필드의 디코드와 복사가 줄어든 효과"로 본 것은 perf에서 추정한 것입니다.
-- q7_plots의 순서 고정·집계 이동 시간은 2백만 행 샘플에서만 쟀습니다. 1억 행 서버에서는 재지 않았습니다(`analysis_20261030/q7_variants.sh <data/full>`로 가능).
+- base → prenestoff 1.3~1.6배: 단계 쿼리(1-1)로 보면 가지치기로 디코드 −2.0초, 조립 −1.9초입니다. 다만 조립은 NULL 복사 때문에 기대만큼 줄지 않습니다(5절).
+- (끝남) q7_plots의 순서 고정·집계 이동은 1억 행에서 쟀습니다(`issues_20261030/server_20261030/issue2/`).
 - 20스레드 결과는 표에만 있고 분석하지 않았습니다.
 - (끝남) 실수 오차 비교로 고친 뒤 서버 recheck를 다시 돌렸습니다. 2026-10-30 `231 checks, 0 failed`가 나왔고, q01 두 건도 통과했습니다.
   결과는 서버의 `trade_20261028/server_recheck_tol/`에만 있습니다.
 
-## 6-1. 2026-10-30 주 이슈 (끝남)
+## 6-1. 2026-10-30 ~ 11-01 주 이슈 (끝남)
 
-- 이슈 1(Unnest 오버헤드 분해)과 이슈 2(join 예상 오류)의 스크립트는 `issues_20261030/`에 있습니다(README.md). 이 PC 시험 결과는 `issues_20261030/local_2m/`입니다.
-- 서버 결과(2026-10-30): `issues_20261030/server_20261030/`. 정리는 `analysis.md`입니다.
-  - 이슈 1과 이슈 2의 cardinality는 끝났습니다.
-  - 2-1 variants도 2026-10-31에 다시 돌려 끝났습니다(`issue2/variants.csv`, 60개 결과 일치).
-  - 2-1 결론: 예상 오류가 시간을 크게 바꾼 것은 q7_plots뿐입니다(순서 고정 −17%, 합계 먼저 −61%). 같은 변형을 nested에도 적용하면 flat / nested는 2.7배 → 2.2배입니다.
-  - (2026-11-01 이슈 1·2 끝) 마무리 보고는 `analysis.md`의 "마무리 보고" 절입니다. 추가 측정은 `issue1c/`(분기 예측, q4_two build 쪽, q6·q7 perf)입니다.
-    - 남는 차이의 대부분은 B의 부모 ⋈ 자식 hash join입니다.
-    - q4_two는 UNNEST 예상 때문에 큰 쪽을 build해서 21% 느립니다.
-    - q2_c의 50% 봉우리는 분기 예측 실패입니다.
-    - DuckDB의 eager aggregation(`partial_aggregate_pushdown`)은 parquet에 고유값 통계가 없어 q7에서 작동하지 않습니다.
-    - prenest q2_s50의 branch-miss 봉우리: 2/3은 UNNEST, 1/3은 리더의 `keep` 분기입니다(`analysis.md` F절, `issue1d/`). prenest가 남긴 빈 리스트 때문에 UNNEST의 행별 길이 분기가 무작위가 됩니다.
-- 주요 결론: 조립은 주로 원소당이고 행 조건과 상관없이 파일의 모든 리스트에서 일어납니다. UNNEST는 리스트당입니다. 문자열 복사 1.2초와 `SetInvalid` 2.2초는 가지치기된 필드의 NULL 복사입니다.
-  B의 자식 노드 예상은 num_values와 같고, A의 UNNEST는 리스트 길이를 1로 봅니다.
-- perf 범주는 이제 call stack 기준입니다(`categories.py`). 잎 함수만 보던 `profile_breakdown.py`와 숫자가 다르고, 특히 "식·벡터"의 많은 부분이 리스트 조립으로 갑니다.
-  사용자 지시: 서버 결과를 정리할 때 **옛 기준과 새 기준을 모두** 보이고, q2_s50 prenestoff의 옛 "식·벡터 6.9초"가 새 기준에서 어디로 가는지 표로 보입니다(`summarize_issue1.py`가 자동으로 만듦).
-- 서버 1단계 시험(25만 행, 2026-10-30)은 통과했습니다(stage_check 20 ok, 결과 일치 20/60, 스택 중앙값 35프레임, 3프레임 미만 8%).
-- 2-2에서 확인한 것(2백만 행, 합성 TPC-H):
-  - flat 자식 노드 스캔의 예상 = 첫 leaf의 `num_values` 합입니다. 빈·NULL 리스트의 자리도 셉니다.
-  - UNNEST는 예상이 입력과 같습니다(리스트 길이를 1로 봄).
+보고서 `issues_20261030/report_20261101.md`, 근거 `issues_20261030/server_20261030/analysis.md`. 결론:
+
+| 질문 | 답 |
+|---|---|
+| nested(A)의 Unnest 오버헤드에서 가장 큰 것 | 리스트 조립(원소 복사). 펼치기(UNNEST)는 대부분 1–22%. 단, 짧은 리스트(q3_c13)에서는 UNNEST와 비슷 |
+| 조립은 리스트당, 원소 다루기는 원소당? | 절반만 맞음. 조립은 주로 원소당(리스트당 7–10 ns + 원소당 6.1 ns), UNNEST가 리스트당(18–29 ns), 원소 다루기는 원소당 |
+| 단계 누적 쿼리로 perf 검증 | 단계 사이 시간 차이와 새 기준 범주 차이가 0.3초 안에서 맞음 |
+| 옛 "식·벡터 6.9초"(q2_s50 prenestoff) | 새 기준에서 78% 리스트 조립, 14% FILTER |
+| 최선의 계획끼리 남는 차이 | 대부분 flat(B)의 부모 ⋈ 자식 hash join. 키 생성(약 4.5초)은 A의 조립과 비슷해 상쇄 |
+| 예상 오류가 시간을 바꾼 곳 | q7_plots(차원 표 join 과소추정 → 큰 build, eager aggregation 안 됨; 순서 −17%, 합계 먼저 −61%), q4_two(UNNEST 예상 → 큰 쪽 build, −21%). q7_csa는 예상이 틀려도 순서가 맞았음 |
+| 예상 오차 분포 | A UNNEST 중앙값 6.67(최대 120만), B 부모 ⋈ 자식 4.17(최대 207만), B 일반 3.41. B의 큰 오류는 필터 선택도 기본값에서 옴 |
+| q2_c의 50% 봉우리 | 분기 예측 실패(문자열 비교). branch-miss가 네 구성 모두 50%에서 최대 |
+| prenest q2_s50의 branch-miss 봉우리 | 2/3 UNNEST(prenest가 남긴 빈 리스트로 행별 길이 분기가 무작위), 1/3 리더의 `keep` 분기 |
+
+이번 주에 정한 것(사용자 확인):
+- perf 범주 표는 옛 기준과 새 기준을 함께 보입니다.
+- 2-1 "합계 먼저"는 차원 표 join이 있는 q7_csa, q7_plots에만 적용했습니다. "join 순서 고정"은 `join_order`를 끄고 원소 → 부모 → 차원 표 순서로 씁니다.
+- 1-1 단계 쿼리에는 s2f(필드 2개를 읽고 펼치기)를 더했습니다. prenest는 필드를 참조할 때만 가지치기하기 때문입니다.
 
 ## 7. 서버(apache10) 실행 규칙
 
@@ -198,6 +223,11 @@
 - 커널 업데이트로 재부팅된 적이 있습니다(2026-10-28 17:06). 긴 측정 전후에 `uptime`을 확인합니다.
 - `git pull`이 추적하지 않는 파일 때문에 멈추면, 그 파일을 `~/nested-bench/server_backup_20261028/`처럼 옮긴 뒤 다시 pull합니다.
 - 결과는 사용자가 scp로 이 PC에 옮깁니다. 그 뒤 `trade_20261028/server_<날짜>/`로 커밋합니다.
+  - 안내 예: 이 PC의 WSL에서 `scp -r 'apache10:~/nested-bench/duckdb_rey/benchmark/nested_parquet/trade_20261028/issues_20261030/server_issue1d*' .`(경로에 `*`가 있으면 작은따옴표).
+- `time_queries.py`(이슈 1·2)도 다른 프로세스가 CPU를 쓰면 시작하지 않습니다. 그 메시지는 결과 파일이 아니라 실행 로그(`tee`한 `.log`)에만 남습니다.
+  - 확인은 **개수로** 합니다. 예: `grep -c 'result yes' <폴더>/variants.log`가 60. `grep -vc`는 빈 파일에도 0을 내므로 쓰지 않습니다(2026-10-30에 이것 때문에 2-1이 안 돈 것을 놓침).
+- `sudo perf`로 dwarf call stack 샘플링과 perf stat(하드웨어 카운터)이 됩니다. 이 PC(WSL)는 하드웨어 카운터가 없고, perf는 `linux-tools-6.8.0-147`을 풀어 씁니다(`issues_20261030/README.md`).
+- 서버 perf에서 스택이 잘린 샘플이 실행당 중앙값 12.5%입니다. 대부분 16KB 복사 한계에서 shell 프레임 위가 잘린 것이라 무해합니다. 잎 바로 위에서 잘린 것(중앙값 5%)은 `categories.classify_samples`가 같은 잎 함수의 비율로 나눕니다.
 - 서버 데이터 경로
   - 1억 행: `trade_20261028/data/full`
   - recheck용 이전 데이터: `~/nested-bench/data`, `~/nested-bench/data_rg1`, `~/nested-bench/data_rg20` (`ORIG_DATA`)
@@ -217,4 +247,14 @@
 | `69bd3cab48b` | 서버 recheck 통과 기록 |
 | `98502034e46` | 이슈 1·2 스크립트와 쿼리 (`issues_20261030/`) |
 | `b8320bc78aa` | 이슈 1·2 이 PC 시험 결과 (`issues_20261030/local_2m/`) |
-| (이 커밋) | HANDOFF.md 6, 6-1절 |
+| `2424b48e6a5` | HANDOFF: 문자열 복사의 출처, 이번 주 이슈 |
+| `5a7eb09adda` | 이슈 1 요약을 옛 기준·새 기준 둘 다로 (잎 함수 전체 이름 기록) |
+| `d07a1fb8dd6` | 잘린 스택의 범주 나누기 (서버 측정에 쓴 스크립트 상태) |
+| `794d9872a62` | 서버 결과 `server_20261030/` (이슈 1, 이슈 2 cardinality), `analysis.md` |
+| `9ccb22a715d` | 2-1 계획 변형 결과 |
+| `41cee15caed` | 마무리 보고 절, `branch_stats.py`, `queries_build/`, run_issue1 `branches`·`build` |
+| `4a36c734d2b` | 추가 측정 `issue1c/` (분기 예측, q4_two build, q6·q7 perf) |
+| `137eeb15dc1` | branch-miss 이벤트 샘플링 (`branchprof`) |
+| `8eda88fb8c8` | `issue1d/`, prenest q2_s50 branch-miss 원인 |
+| `238cb360429` | 주간 보고서 `report_20261101.md` |
+| (이 커밋) | HANDOFF.md 이번 주 마무리 |
