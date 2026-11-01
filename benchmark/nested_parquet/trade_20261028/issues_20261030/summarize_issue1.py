@@ -286,6 +286,33 @@ def moves_tables():
     print()
 
 
+def branch_miss_tables():
+    """Where the branch misses are (profile/branchmiss, perf record of branch-misses): per run the misses per category
+    and the leaf functions with the most misses."""
+    paths = sorted(glob.glob(os.path.join(OUT, "profile", "branchmiss", "*.folded.gz")))
+    if not paths:
+        return
+    print("## 분기 miss가 생기는 곳 (perf record -e branch-misses, 1스레드)\n")
+    print("branch-miss를 PERIOD번에 한 번씩, call stack과 함께 샘플링했습니다. 값은 miss 수(백만)이고 범주는 1-4와 같습니다.\n")
+    print("| 쿼리 | 구성 | miss (백만) | " + " | ".join(SHORT[c] for c in CATEGORIES) + " | 가장 많은 잎 함수 (백만) |")
+    print("|---|---|---|" + "---|" * len(CATEGORIES) + "---|")
+    for path in paths:
+        header, stacks = read_folded(path)
+        period = int(header.get("period", 1))
+        query, config = header.get("label", ",").split(",", 1)
+        per = collections.Counter()
+        leaves = collections.Counter()
+        for (stack, n, _), shares in zip(stacks, classify_samples(stacks)):
+            for (category, sub), share in shares.items():
+                per[category] += n * share * period
+                leaves[(category, stack[0][0].replace("duckdb::", ""))] += n * share * period
+        total = sum(per.values())
+        top = ", ".join(f"{c}: `{f[:50]}` {v / 1e6:.0f}" for (c, f), v in leaves.most_common(3))
+        print(f"| {query} | {config} | {total / 1e6:.0f} | " + " | ".join(
+            f"{per[c] / 1e6:.0f}" if per[c] >= 0.5e6 else "·" for c in CATEGORIES) + f" | {top} |")
+    print()
+
+
 def other_review():
     """Runs with 기타 > 10% of CPU and their top 기타 functions (from the .txt files)."""
     found = []
@@ -371,6 +398,7 @@ def main():
     param_tables()
     tpch_tables()
     moves_tables()
+    branch_miss_tables()
     categories_section()
 
 

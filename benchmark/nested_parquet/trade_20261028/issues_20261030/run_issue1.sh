@@ -9,13 +9,16 @@
 #   build    2-2: build.csv (time_queries.py over queries_build/: q4_two with the larger or the smaller unnested list
 #            built, in BUILD_CONFIGS, BUILD_RUNS at 1 thread) and build_plans/
 #   summary  summary.md (summarize_issue1.py over everything present in --out)
-# branches and build are not in the default steps.
+#   branchprof where the branch misses are: perf record of branch-misses (every BRANCH_PERIOD-th, with stacks) of
+#            BRANCH_RUNS (config:query ...) into profile/branchmiss/
+# branches, build and branchprof are not in the default steps.
 # perf: 1 thread, FREQ Hz, user stacks (profile_stacks.py); per run <query>.<config>.txt and .folded.gz, and one row
 # per category in profile.csv.
 #
 # Usage: run_issue1.sh [--data <trade data folder>] [--out <folder>] [--steps "info stages params tpch summary"]
 # Environment: RUNS (10), PERF ("perf" or "sudo perf"), FREQ (1000), PARAM_QUERIES, ORIG_DATA ($NB/data), ALLOW_BUSY,
-#              BRANCH_QUERIES, BUILD_CONFIGS ("base prenest"), BUILD_RUNS (3), BASE, PRENEST, FINAL, NB
+#              BRANCH_QUERIES, BUILD_CONFIGS ("base prenest"), BUILD_RUNS (3), BRANCH_RUNS, BRANCH_PERIOD (20000),
+#              BASE, PRENEST, FINAL, NB
 set -uo pipefail
 
 NB=${NB:-$HOME/nested-bench}
@@ -37,7 +40,7 @@ while [ $# -gt 0 ]; do
 	--data) DATA=$2; shift 2 ;;
 	--out) OUT=$2; shift 2 ;;
 	--steps) STEPS=$2; shift 2 ;;
-	*) sed -n '2,21p' "$0"; exit 2 ;;
+	*) sed -n '2,24p' "$0"; exit 2 ;;
 	esac
 done
 DATA=$(cd "$DATA" && pwd)
@@ -144,6 +147,20 @@ for step in $STEPS; do
 	build)
 		RUNS=${BUILD_RUNS:-3} THREADS=1 SAME_PLAN=1 CONFIGS=${BUILD_CONFIGS:-base prenest} PLAN_DIR="$OUT/build_plans" \
 			python3 "$HERE/time_queries.py" "$HERE/queries_build" "$DATA" "$OUT/build.csv" | tee "$OUT/build.log"
+		;;
+	branchprof)
+		perf_works || continue
+		dir=$OUT/profile/branchmiss
+		mkdir -p "$dir"
+		for run in ${BRANCH_RUNS:-prenest:q2_s01 prenest:q2_s10 prenest:q2_s50 prenest:q2_s90 base:q2_s50 prenestoff:q2_s50 base:q2_c25 base:q2_c50 prenest:q2_c50 flat:q2_c50}; do
+			label=${run%%:*} query=${run#*:}
+			IFS='|' read -r binary setup variant <<<"$(config "$label")"
+			log "branch misses $query $label"
+			THREADS=1 PERF="$PERF" EVENT=${BRANCH_EVENT:-branch-misses} PERIOD=${BRANCH_PERIOD:-20000} SETUP="$setup" LABEL="$query,$label" \
+				python3 "$HERE/profile_stacks.py" "$binary" "$DATA" "$TRADE/queries/$query.$variant.sql" "$dir/$query.$label" \
+				>/dev/null 2>"$dir/$query.$label.err" || log "  failed: $(tail -1 "$dir/$query.$label.err")"
+			[ -s "$dir/$query.$label.err" ] || rm -f "$dir/$query.$label.err"
+		done
 		;;
 	summary)
 		python3 "$HERE/summarize_issue1.py" "$OUT" >"$OUT/summary.md" && log "summary: $OUT/summary.md"

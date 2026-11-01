@@ -17,7 +17,11 @@ CSV_OUT gets one row per category and sub-category: label, wall ms, CPU ms of th
 PERF is the perf command ("sudo perf" where perf_event_paranoid keeps users from sampling); SETUP is SQL run before
 both runs (e.g. SET parquet_prenest_auto = false).
 
-Usage: [THREADS=1] [FREQ=1000] [STACK=16384] [PERF=perf] [SETUP=sql] [CSV_OUT=csv LABEL=name] [WATCH=f1,f2]
+With EVENT (e.g. branch-misses) perf samples every PERIOD-th occurrence of that event instead of FREQ times a
+second, and the numbers are occurrences (samples x PERIOD) instead of CPU ms; CSV_OUT is not written then.
+
+Usage: [THREADS=1] [FREQ=1000 | EVENT=event PERIOD=n] [STACK=16384] [PERF=perf] [SETUP=sql] [CSV_OUT=csv LABEL=name]
+       [WATCH=f1,f2]
        profile_stacks.py <duckdb binary> <data dir> <query file> <OUT prefix>
 """
 import collections
@@ -36,6 +40,9 @@ from categories import CATEGORIES, classify_samples, function_name, truncated  #
 DUCKDB, DATA_DIR, QUERY_FILE, OUT = sys.argv[1:5]
 THREADS = os.environ.get("THREADS", "1")
 FREQ = int(os.environ.get("FREQ", "1000"))
+EVENT = os.environ.get("EVENT", "")
+PERIOD = int(os.environ.get("PERIOD", "10000"))
+SAMPLING = ["-e", EVENT, "-c", str(PERIOD)] if EVENT else ["-F", str(FREQ)]
 STACK = os.environ.get("STACK", "16384")
 PERF = shlex.split(os.environ.get("PERF", "perf"))
 SETUP = os.environ.get("SETUP", "")
@@ -64,7 +71,7 @@ def record(tmp):
     )
     data = os.path.join(tmp, "perf.data")
     run = subprocess.run(
-        [*PERF, "record", "-q", "-F", str(FREQ), "--call-graph", f"dwarf,{STACK}", "-D", "-1",
+        [*PERF, "record", "-q", *SAMPLING, "--call-graph", f"dwarf,{STACK}", "-D", "-1",
          "--control", f"fifo:{ctl},{ack}", "-o", data, "--", DUCKDB, "-no-agent"],
         input=script, text=True, cwd=DATA_DIR, capture_output=True,
     )
@@ -115,7 +122,8 @@ def main():
         ";".join(f"{f}@{d}" for f, d in reversed(stack)) + "\t" + leaf for stack, leaf in zip(samples, leaves)
     )
     with gzip.open(OUT + ".folded.gz", "wt") as f:
-        f.write(f"# freq={FREQ} wall_ms={wall * 1000:.1f} label={label.replace(' ', '_')}\n")
+        sampling = f"event={EVENT} period={PERIOD}" if EVENT else f"freq={FREQ}"
+        f.write(f"# {sampling} wall_ms={wall * 1000:.1f} label={label.replace(' ', '_')}\n")
         for frames, n in folded.most_common():
             f.write(f"{frames} {n}\n")
 
@@ -137,17 +145,20 @@ def main():
     for (category, _), n in per_sub.items():
         per_category[category] += n
 
-    ms = lambda n: n * 1000 / FREQ  # noqa: E731
+    # CPU ms, or occurrences of EVENT
+    ms = (lambda n: n * PERIOD) if EVENT else (lambda n: n * 1000 / FREQ)  # noqa: E731
     depths = sorted(len(stack) for stack in samples) or [0]
     lines = [
-        f"{label}: threads={THREADS} wall {wall * 1000:.0f} ms, CPU {cpu_ms:.0f} ms ({len(samples)} samples, {FREQ} Hz)",
+        f"{label}: threads={THREADS} wall {wall * 1000:.0f} ms, "
+        + (f"{EVENT} {len(samples) * PERIOD} ({len(samples)} samples, every {PERIOD}); numbers below are {EVENT}"
+           if EVENT else f"CPU {cpu_ms:.0f} ms ({len(samples)} samples, {FREQ} Hz)"),
         # a median of 1-2 frames means perf could not unwind the stacks (no dwarf support): categories by leaf only
         f"stack depth: median {depths[len(depths) // 2]} frames, {100 * sum(d < 3 for d in depths) / len(depths):.0f}% "
         f"of the samples with fewer than 3",
         # categories.classify_samples: a cut stack without a strong frame takes those of its leaf's complete stacks
         f"truncated stacks: {100 * sum(map(truncated, samples)) / max(len(samples), 1):.1f}% of the samples",
     ]
-    lines.append("CPU ms per category (sub-categories in brackets):")
+    lines.append(f"{EVENT or 'CPU ms'} per category (sub-categories in brackets):")
     for category in CATEGORIES:
         if per_category[category]:
             subs = ", ".join(f"{s} {ms(n):.0f}" for (c, s), n in per_sub.most_common() if c == category)
@@ -166,7 +177,7 @@ def main():
     with open(OUT + ".txt", "w") as f:
         f.write(text + "\n")
     print(text)
-    if os.environ.get("CSV_OUT"):
+    if os.environ.get("CSV_OUT") and not EVENT:
         with open(os.environ["CSV_OUT"], "a") as f:
             for (category, sub), n in per_sub.most_common():
                 f.write(f"{label},{wall * 1000:.1f},{cpu_ms:.1f},{category},{sub},{ms(n):.1f}\n")
