@@ -1,0 +1,17 @@
+name,config,wall_s,cpu_s,runs,threads,same_result,result,plan,plan_flag,note,busy_cores
+q2_c50.orig,base,25.744,25.743,10,1,yes,"1,013a4adba2b469d6",83a677789c5bd196,,,0.0
+q2_c50.orig,prenestoff,20.917,20.917,10,1,yes,"1,013a4adba2b469d6",8de42287c5388ad6,,,0.0
+q2_c50.orig,prenest,15.337,15.336,10,1,yes,"1,013a4adba2b469d6",8de42287c5388ad6,,,0.0
+q2_c50.orig,flat,11.303,11.302,10,1,yes,"1,013a4adba2b469d6",1c988992b4d0fa31,,,0.0
+q2_c50.bn2,base,17.184,17.183,10,1,yes,"1,013a4adba2b469d6",83a677789c5bd196,,,0.0
+q2_c50.bn2,prenestoff,16.485,16.485,10,1,yes,"1,013a4adba2b469d6",8de42287c5388ad6,,,0.0
+q2_c50.bn2,prenest,13.203,13.202,10,1,yes,"1,013a4adba2b469d6",8de42287c5388ad6,,,0.0
+q2_c50.bn2,flat,11.206,11.206,10,1,yes,"1,013a4adba2b469d6",600399c342ebd370,,,0.0
+q2_s50.orig,base,20.947,20.947,10,1,yes,"1,32b309075822555d",83a677789c5bd196,,,0.0
+q2_s50.orig,prenestoff,14.927,14.927,10,1,yes,"1,32b309075822555d",0d977cab73f7d8b9,,,0.0
+q2_s50.orig,prenest,11.702,11.702,10,1,yes,"1,32b309075822555d",0d977cab73f7d8b9,,,0.0
+q2_s50.orig,flat,6.141,6.141,10,1,yes,"1,32b309075822555d",b48d94fa546a1357,,,0.0
+q2_s50.bn1,base,9.161,9.161,10,1,yes,"1,32b309075822555d",83a677789c5bd196,,,0.0
+q2_s50.bn1,prenestoff,8.911,8.911,10,1,yes,"1,32b309075822555d",0d977cab73f7d8b9,,,0.0
+q2_s50.bn1,prenest,8.920,8.920,10,1,yes,"1,32b309075822555d",0d977cab73f7d8b9,,,0.0
+q2_s50.bn1,flat,6.129,6.129,10,1,yes,"1,32b309075822555d",d5686adf5b706c5e,,,0.0

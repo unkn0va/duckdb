@@ -1,0 +1,97 @@
+[13:56:55] step info
+date:     2026-11-01T13:56:55+00:00
+host:     apache10, 40 hardware threads, 125 GiB memory
+cpu:      Intel(R) Xeon(R) Gold 5215 CPU @ 2.50GHz
+uptime:    13:56:55 up 3 days, 20:50,  2 users,  load average: 0.00, 0.00, 0.00
+base:     v2.1.0-dev88383 a809d3cd51  /home/layun03/nested-bench/duckdb_base/build/release/duckdb
+prenest:  v2.1.0-dev88385 fabde05fe6  /home/layun03/nested-bench/duckdb_prenest_base/build/release/duckdb
+final:    v2.1.0-dev88410 2d6066fd4d  /home/layun03/nested-bench/duckdb_rey/build/release/duckdb
+perf:     perf version 6.8.12  (sudo perf)
+scripts:  52deea93763 nested_parquet: trade follow-ups, q4_two build side checked and figure data of the closed issues
+data:     /home/layun03/nested-bench/duckdb_rey/benchmark/nested_parquet/trade_20261028/data/full
+runs:     10, perf 1000 Hz
+[13:56:55] step bn
+[13:56:55] writing trade_Bn1.parquet
+[13:56:55] writing trade_Bn2.parquet
+/home/layun03/nested-bench/duckdb_rey/benchmark/nested_parquet/trade_20261028/data/full/trade_Bn1.parquet: 100000000 rows, legs fields ['value']
+/home/layun03/nested-bench/duckdb_rey/benchmark/nested_parquet/trade_20261028/data/full/trade_Bn2.parquet: 100000000 rows, legs fields ['leg_id', 'value']
+| check | trade_B.parquet | trade_Bn1.parquet | same |
+|---|---|---|---|
+| rows, elements, longest list | 100000000,349900000,5 | 100000000,349900000,5 | yes |
+| hash of the other columns | 922366492150458179658388989 | 922366492150458179658388989 | yes |
+| hash of the elements (value) | 922433719415460663166279874 | 922433719415460663166279874 | yes |
+| row groups (count, rows of each) | 814,122880 122880 122880 122 … 2880 122880 122880 98560 | 814,122880 122880 122880 122 … 2880 122880 122880 98560 | yes |
+| writer, compression | parquet-cpp-arrow version 26.0.0,SNAPPY | parquet-cpp-arrow version 26.0.0,SNAPPY | yes |
+
+| check | trade_B.parquet | trade_Bn2.parquet | same |
+|---|---|---|---|
+| rows, elements, longest list | 100000000,349900000,5 | 100000000,349900000,5 | yes |
+| hash of the other columns | 922366492150458179658388989 | 922366492150458179658388989 | yes |
+| hash of the elements (leg_id, value) | 922342995046181507788779132 | 922342995046181507788779132 | yes |
+| row groups (count, rows of each) | 814,122880 122880 122880 122 … 2880 122880 122880 98560 | 814,122880 122880 122880 122 … 2880 122880 122880 98560 | yes |
+| writer, compression | parquet-cpp-arrow version 26.0.0,SNAPPY | parquet-cpp-arrow version 26.0.0,SNAPPY | yes |
+
+q2_c50.orig            base          25.744 s  result yes  
+q2_c50.orig            prenestoff    20.917 s  result yes  
+q2_c50.orig            prenest       15.337 s  result yes  
+q2_c50.orig            flat          11.303 s  result yes  
+q2_c50.bn2             base          17.184 s  result yes  
+q2_c50.bn2             prenestoff    16.485 s  result yes  
+q2_c50.bn2             prenest       13.203 s  result yes  
+q2_c50.bn2             flat          11.206 s  result yes  
+q2_s50.orig            base          20.947 s  result yes  
+q2_s50.orig            prenestoff    14.927 s  result yes  
+q2_s50.orig            prenest       11.702 s  result yes  
+q2_s50.orig            flat           6.141 s  result yes  
+q2_s50.bn1             base           9.161 s  result yes  
+q2_s50.bn1             prenestoff     8.911 s  result yes  
+q2_s50.bn1             prenest        8.920 s  result yes  
+q2_s50.bn1             flat           6.129 s  result yes  
+[14:41:33] profile bn q2_s50.orig base
+[14:42:24] profile bn q2_s50.orig prenestoff
+[14:42:59] profile bn q2_s50.orig prenest
+[14:43:28] profile bn q2_s50.orig flat
+[14:43:43] profile bn q2_s50.bn1 base
+[14:44:06] profile bn q2_s50.bn1 prenestoff
+[14:44:28] profile bn q2_s50.bn1 prenest
+[14:44:50] profile bn q2_s50.bn1 flat
+[14:45:05] profile bn q2_c50.orig base
+[14:46:06] profile bn q2_c50.orig prenestoff
+[14:46:55] profile bn q2_c50.orig prenest
+[14:47:32] profile bn q2_c50.orig flat
+[14:47:59] profile bn q2_c50.bn2 base
+[14:48:40] profile bn q2_c50.bn2 prenestoff
+[14:49:20] profile bn q2_c50.bn2 prenest
+[14:49:52] profile bn q2_c50.bn2 flat
+[14:50:17] step repro
+[14:50:19] profile repro1 q2_s50 base
+[14:51:08] profile repro1 q2_s50 prenestoff
+[14:51:43] profile repro1 q2_s50 prenest
+[14:52:12] profile repro1 q2_s50 flat
+[14:52:27] profile repro1 q2_s50 pureflat
+[14:52:36] profile repro1 q1_s50 base
+[14:53:21] profile repro1 q1_s50 prenestoff
+[14:53:52] profile repro1 q1_s50 prenest
+[14:54:23] profile repro1 q1_s50 flat
+[14:55:13] profile repro1 q1_s50 pureflat
+[14:56:02] profile repro1 q3_c11 base
+[14:56:35] profile repro1 q3_c11 prenestoff
+[14:57:07] profile repro1 q3_c11 prenest
+[14:57:39] profile repro1 q3_c11 flat
+[14:58:07] profile repro1 q3_c11 pureflat
+[14:58:22] profile repro2 q2_s50 base
+[14:59:10] profile repro2 q2_s50 prenestoff
+[14:59:45] profile repro2 q2_s50 prenest
+[15:00:14] profile repro2 q2_s50 flat
+[15:00:29] profile repro2 q2_s50 pureflat
+[15:00:38] profile repro2 q1_s50 base
+[15:01:22] profile repro2 q1_s50 prenestoff
+[15:01:54] profile repro2 q1_s50 prenest
+[15:02:24] profile repro2 q1_s50 flat
+[15:03:13] profile repro2 q1_s50 pureflat
+[15:04:02] profile repro2 q3_c11 base
+[15:04:35] profile repro2 q3_c11 prenestoff
+[15:05:08] profile repro2 q3_c11 prenest
+[15:05:40] profile repro2 q3_c11 flat
+[15:06:09] profile repro2 q3_c11 pureflat
+[15:06:23] done: /home/layun03/nested-bench/duckdb_rey/benchmark/nested_parquet/trade_20261028/issues_20261030/server_extra1

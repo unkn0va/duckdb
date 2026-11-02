@@ -1,0 +1,182 @@
+query,config,wall_ms,cpu_ms,category,sub,cpu_ms_category
+q2_s50,base,21380.0,21385.0,리스트 조립,list/struct reader,10986.4
+q2_s50,base,21380.0,21385.0,UNNEST,unnest,2802.5
+q2_s50,base,21380.0,21385.0,값 디코드,decode,2767.9
+q2_s50,base,21380.0,21385.0,값 디코드,levels/skip,2386.4
+q2_s50,base,21380.0,21385.0,원소 다루기,FILTER,1276.5
+q2_s50,base,21380.0,21385.0,기타,실행기/결과,405.4
+q2_s50,base,21380.0,21385.0,집계,aggregate,250.2
+q2_s50,base,21380.0,21385.0,원소 다루기,PROJECTION,197.3
+q2_s50,base,21380.0,21385.0,값 디코드,scan,143.4
+q2_s50,base,21380.0,21385.0,기타,잘린 스택,138.0
+q2_s50,base,21380.0,21385.0,기타,duckdb 미분류,29.6
+q2_s50,base,21380.0,21385.0,기타,kernel,1.4
+q2_s50,prenestoff,15356.0,15361.0,리스트 조립,list/struct reader,8377.3
+q2_s50,prenestoff,15356.0,15361.0,UNNEST,unnest,2792.2
+q2_s50,prenestoff,15356.0,15361.0,원소 다루기,FILTER,1287.4
+q2_s50,prenestoff,15356.0,15361.0,값 디코드,decode,1218.8
+q2_s50,prenestoff,15356.0,15361.0,값 디코드,levels/skip,643.6
+q2_s50,prenestoff,15356.0,15361.0,기타,실행기/결과,399.0
+q2_s50,prenestoff,15356.0,15361.0,집계,aggregate,261.5
+q2_s50,prenestoff,15356.0,15361.0,원소 다루기,PROJECTION,207.3
+q2_s50,prenestoff,15356.0,15361.0,값 디코드,scan,112.6
+q2_s50,prenestoff,15356.0,15361.0,기타,잘린 스택,41.0
+q2_s50,prenestoff,15356.0,15361.0,기타,duckdb 미분류,14.2
+q2_s50,prenestoff,15356.0,15361.0,기타,kernel,5.1
+q2_s50,prenestoff,15356.0,15361.0,기타,libc,1.0
+q2_s50,prenest,12008.0,12014.0,리스트 조립,list/struct reader,5470.8
+q2_s50,prenest,12008.0,12014.0,UNNEST,unnest,2697.1
+q2_s50,prenest,12008.0,12014.0,값 디코드,decode,1179.8
+q2_s50,prenest,12008.0,12014.0,원소 다루기,prenest 조건,1062.9
+q2_s50,prenest,12008.0,12014.0,값 디코드,levels/skip,635.1
+q2_s50,prenest,12008.0,12014.0,집계,aggregate,242.8
+q2_s50,prenest,12008.0,12014.0,기타,실행기/결과,233.8
+q2_s50,prenest,12008.0,12014.0,원소 다루기,FILTER,216.9
+q2_s50,prenest,12008.0,12014.0,값 디코드,scan,95.6
+q2_s50,prenest,12008.0,12014.0,원소 다루기,PROJECTION,90.0
+q2_s50,prenest,12008.0,12014.0,기타,잘린 스택,72.0
+q2_s50,prenest,12008.0,12014.0,기타,duckdb 미분류,9.6
+q2_s50,prenest,12008.0,12014.0,원소 다루기,식,6.0
+q2_s50,prenest,12008.0,12014.0,기타,libc,1.7
+q2_s50,flat,6270.0,6276.0,키 생성,node keys,3493.0
+q2_s50,flat,6270.0,6276.0,값 디코드,decode,927.9
+q2_s50,flat,6270.0,6276.0,값 디코드,levels/skip,596.0
+q2_s50,flat,6270.0,6276.0,원소 다루기,스캔 필터,569.0
+q2_s50,flat,6270.0,6276.0,값 디코드,scan,302.5
+q2_s50,flat,6270.0,6276.0,집계,aggregate,300.0
+q2_s50,flat,6270.0,6276.0,기타,실행기/결과,50.6
+q2_s50,flat,6270.0,6276.0,기타,잘린 스택,29.0
+q2_s50,flat,6270.0,6276.0,원소 다루기,PROJECTION,7.0
+q2_s50,flat,6270.0,6276.0,기타,duckdb 미분류,1.0
+q2_s50,pureflat,3315.0,4858.0,값 디코드,decode,3026.2
+q2_s50,pureflat,3315.0,4858.0,값 디코드,levels/skip,402.4
+q2_s50,pureflat,3315.0,4858.0,원소 다루기,스캔 필터,400.1
+q2_s50,pureflat,3315.0,4858.0,기타,실행기/결과,363.2
+q2_s50,pureflat,3315.0,4858.0,집계,aggregate,309.6
+q2_s50,pureflat,3315.0,4858.0,값 디코드,scan,306.9
+q2_s50,pureflat,3315.0,4858.0,기타,잘린 스택,28.0
+q2_s50,pureflat,3315.0,4858.0,원소 다루기,PROJECTION,9.4
+q2_s50,pureflat,3315.0,4858.0,기타,duckdb 미분류,7.2
+q2_s50,pureflat,3315.0,4858.0,원소 다루기,식,3.0
+q2_s50,pureflat,3315.0,4858.0,기타,kernel,1.1
+q2_s50,pureflat,3315.0,4858.0,기타,libc,1.0
+q1_s50,base,19016.0,19695.0,리스트 조립,list/struct reader,11088.0
+q1_s50,base,19016.0,19695.0,값 디코드,decode,3173.0
+q1_s50,base,19016.0,19695.0,값 디코드,levels/skip,2465.3
+q1_s50,base,19016.0,19695.0,UNNEST,unnest,1633.0
+q1_s50,base,19016.0,19695.0,기타,실행기/결과,552.0
+q1_s50,base,19016.0,19695.0,값 디코드,scan,269.4
+q1_s50,base,19016.0,19695.0,집계,aggregate,250.0
+q1_s50,base,19016.0,19695.0,기타,잘린 스택,119.0
+q1_s50,base,19016.0,19695.0,원소 다루기,PROJECTION,94.3
+q1_s50,base,19016.0,19695.0,원소 다루기,스캔 필터,41.2
+q1_s50,base,19016.0,19695.0,기타,duckdb 미분류,8.8
+q1_s50,base,19016.0,19695.0,기타,libc,1.0
+q1_s50,prenestoff,13215.0,13952.0,리스트 조립,list/struct reader,8107.8
+q1_s50,prenestoff,13215.0,13952.0,값 디코드,decode,1837.2
+q1_s50,prenestoff,13215.0,13952.0,UNNEST,unnest,1543.3
+q1_s50,prenestoff,13215.0,13952.0,값 디코드,levels/skip,735.0
+q1_s50,prenestoff,13215.0,13952.0,기타,실행기/결과,593.7
+q1_s50,prenestoff,13215.0,13952.0,기타,duckdb 미분류,507.1
+q1_s50,prenestoff,13215.0,13952.0,집계,aggregate,234.4
+q1_s50,prenestoff,13215.0,13952.0,값 디코드,scan,178.2
+q1_s50,prenestoff,13215.0,13952.0,기타,잘린 스택,88.0
+q1_s50,prenestoff,13215.0,13952.0,원소 다루기,PROJECTION,81.0
+q1_s50,prenestoff,13215.0,13952.0,원소 다루기,스캔 필터,40.0
+q1_s50,prenestoff,13215.0,13952.0,기타,kernel,3.4
+q1_s50,prenestoff,13215.0,13952.0,기타,libc,2.0
+q1_s50,prenestoff,13215.0,13952.0,원소 다루기,prenest 조건,1.0
+q1_s50,prenest,13135.0,13895.0,리스트 조립,list/struct reader,8368.5
+q1_s50,prenest,13135.0,13895.0,값 디코드,decode,1765.6
+q1_s50,prenest,13135.0,13895.0,UNNEST,unnest,1470.0
+q1_s50,prenest,13135.0,13895.0,값 디코드,levels/skip,823.6
+q1_s50,prenest,13135.0,13895.0,기타,실행기/결과,571.3
+q1_s50,prenest,13135.0,13895.0,기타,duckdb 미분류,289.1
+q1_s50,prenest,13135.0,13895.0,집계,aggregate,229.5
+q1_s50,prenest,13135.0,13895.0,값 디코드,scan,222.0
+q1_s50,prenest,13135.0,13895.0,원소 다루기,PROJECTION,88.8
+q1_s50,prenest,13135.0,13895.0,원소 다루기,스캔 필터,35.6
+q1_s50,prenest,13135.0,13895.0,기타,잘린 스택,29.0
+q1_s50,prenest,13135.0,13895.0,기타,kernel,1.1
+q1_s50,prenest,13135.0,13895.0,기타,libc,1.0
+q1_s50,flat,21945.0,21952.0,join,hash join,12730.5
+q1_s50,flat,21945.0,21952.0,키 생성,node keys,4427.9
+q1_s50,flat,21945.0,21952.0,값 디코드,decode,1627.5
+q1_s50,flat,21945.0,21952.0,값 디코드,levels/skip,778.0
+q1_s50,flat,21945.0,21952.0,기타,잘린 스택,563.0
+q1_s50,flat,21945.0,21952.0,집계,aggregate,531.0
+q1_s50,flat,21945.0,21952.0,값 디코드,scan,485.5
+q1_s50,flat,21945.0,21952.0,기타,실행기/결과,236.6
+q1_s50,flat,21945.0,21952.0,원소 다루기,PROJECTION,192.3
+q1_s50,flat,21945.0,21952.0,join,join 필터,190.0
+q1_s50,flat,21945.0,21952.0,원소 다루기,스캔 필터,165.9
+q1_s50,flat,21945.0,21952.0,기타,duckdb 미분류,23.9
+q1_s50,pureflat,20786.0,23187.0,join,hash join,11354.9
+q1_s50,pureflat,20786.0,23187.0,값 디코드,decode,7182.3
+q1_s50,pureflat,20786.0,23187.0,값 디코드,levels/skip,1078.4
+q1_s50,pureflat,20786.0,23187.0,기타,실행기/결과,786.5
+q1_s50,pureflat,20786.0,23187.0,원소 다루기,PROJECTION,687.4
+q1_s50,pureflat,20786.0,23187.0,원소 다루기,스캔 필터,614.1
+q1_s50,pureflat,20786.0,23187.0,집계,aggregate,534.1
+q1_s50,pureflat,20786.0,23187.0,값 디코드,scan,487.3
+q1_s50,pureflat,20786.0,23187.0,join,join 필터,418.6
+q1_s50,pureflat,20786.0,23187.0,기타,잘린 스택,30.0
+q1_s50,pureflat,20786.0,23187.0,기타,duckdb 미분류,10.3
+q1_s50,pureflat,20786.0,23187.0,원소 다루기,식,3.0
+q3_c11,base,14011.0,14017.0,리스트 조립,list/struct reader,4889.0
+q3_c11,base,14011.0,14017.0,UNNEST,unnest,3140.6
+q3_c11,base,14011.0,14017.0,값 디코드,levels/skip,2447.7
+q3_c11,base,14011.0,14017.0,값 디코드,decode,1411.9
+q3_c11,base,14011.0,14017.0,원소 다루기,FILTER,1239.9
+q3_c11,base,14011.0,14017.0,집계,aggregate,494.6
+q3_c11,base,14011.0,14017.0,기타,실행기/결과,220.4
+q3_c11,base,14011.0,14017.0,값 디코드,scan,69.5
+q3_c11,base,14011.0,14017.0,기타,잘린 스택,46.0
+q3_c11,base,14011.0,14017.0,원소 다루기,PROJECTION,40.1
+q3_c11,base,14011.0,14017.0,기타,duckdb 미분류,13.2
+q3_c11,base,14011.0,14017.0,join,join 필터,3.0
+q3_c11,base,14011.0,14017.0,원소 다루기,식,1.2
+q3_c11,prenestoff,13872.0,13878.0,리스트 조립,list/struct reader,4745.2
+q3_c11,prenestoff,13872.0,13878.0,UNNEST,unnest,3124.4
+q3_c11,prenestoff,13872.0,13878.0,값 디코드,levels/skip,2449.8
+q3_c11,prenestoff,13872.0,13878.0,값 디코드,decode,1418.6
+q3_c11,prenestoff,13872.0,13878.0,원소 다루기,FILTER,1228.4
+q3_c11,prenestoff,13872.0,13878.0,집계,aggregate,474.0
+q3_c11,prenestoff,13872.0,13878.0,기타,실행기/결과,291.0
+q3_c11,prenestoff,13872.0,13878.0,값 디코드,scan,69.7
+q3_c11,prenestoff,13872.0,13878.0,기타,잘린 스택,31.0
+q3_c11,prenestoff,13872.0,13878.0,원소 다루기,PROJECTION,31.0
+q3_c11,prenestoff,13872.0,13878.0,기타,duckdb 미분류,12.8
+q3_c11,prenestoff,13872.0,13878.0,원소 다루기,prenest 조건,2.0
+q3_c11,prenest,13842.0,13849.0,리스트 조립,list/struct reader,4747.8
+q3_c11,prenest,13842.0,13849.0,UNNEST,unnest,3095.5
+q3_c11,prenest,13842.0,13849.0,값 디코드,levels/skip,2365.7
+q3_c11,prenest,13842.0,13849.0,값 디코드,decode,1556.4
+q3_c11,prenest,13842.0,13849.0,원소 다루기,FILTER,1177.8
+q3_c11,prenest,13842.0,13849.0,집계,aggregate,487.1
+q3_c11,prenest,13842.0,13849.0,기타,실행기/결과,249.8
+q3_c11,prenest,13842.0,13849.0,값 디코드,scan,60.3
+q3_c11,prenest,13842.0,13849.0,기타,잘린 스택,51.0
+q3_c11,prenest,13842.0,13849.0,원소 다루기,PROJECTION,41.2
+q3_c11,prenest,13842.0,13849.0,기타,duckdb 미분류,16.4
+q3_c11,flat,12111.0,12122.0,키 생성,node keys,6055.0
+q3_c11,flat,12111.0,12122.0,값 디코드,levels/skip,2363.2
+q3_c11,flat,12111.0,12122.0,값 디코드,decode,1370.9
+q3_c11,flat,12111.0,12122.0,원소 다루기,스캔 필터,1033.4
+q3_c11,flat,12111.0,12122.0,값 디코드,scan,593.3
+q3_c11,flat,12111.0,12122.0,집계,aggregate,584.4
+q3_c11,flat,12111.0,12122.0,기타,실행기/결과,79.7
+q3_c11,flat,12111.0,12122.0,기타,잘린 스택,22.0
+q3_c11,flat,12111.0,12122.0,원소 다루기,PROJECTION,13.0
+q3_c11,flat,12111.0,12122.0,기타,duckdb 미분류,6.0
+q3_c11,flat,12111.0,12122.0,기타,kernel,1.1
+q3_c11,pureflat,5653.0,8031.0,값 디코드,decode,3857.1
+q3_c11,pureflat,5653.0,8031.0,값 디코드,levels/skip,1673.7
+q3_c11,pureflat,5653.0,8031.0,기타,실행기/결과,790.8
+q3_c11,pureflat,5653.0,8031.0,값 디코드,scan,651.5
+q3_c11,pureflat,5653.0,8031.0,집계,aggregate,647.0
+q3_c11,pureflat,5653.0,8031.0,원소 다루기,스캔 필터,349.5
+q3_c11,pureflat,5653.0,8031.0,기타,잘린 스택,35.0
+q3_c11,pureflat,5653.0,8031.0,원소 다루기,PROJECTION,22.4
+q3_c11,pureflat,5653.0,8031.0,기타,duckdb 미분류,2.0
+q3_c11,pureflat,5653.0,8031.0,join,join 필터,2.0

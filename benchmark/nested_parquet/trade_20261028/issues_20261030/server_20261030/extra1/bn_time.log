@@ -1,0 +1,16 @@
+q2_c50.orig            base          25.744 s  result yes  
+q2_c50.orig            prenestoff    20.917 s  result yes  
+q2_c50.orig            prenest       15.337 s  result yes  
+q2_c50.orig            flat          11.303 s  result yes  
+q2_c50.bn2             base          17.184 s  result yes  
+q2_c50.bn2             prenestoff    16.485 s  result yes  
+q2_c50.bn2             prenest       13.203 s  result yes  
+q2_c50.bn2             flat          11.206 s  result yes  
+q2_s50.orig            base          20.947 s  result yes  
+q2_s50.orig            prenestoff    14.927 s  result yes  
+q2_s50.orig            prenest       11.702 s  result yes  
+q2_s50.orig            flat           6.141 s  result yes  
+q2_s50.bn1             base           9.161 s  result yes  
+q2_s50.bn1             prenestoff     8.911 s  result yes  
+q2_s50.bn1             prenest        8.920 s  result yes  
+q2_s50.bn1             flat           6.129 s  result yes  

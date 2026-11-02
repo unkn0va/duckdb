@@ -1,0 +1,57 @@
+q3_c11,base: threads=1 wall 14011 ms, CPU 14017 ms (14017 samples, 1000 Hz)
+stack depth: median 30 frames, 2% of the samples with fewer than 3
+truncated stacks: 58.2% of the samples
+CPU ms per category (sub-categories in brackets):
+  값 디코드        3868   27.6%  [levels/skip 2354, decode 1444, scan 70]
+  리스트 조립       4965   35.4%  [list/struct reader 4965]
+  UNNEST       3164   22.6%  [unnest 3164]
+  원소 다루기       1241    8.9%  [FILTER 1209, PROJECTION 29, 식 3]
+  집계            491    3.5%  [aggregate 491]
+  기타            288    2.1%  [실행기/결과 233, 잘린 스택 44, duckdb 미분류 11]
+hottest sampled functions per category:
+  값 디코드       1365 ms  void duckdb::RleBpDecoder::GetBatch<unsigned int>
+  값 디코드        682 ms  void duckdb::RleBpDecoder::GetBatch<unsigned char>
+  값 디코드        642 ms  duckdb::DictionaryDecoder::GetValidValues
+  값 디코드        292 ms  [unknown]
+  값 디코드        201 ms  void duckdb_snappy::SnappyDecompressor::DecompressAllTags<duckdb_snappy::SnappyArrayWriter>
+  리스트 조립      2226 ms  unsigned long duckdb::ListColumnReader::ReadInternal<duckdb::TemplatedListReader>
+  리스트 조립      1810 ms  duckdb::ValidityMask::CopySel
+  리스트 조립       470 ms  duckdb::CopyVectorBuffer
+  리스트 조립       132 ms  __memcpy_evex_unaligned_erms
+  리스트 조립        51 ms  duckdb::ListColumnReader::ApplyPendingSkips
+  UNNEST      2725 ms  duckdb::PhysicalUnnest::ExecuteInternal
+  UNNEST       312 ms  duckdb::UnnestOperatorState::PrepareInput
+  UNNEST        19 ms  std::_Sp_counted_base<(__gnu_cxx::_Lock_policy)2>::_M_release
+  UNNEST        12 ms  duckdb::DictionaryBuffer::DictionaryBuffer
+  UNNEST        11 ms  duckdb::StandardVectorBuffer::SliceInternal
+  원소 다루기       491 ms  unsigned long duckdb::ScalarExecutor::SelectOutputDispatch<duckdb::BinaryExecutor::SelectPolicy, duckdb::Binar
+  원소 다루기       399 ms  duckdb::SelectionVector::Slice
+  원소 다루기        39 ms  std::_Sp_counted_base<(__gnu_cxx::_Lock_policy)2>::_M_release
+  원소 다루기        22 ms  duckdb::DictionaryBuffer::SliceInternal
+  원소 다루기        19 ms  duckdb_je_malloc
+  집계           407 ms  void duckdb::(anonymous namespace)::ClusteredSumOperation<duckdb::BaseSumOperation<duckdb::(anonymous namespac
+  집계            12 ms  duckdb::VectorCacheEntry::ResetFromCache
+  집계             9 ms  std::_Sp_counted_base<(__gnu_cxx::_Lock_policy)2>::_M_release
+  집계             6 ms  duckdb::UnifiedVectorFormat::~UnifiedVectorFormat
+  집계             6 ms  duckdb::ExpressionExecutor::Execute
+  기타            59 ms  duckdb::VectorCacheEntry::ResetFromCache
+  기타            35 ms  std::_Sp_counted_base<(__gnu_cxx::_Lock_policy)2>::_M_release
+  기타            16 ms  duckdb::PipelineExecutor::Execute
+  기타            12 ms  duckdb::DataChunk::Reset
+  기타            10 ms  duckdb::DictionaryBuffer::~DictionaryBuffer
+  기타             9 ms  duckdb::VectorBuffer::SetVectorSize
+  기타             7 ms  bool duckdb::TryPrimitiveSelectOperation<duckdb::GreaterThan>
+  기타             7 ms  _int_free
+callers of the watched functions (category of the sample / the next three frames up):
+  ValidityMask::CopySel: 1845 ms
+      1808 ms  리스트 조립/list/struct reader  < VectorBuffer::Copy < VectorBuffer::Append < unsigned long ListColumnReader::ReadInternal<TemplatedListReader>
+        16 ms  값 디코드/decode  < StandardVectorBuffer::FlattenSliceInternal < VectorBuffer::FlattenSlice < DictionaryBuffer::Flatten
+        15 ms  값 디코드/decode  < VectorBuffer::Copy < VectorOperations::Copy < DictionaryDecoder::Read
+         6 ms  리스트 조립/list/struct reader  < [unknown]
+  SelectionVector::Slice: 424 ms
+       424 ms  원소 다루기/FILTER  < DictionaryBuffer::SliceInternal < VectorBuffer::Slice < DictionaryBuffer::SliceWithCache
+  VectorBuffer::Copy: 488 ms
+       480 ms  리스트 조립/list/struct reader  < VectorBuffer::Append < unsigned long ListColumnReader::ReadInternal<TemplatedListReader> < ParquetReader::Process
+         5 ms  값 디코드/decode  < VectorOperations::Copy < DictionaryDecoder::Read < ColumnReader::ReadData
+         2 ms  리스트 조립/list/struct reader  < [unknown]
+         1 ms  기타/duckdb 미분류  < 

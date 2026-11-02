@@ -1,0 +1,64 @@
+q1_s50,base: threads=1 wall 19224 ms, CPU 19948 ms (19948 samples, 1000 Hz)
+stack depth: median 24 frames, 2% of the samples with fewer than 3
+truncated stacks: 90.4% of the samples
+CPU ms per category (sub-categories in brackets):
+  값 디코드        6144   30.8%  [decode 3429, levels/skip 2483, scan 232]
+  리스트 조립      11010   55.2%  [list/struct reader 11010]
+  UNNEST       1557    7.8%  [unnest 1557]
+  원소 다루기        149    0.7%  [PROJECTION 98, 스캔 필터 51]
+  집계            258    1.3%  [aggregate 258]
+  기타            830    4.2%  [실행기/결과 660, 잘린 스택 142, duckdb 미분류 27, kernel 1]
+hottest sampled functions per category:
+  값 디코드       1307 ms  duckdb::DictionaryDecoder::GetValidValues
+  값 디코드        894 ms  void duckdb::RleBpDecoder::GetBatch<unsigned int>
+  값 디코드        814 ms  [unknown]
+  값 디코드        624 ms  void duckdb::RleBpDecoder::GetBatch<unsigned char>
+  값 디코드        459 ms  duckdb_fastpforlib::internal::__fastunpack1
+  리스트 조립      3710 ms  duckdb::ValidityMask::CopySel
+  리스트 조립      3143 ms  duckdb::VectorStringBuffer::CopyInternal
+  리스트 조립      1659 ms  unsigned long duckdb::ListColumnReader::ReadInternal<duckdb::TemplatedListReader>
+  리스트 조립       748 ms  __memcpy_evex_unaligned_erms
+  리스트 조립       420 ms  duckdb::CopyVectorBuffer
+  UNNEST      1171 ms  duckdb::PhysicalUnnest::ExecuteInternal
+  UNNEST       148 ms  duckdb::UnnestOperatorState::PrepareInput
+  UNNEST        79 ms  duckdb::SelectionVector::Slice
+  UNNEST        12 ms  std::_Sp_counted_base<(__gnu_cxx::_Lock_policy)2>::_M_release
+  UNNEST        11 ms  tcache_get_n
+  원소 다루기        17 ms  duckdb::ExpressionExecutor::Execute
+  원소 다루기        17 ms  duckdb::ExecuteExpressionFilterSelection
+  원소 다루기        11 ms  unsigned long duckdb::ComparisonFilterExecutor::SelectTyped<long>
+  원소 다루기         9 ms  unsigned long duckdb::ScalarExecutor::SelectOutputDispatch<duckdb::BinaryExecutor::SelectPolicy, duckdb::Binar
+  원소 다루기         9 ms  std::_Sp_counted_base<(__gnu_cxx::_Lock_policy)2>::_M_release
+  집계           226 ms  void duckdb::(anonymous namespace)::ClusteredSumOperation<duckdb::BaseSumOperation<duckdb::(anonymous namespac
+  집계             4 ms  duckdb::VectorCacheEntry::ResetFromCache
+  집계             4 ms  duckdb::ExpressionExecutor::ExecuteExpression
+  집계             3 ms  std::_Sp_counted_base<(__gnu_cxx::_Lock_policy)2>::_M_release
+  집계             3 ms  duckdb::BoundAggregateExpression& duckdb::BaseExpression::Cast<duckdb::BoundAggregateExpression>
+  기타           173 ms  [unknown]
+  기타            88 ms  duckdb::TaskSchedulerPool::Wait
+  기타            85 ms  duckdb::VectorCacheEntry::ResetFromCache
+  기타            47 ms  __malloc_trim
+  기타            39 ms  mtrim
+  기타            26 ms  std::_Sp_counted_base<(__gnu_cxx::_Lock_policy)2>::_M_release
+  기타            17 ms  duckdb::VectorBuffer::SetVectorSize
+  기타            14 ms  duckdb::VectorStructBuffer::SetVectorSize
+callers of the watched functions (category of the sample / the next three frames up):
+  ValidityMask::CopySel: 3866 ms
+      3720 ms  리스트 조립/list/struct reader  < VectorBuffer::Copy < VectorStructBuffer::CopyInternal < VectorBuffer::Copy
+        74 ms  값 디코드/decode  < VectorBuffer::Copy < VectorOperations::Copy < DictionaryDecoder::Read
+        43 ms  값 디코드/decode  < StandardVectorBuffer::FlattenSliceInternal < VectorStringBuffer::FlattenSliceInternal < VectorBuffer::FlattenSlice
+        22 ms  값 디코드/decode  < StandardVectorBuffer::FlattenSliceInternal < VectorBuffer::FlattenSlice < DictionaryBuffer::Flatten
+         6 ms  리스트 조립/list/struct reader  < [unknown]
+         1 ms  기타/kernel  < DictionaryBuffer::SliceInternal
+  VectorStringBuffer::CopyInternal: 3520 ms
+      3428 ms  리스트 조립/list/struct reader  < VectorBuffer::Copy < VectorStructBuffer::CopyInternal < VectorBuffer::Copy
+        57 ms  값 디코드/decode  < VectorBuffer::Copy < VectorOperations::Copy < DictionaryDecoder::Read
+        35 ms  리스트 조립/list/struct reader  < [unknown]
+  VectorBuffer::Copy: 496 ms
+       455 ms  리스트 조립/list/struct reader  < VectorStructBuffer::CopyInternal < VectorBuffer::Copy < VectorBuffer::Append
+        21 ms  리스트 조립/list/struct reader  < VectorBuffer::Append < unsigned long ListColumnReader::ReadInternal<TemplatedListReader> < ParquetReader::DecodeRemainingColumns
+        18 ms  값 디코드/decode  < VectorOperations::Copy < DictionaryDecoder::Read < ColumnReader::ReadData
+         2 ms  기타/잘린 스택  < [unknown]
+  SelectionVector::Slice: 135 ms
+        99 ms  UNNEST/unnest  < DictionaryBuffer::SliceInternal < VectorBuffer::Slice < Vector::Slice
+        36 ms  값 디코드/scan  < DictionaryBuffer::SliceInternal < VectorBuffer::Slice < DictionaryBuffer::SliceWithCache
