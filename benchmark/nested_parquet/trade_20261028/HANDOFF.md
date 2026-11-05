@@ -60,6 +60,15 @@
 | `pureflat/parent.parquet` | `sk`와 스칼라 열 | pure flat |
 | `pureflat/{c11..c14,legs}.parquet` | `ak0`(부모 sk) + 원소 한 행씩 | pure flat |
 
+후속 실험이 만든 파일 (**apache10에만**, `data/full`과 그 옆 폴더. 만드는 스크립트가 없으면 새로 만들고, 있으면 그대로 씀):
+
+| 파일 | 만드는 것 | 내용 | 검증 |
+|---|---|---|---|
+| `full/trade_Bn1.parquet`, `trade_Bn2.parquet` | `write_trade.py --narrow` (`run_issue1.sh` `bn`) | B에서 legs 필드를 value만 / leg_id·value만 남김 (후속 A) | `extra1/bn_verify.md`: 행·내용 해시·row group·쓰기 설정이 B와 같음 |
+| `full/trade_Bsorted.parquet` | `write_trade.py --sort-legs` (`run_followup2.sh` `g1`, 12분 43초, 최대 11.4GB) | B의 행을 가장 작은 leg_id 순으로 (G1) | `followup2/g1_sorted_verify.md`: 순서 무관 해시·row group·쓰기 설정이 B와 같음 |
+| `dims_k/dim_k<k>.parquet`, `fanout/fanout.duckdb` | `make_fanout.py` (`run_issue2.sh` `fanout`) | 시나리오마다 날짜 k개인 차원 표, 사실·차원 표의 DuckDB 테이블 (후속 D, G3) | `extra2/fanout_data.md`는 행 수만. 내용은 parquet로 돈 쿼리와 결과가 같은 것으로 확인(후속 D 110개, G3 단계 쿼리 9개) |
+| `syn/syn_L<L>.parquet` (L = 1–32, 합 약 32GB) | `make_syn.py` (`run_followup2.sh` `g4`) | 길이가 정확히 L인 BIGINT 리스트 1억 개 (G4) | `followup2/g4_files.md`: DuckDB가 만든 원본과 같음 |
+
 1억 행 기준 원소 수와 row group 수:
 
 | 열 | 원소 | 리스트당 최대 | row group |
@@ -116,6 +125,14 @@
 | `branch_stats.py` | perf stat branches/branch-misses (두 번째 실행만) |
 | `make_issue_queries.py` | `queries_stage/`(1-1 단계), `queries_plans/`(2-1 변형), `queries_build/`(q4_two build 쪽) |
 | `summarize_issue1.py`, `summarize_issue2.py` | 결과 폴더 → `summary.md`. 범주 표는 옛 기준과 새 기준 둘 다 |
+| `stage_check.py`, `counts.py`, `plans.py` | 단계 쿼리가 의도한 단계에서 멈추는지, 쿼리별 리스트·원소 수, EXPLAIN ANALYZE를 연산자 목록으로 |
+| `run_issue1.sh` `bn`·`repro`, `run_issue2.sh` `fanout` | 후속 A(빈칸 복사), B(perf 재현성), D(합계 먼저 곡선). 기본 단계에는 없음 |
+| `verify_narrow.py` | 줄인 파일(`--narrow`)이나 순서를 바꾼 파일(`--reordered`)이 B와 같은지 |
+| `make_fanout.py`, `summarize_extra.py`, `make_figures.py` | 후속 D 데이터, 후속 A·B·D 표, 그래프 데이터 fig1–6(`server_20261030/figures/`) |
+| `run_followup2.sh` | 후속 G. 단계 `check g2 g1 g3 g4 summary`. 변수 `PERF RUNS FREQ TOPDOWN SYN_LISTS(1억)` |
+| `perf_stat.py` | perf stat 카운터·metric group(`-M TopdownL1`)을 두 번째 실행만. `MAXRSS=1`은 `/usr/bin/time -v`로 감싸지만, `PERF="sudo perf"`이면 sudo를 재므로 쓰지 않음(7절) |
+| `skip_check.py` | 스캔한 row group 수와 조건을 평가한 원소 수. flat은 디버그 로그의 건너뛴 작업 수와 parquet 통계 |
+| `make_syn.py`, `summarize_g.py` | G4 합성 파일, G1–G4 표 |
 
 상위 폴더(`benchmark/nested_parquet/`):
 
@@ -136,6 +153,8 @@
 - 이슈 1·2 서버 결과(커밋됨): `issues_20261030/server_20261030/`
   - `issue1/`(10-30, 단계 쿼리, 파라미터 perf, TPC-H), `issue2/`(cardinality 10-30, 계획 변형 10-31)
   - `issue1c/`(10-31, 분기 예측, q4_two build 쪽, q6·q7 perf), `issue1d/`(11-01, branch-miss 함수별 샘플링)
+  - `extra1/`(11-01, 후속 A 빈칸 복사, B perf 재현성), `extra2/`(11-02, 후속 D 합계 먼저 곡선), `figures/`(후속 E 그래프 데이터)
+  - `followup2/`(11-05, 후속 G1–G4), `followup2_rss/`(11-05, q4_two 최대 RSS를 perf 없이)
   - `analysis.md`(정리), `../report_20261101.md`(주간 보고서). 이 PC 시험은 `issues_20261030/local_2m/`
 
 주요 결론 (1스레드, base 대비 배수):
@@ -242,6 +261,8 @@
   - 확인은 **개수로** 합니다. 예: `grep -c 'result yes' <폴더>/variants.log`가 60. `grep -vc`는 빈 파일에도 0을 내므로 쓰지 않습니다(2026-10-30에 이것 때문에 2-1이 안 돈 것을 놓침).
 - `sudo perf`로 dwarf call stack 샘플링과 perf stat(하드웨어 카운터)이 됩니다. 이 PC(WSL)는 하드웨어 카운터가 없고, perf는 `linux-tools-6.8.0-147`을 풀어 씁니다(`issues_20261030/README.md`).
 - 서버 perf에서 스택이 잘린 샘플이 실행당 중앙값 12.5%입니다. 대부분 16KB 복사 한계에서 shell 프레임 위가 잘린 것이라 무해합니다. 잎 바로 위에서 잘린 것(중앙값 5%)은 `categories.classify_samples`가 같은 잎 함수의 비율로 나눕니다.
+- apache10(Cascade Lake, 커널 6.8.0-147)은 `sudo perf stat -M TopdownL1`이 됩니다(멀티플렉싱됨). 그래서 miss 수는 따로 실행해 잽니다(`followup2/check.txt`).
+- 최대 메모리(RSS)는 perf 없이 따로 잽니다. `/usr/bin/time -v`로 `sudo perf`를 감싸면 sudo의 RSS(약 6.7MB)가 나옵니다(2026-11-05 G2에서 겪음).
 - 서버 데이터 경로
   - 1억 행: `trade_20261028/data/full`
   - recheck용 이전 데이터: `~/nested-bench/data`, `~/nested-bench/data_rg1`, `~/nested-bench/data_rg20` (`ORIG_DATA`)
@@ -271,6 +292,15 @@
 | `137eeb15dc1` | branch-miss 이벤트 샘플링 (`branchprof`) |
 | `8eda88fb8c8` | `issue1d/`, prenest q2_s50 branch-miss 원인 |
 | `238cb360429` | 주간 보고서 `report_20261101.md` |
-| (이 커밋) | HANDOFF.md 이번 주 마무리 |
+| `033d7f8cc79` | HANDOFF.md 이번 주 마무리 |
+| `e6b8faef113` | 후속 A·B·D 스크립트 (빈칸 복사, perf 재현성, 합계 먼저 곡선) |
+| `52deea93763` | 후속 C q4_two build 확인, 후속 E 그래프 데이터 |
+| `444fe3cfd2b` | 후속 A·B 결과 `extra1/` |
+| `df2f94ba44a` | 후속 D 결과 `extra2/`, fig5 |
+| `1813c50fb52` | 보고서에 후속 A~E 반영 |
 | `03ed80d4fde`, `db36a441352` | 후속 G1–G4 스크립트 (서버 측정에 쓴 상태) |
-| (이 커밋) | G 결과 `followup2/`, analysis·보고서의 [추정] → [실측] |
+| `9f544300e1b` | G 결과 `followup2/` |
+| `4c90e92497b` | analysis·보고서의 [추정] → [실측] (G1–G4) |
+| `dbe2cb91187` | q4_two 최대 RSS `followup2_rss/` |
+| `f65a8ba7ecd` | HANDOFF·analysis 날짜와 남은 일 정리 |
+| (이 커밋) | HANDOFF.md 후속 실험 마무리 (데이터, 스크립트, 결과 위치, 서버 규칙, 커밋) |
