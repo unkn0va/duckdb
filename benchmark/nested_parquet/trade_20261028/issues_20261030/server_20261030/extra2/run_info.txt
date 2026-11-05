@@ -1,0 +1,10 @@
+date:     2026-11-02T07:09:24+00:00
+host:     apache10, 40 hardware threads, 125 GiB memory
+cpu:      Intel(R) Xeon(R) Gold 5215 CPU @ 2.50GHz
+uptime:    07:09:24 up 4 days, 14:03,  2 users,  load average: 0.00, 0.00, 0.00
+base:     v2.1.0-dev88383 a809d3cd51  /home/layun03/nested-bench/duckdb_base/build/release/duckdb
+prenest:  v2.1.0-dev88385 fabde05fe6  /home/layun03/nested-bench/duckdb_prenest_base/build/release/duckdb
+final:    v2.1.0-dev88410 2d6066fd4d  /home/layun03/nested-bench/duckdb_rey/build/release/duckdb
+scripts:  52deea93763 nested_parquet: trade follow-ups, q4_two build side checked and figure data of the closed issues
+data:     /home/layun03/nested-bench/duckdb_rey/benchmark/nested_parquet/trade_20261028/data/full, earlier datasets /home/layun03/nested-bench/data
+runs:     10 at 1 thread (variants), cardinality at 20 threads

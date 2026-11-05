@@ -1,0 +1,11 @@
+ORDER_BY                0.000s  rows            3  est           12  
+  HASH_GROUP_BY          32.697s  rows            3  est           12  group: #0; aggregate: count_star(), sum(#1)
+    PROJECTION              0.132s  rows   1399600000  est    349900000  
+      HASH_JOIN              34.633s  rows   1399600000  est    349900000  condition: ak0 = sk
+        probe: PROJECTION              0.634s  rows    349900000  est    349900000  
+          TABLE_SCAN              4.199s  rows    349900000  est    349900000  filename: pureflat/legs.parquet
+        build: PROJECTION              0.720s  rows    400000000  est    100000000  
+          HASH_JOIN               2.493s  rows    400000000  est    100000000  condition: c8 = reg_scenario
+            probe: TABLE_SCAN              2.559s  rows    100000000  est    100000000  filename: pureflat/parent.parquet
+            build: TABLE_SCAN              0.000s  rows           12  est           12  filename: ../dims_k/dim_k4.parquet
+total 91.537 s

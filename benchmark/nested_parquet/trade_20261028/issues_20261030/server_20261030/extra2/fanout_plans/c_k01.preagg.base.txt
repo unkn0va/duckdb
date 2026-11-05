@@ -1,0 +1,17 @@
+PROJECTION              0.000s  rows            3  est            1  
+  ORDER_BY                0.000s  rows            3  est            1  
+    PROJECTION              0.000s  rows            3  est            1  
+      PROJECTION              0.000s  rows            3  est            1  
+        HASH_GROUP_BY           0.001s  rows            3  est            1  group: #0; aggregate: sum(#1), sum(#2)
+          PROJECTION              0.000s  rows            3  est            3  
+            PROJECTION              0.000s  rows            3  est            3  
+              HASH_JOIN               0.000s  rows            3  est            3  condition: c8 = reg_scenario
+                probe: PROJECTION              0.000s  rows            3  est            3  
+                  HASH_GROUP_BY           2.909s  rows            3  est            3  group: #0; aggregate: count_star(), sum(#1)
+                    PROJECTION              0.026s  rows    349900000  est    100000000  
+                      PROJECTION              0.063s  rows    349900000  est    100000000  
+                        PROJECTION              0.183s  rows    349900000  est    100000000  
+                          UNNEST                  3.020s  rows    349900000  est               
+                            TABLE_SCAN              5.233s  rows    100000000  est    100000000  
+                build: TABLE_SCAN              0.000s  rows            3  est            3  
+total 11.801 s

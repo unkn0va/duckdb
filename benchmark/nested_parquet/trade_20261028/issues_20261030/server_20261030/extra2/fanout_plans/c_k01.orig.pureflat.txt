@@ -1,0 +1,16 @@
+PROJECTION              0.000s  rows            3  est            3  
+  ORDER_BY                0.000s  rows            3  est            3  
+    PROJECTION              0.000s  rows            3  est            3  
+      PROJECTION              0.000s  rows            3  est            3  
+        HASH_GROUP_BY           5.301s  rows            3  est            3  group: #0; aggregate: count_star(), sum(#1)
+          PROJECTION              0.027s  rows    349900000  est    142079943  
+            PROJECTION              4.611s  rows    349900000  est    142079943  
+              PROJECTION              4.250s  rows    349900000  est    142079943  
+                HASH_JOIN              15.911s  rows    349900000  est    142079943  condition: ak0 = sk
+                  probe: PROJECTION              0.140s  rows    349900000  est    349900000  
+                    TABLE_SCAN              1.925s  rows    349900000  est    349900000  
+                  build: PROJECTION              0.063s  rows    100000000  est    100000000  
+                    HASH_JOIN               0.475s  rows    100000000  est    100000000  condition: c8 = reg_scenario
+                      probe: TABLE_SCAN              0.359s  rows    100000000  est    100000000  
+                      build: TABLE_SCAN              0.000s  rows            3  est            3  
+total 37.213 s

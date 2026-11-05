@@ -1,0 +1,25 @@
+PROJECTION              0.000s  rows            3  est            3  
+  ORDER_BY                0.000s  rows            3  est            3  
+    PROJECTION              0.000s  rows            3  est            3  
+      PROJECTION              0.000s  rows            3  est            3  
+        PROJECTION              0.000s  rows            3  est            3  
+          HASH_GROUP_BY           0.001s  rows            3  est            3  group: #0; aggregate: combine_aggr(#1, #2), combine_aggr(#3, #4)
+            PROJECTION              0.000s  rows            3  est            3  
+              PROJECTION              0.000s  rows            3  est            3  
+                HASH_JOIN               0.000s  rows            3  est            3  condition: #0 = #0
+                  probe: PROJECTION              0.000s  rows            3  est            3  
+                    HASH_GROUP_BY           5.395s  rows            3  est            3  group: #0; aggregate: count_star() EXPORT_STATE, sum(#1) EXPORT_STATE
+                      PROJECTION              0.026s  rows    349900000  est    142079943  
+                        PROJECTION              4.619s  rows    349900000  est    142079943  
+                          PROJECTION              4.270s  rows    349900000  est    142079943  
+                            HASH_JOIN              16.070s  rows    349900000  est    142079943  condition: ak0 = sk
+                              probe: PROJECTION              0.139s  rows    349900000  est    349900000  
+                                TABLE_SCAN              1.922s  rows    349900000  est    349900000  
+                              build: PROJECTION              0.051s  rows    100000000  est    100000000  
+                                TABLE_SCAN              0.175s  rows    100000000  est    100000000  
+                  build: PROJECTION              0.000s  rows            3  est            3  
+                    HASH_GROUP_BY           0.001s  rows            3  est            3  group: #0; aggregate: count_star()
+                      PROJECTION              0.000s  rows           48  est           48  
+                        PROJECTION              0.000s  rows           48  est           48  
+                          TABLE_SCAN              0.000s  rows           48  est           48  
+total 36.795 s

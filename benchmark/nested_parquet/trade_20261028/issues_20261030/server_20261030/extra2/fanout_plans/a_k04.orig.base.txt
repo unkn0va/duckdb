@@ -1,0 +1,9 @@
+ORDER_BY                0.000s  rows            3  est           12  
+  HASH_GROUP_BY           9.845s  rows            3  est           12  group: #0; aggregate: count_star(), sum(#1)
+    PROJECTION              0.116s  rows   1399600000  est    100000000  
+      HASH_JOIN               8.042s  rows   1399600000  est    100000000  condition: c8 = reg_scenario
+        probe: PROJECTION              0.216s  rows    349900000  est    100000000  
+          UNNEST                  3.043s  rows    349900000  est               
+            TABLE_SCAN             16.741s  rows    100000000  est    100000000  filename: trade_B.parquet
+        build: TABLE_SCAN              0.000s  rows           12  est           12  filename: ../dims_k/dim_k4.parquet
+total 39.020 s

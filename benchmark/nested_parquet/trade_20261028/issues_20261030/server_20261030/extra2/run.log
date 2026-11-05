@@ -1,0 +1,135 @@
+[07:09:24] step info
+date:     2026-11-02T07:09:24+00:00
+host:     apache10, 40 hardware threads, 125 GiB memory
+cpu:      Intel(R) Xeon(R) Gold 5215 CPU @ 2.50GHz
+uptime:    07:09:24 up 4 days, 14:03,  2 users,  load average: 0.00, 0.00, 0.00
+base:     v2.1.0-dev88383 a809d3cd51  /home/layun03/nested-bench/duckdb_base/build/release/duckdb
+prenest:  v2.1.0-dev88385 fabde05fe6  /home/layun03/nested-bench/duckdb_prenest_base/build/release/duckdb
+final:    v2.1.0-dev88410 2d6066fd4d  /home/layun03/nested-bench/duckdb_rey/build/release/duckdb
+scripts:  52deea93763 nested_parquet: trade follow-ups, q4_two build side checked and figure data of the closed issues
+data:     /home/layun03/nested-bench/duckdb_rey/benchmark/nested_parquet/trade_20261028/data/full, earlier datasets /home/layun03/nested-bench/data
+runs:     10 at 1 thread (variants), cardinality at 20 threads
+[07:09:24] step fanout
+| table | rows |
+|---|---|
+| dim_k1 | 3 |
+| dim_k16 | 48 |
+| dim_k2 | 6 |
+| dim_k4 | 12 |
+| dim_k8 | 24 |
+| legs | 349,900,000 |
+| parent | 100,000,000 |
+| trade_b | 100,000,000 |
+
+/home/layun03/nested-bench/duckdb_rey/benchmark/nested_parquet/trade_20261028/data/fanout/fanout.duckdb: 2.62 GB
+a_k01.orig             base          24.722 s  result yes  
+a_k01.orig             prenest       18.654 s  result yes  
+a_k01.orig             flat          36.555 s  result yes  
+a_k01.orig             pureflat      37.542 s  result yes  
+a_k01.preagg           base          22.357 s  result yes  
+a_k01.preagg           prenest       16.374 s  result yes  
+a_k01.preagg           flat          36.074 s  result yes  
+a_k01.preagg           pureflat      36.792 s  result yes  
+a_k02.orig             base          29.774 s  result yes  
+a_k02.orig             prenest       23.962 s  result yes  
+a_k02.orig             flat          54.031 s  result yes  
+a_k02.orig             pureflat      55.350 s  result yes  
+a_k02.preagg           base          22.441 s  result yes  
+a_k02.preagg           prenest       16.367 s  result yes  
+a_k02.preagg           flat          35.797 s  result yes  
+a_k02.preagg           pureflat      36.752 s  result yes  
+a_k04.orig             base          38.492 s  result yes  
+a_k04.orig             prenest       32.343 s  result yes  
+a_k04.orig             flat          87.381 s  result yes  
+a_k04.orig             pureflat      90.909 s  result yes  
+a_k04.preagg           base          22.403 s  result yes  
+a_k04.preagg           prenest       16.357 s  result yes  
+a_k04.preagg           flat          35.884 s  result yes  
+a_k04.preagg           pureflat      36.704 s  result yes  
+a_k08.orig             base          55.144 s  result yes  
+a_k08.orig             prenest       48.881 s  result yes  
+a_k08.orig             flat         173.604 s  result yes  
+a_k08.orig             pureflat     173.255 s  result yes  
+a_k08.preagg           base          22.304 s  result yes  
+a_k08.preagg           prenest       16.442 s  result yes  
+a_k08.preagg           flat          36.095 s  result yes  
+a_k08.preagg           pureflat      37.366 s  result yes  
+a_k16.orig             base          88.536 s  result yes  
+a_k16.orig             prenest       82.155 s  result yes  
+a_k16.orig             flat         323.325 s  result yes  
+a_k16.orig             pureflat     328.767 s  result yes  
+a_k16.preagg           base          22.444 s  result yes  
+a_k16.preagg           prenest       16.452 s  result yes  
+a_k16.preagg           flat          35.927 s  result yes  
+a_k16.preagg           pureflat      36.903 s  result yes  
+b_k01.orig             base          24.432 s  result yes  
+b_k01.orig             prenest       18.716 s  result yes  
+b_k01.orig             flat          36.641 s  result yes  
+b_k01.orig             pureflat      37.826 s  result yes  
+b_k01.preagg           base          22.504 s  result yes  
+b_k01.preagg           prenest       16.443 s  result yes  
+b_k01.preagg           flat          36.083 s  result yes  
+b_k01.preagg           pureflat      36.793 s  result yes  
+b_k02.orig             base          22.445 s  result yes  
+b_k02.orig             prenest       16.372 s  result yes  
+b_k02.orig             flat          54.308 s  result yes  
+b_k02.orig             pureflat      55.955 s  result yes  
+b_k02.preagg           base          22.315 s  result yes  
+b_k02.preagg           prenest       16.386 s  result yes  
+b_k02.preagg           flat          36.321 s  result yes  
+b_k02.preagg           pureflat      37.506 s  result yes  
+b_k04.orig             base          22.573 s  result yes  
+b_k04.orig             prenest       16.485 s  result yes  
+b_k04.orig             flat          35.905 s  result yes  
+b_k04.orig             pureflat      37.285 s  result yes  
+b_k04.preagg           base          22.296 s  result yes  
+b_k04.preagg           prenest       16.496 s  result yes  
+b_k04.preagg           flat          35.998 s  result yes  
+b_k04.preagg           pureflat      36.791 s  result yes  
+b_k08.orig             base          22.489 s  result yes  
+b_k08.orig             prenest       16.454 s  result yes  
+b_k08.orig             flat          35.998 s  result yes  
+b_k08.orig             pureflat      37.106 s  result yes  
+b_k08.preagg           base          22.304 s  result yes  
+b_k08.preagg           prenest       16.413 s  result yes  
+b_k08.preagg           flat          35.759 s  result yes  
+b_k08.preagg           pureflat      36.842 s  result yes  
+b_k16.orig             base          22.523 s  result yes  
+b_k16.orig             prenest       16.502 s  result yes  
+b_k16.orig             flat          36.015 s  result yes  
+b_k16.orig             pureflat      37.132 s  result yes  
+b_k16.preagg           base          22.309 s  result yes  
+b_k16.preagg           prenest       16.399 s  result yes  
+b_k16.preagg           flat          35.970 s  result yes  
+b_k16.preagg           pureflat      36.809 s  result yes  
+c_k01.orig             base          11.604 s  result yes  
+c_k01.orig             prenest       11.677 s  result yes  
+c_k01.orig             pureflat      35.708 s  result yes  
+c_k01.preagg           base           9.792 s  result yes  
+c_k01.preagg           prenest        9.725 s  result yes  
+c_k01.preagg           pureflat      35.113 s  result yes  
+c_k02.orig             base           9.926 s  result yes  
+c_k02.orig             prenest        9.769 s  result yes  
+c_k02.orig             pureflat      35.212 s  result yes  
+c_k02.preagg           base           9.816 s  result yes  
+c_k02.preagg           prenest        9.797 s  result yes  
+c_k02.preagg           pureflat      34.887 s  result yes  
+c_k04.orig             base           9.789 s  result yes  
+c_k04.orig             prenest        9.821 s  result yes  
+c_k04.orig             pureflat      35.144 s  result yes  
+c_k04.preagg           base           9.831 s  result yes  
+c_k04.preagg           prenest        9.828 s  result yes  
+c_k04.preagg           pureflat      35.621 s  result yes  
+c_k08.orig             base           9.841 s  result yes  
+c_k08.orig             prenest        9.781 s  result yes  
+c_k08.orig             pureflat      34.909 s  result yes  
+c_k08.preagg           base          10.147 s  result yes  
+c_k08.preagg           prenest        9.746 s  result yes  
+c_k08.preagg           pureflat      35.021 s  result yes  
+c_k16.orig             base           9.862 s  result yes  
+c_k16.orig             prenest        9.739 s  result yes  
+c_k16.orig             pureflat      34.891 s  result yes  
+c_k16.preagg           base           9.851 s  result yes  
+c_k16.preagg           prenest        9.751 s  result yes  
+c_k16.preagg           pureflat      34.803 s  result yes  
+[21:05:37] done: /home/layun03/nested-bench/duckdb_rey/benchmark/nested_parquet/trade_20261028/issues_20261030/server_extra2

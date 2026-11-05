@@ -1,0 +1,11 @@
+ORDER_BY                0.000s  rows            3  est           48  
+  HASH_GROUP_BY         115.032s  rows            3  est           48  group: #0; aggregate: count_star(), sum(#1)
+    PROJECTION              0.429s  rows   5598400000  est    349900000  
+      HASH_JOIN             187.843s  rows   5598400000  est    349900000  condition: _ak0 = _sk
+        probe: PROJECTION              0.150s  rows    349900000  est    349900000  
+          TABLE_SCAN              6.546s  rows    349900000  est    349900000  file: trade_B.parquet; node: legs
+        build: PROJECTION              0.617s  rows   1600000000  est    100000000  
+          HASH_JOIN               8.944s  rows   1600000000  est    100000000  condition: c8 = reg_scenario
+            probe: TABLE_SCAN              1.121s  rows    100000000  est    100000000  file: trade_B.parquet; node: (top level)
+            build: TABLE_SCAN              0.000s  rows           48  est           48  filename: ../dims_k/dim_k16.parquet
+total 326.426 s

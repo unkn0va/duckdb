@@ -1,0 +1,16 @@
+ORDER_BY                0.000s  rows            3  est            3  
+  PROJECTION              0.000s  rows            3  est            3  
+    HASH_GROUP_BY           0.001s  rows            3  est            3  group: #0; aggregate: combine_aggr(#1, #2), combine_aggr(#3, #4)
+      PROJECTION              0.000s  rows            3  est            3  
+        HASH_JOIN               0.000s  rows            3  est            3  condition: #0 = #0
+          probe: HASH_GROUP_BY           2.557s  rows            3  est            3  group: #0; aggregate: count_star() EXPORT_STATE, sum(#1) EXPORT_STATE
+            PROJECTION              0.028s  rows    349900000  est    100000000  
+              PROJECTION              0.198s  rows    349900000  est    100000000  
+                UNNEST                  3.046s  rows    349900000  est               
+                  TABLE_SCAN             16.555s  rows    100000000  est    100000000  filename: trade_B.parquet
+          build: PROJECTION              0.000s  rows            3  est            3  
+            HASH_GROUP_BY           0.000s  rows            3  est            3  group: #0; aggregate: count_star()
+              PROJECTION              0.000s  rows           24  est           24  
+                PROJECTION              0.000s  rows           24  est           24  
+                  TABLE_SCAN              0.000s  rows           24  est           24  
+total 22.926 s

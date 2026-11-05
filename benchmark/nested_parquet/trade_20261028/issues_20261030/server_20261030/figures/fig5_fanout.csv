@@ -1,0 +1,111 @@
+저장 방식 (storage),k (시나리오당 날짜 수),구성 (config),변형 (variant),시간 초 (wall_s),자동 적용 (partial_aggregate_pushdown),결과 일치 (same_result)
+(a) 사실·차원 parquet,1,base,원래,24.722,no,yes
+(a) 사실·차원 parquet,1,prenest,원래,18.654,no,yes
+(a) 사실·차원 parquet,1,flat,원래,36.555,no,yes
+(a) 사실·차원 parquet,1,pureflat,원래,37.542,no,yes
+(a) 사실·차원 parquet,1,base,합계 먼저,22.357,no,yes
+(a) 사실·차원 parquet,1,prenest,합계 먼저,16.374,no,yes
+(a) 사실·차원 parquet,1,flat,합계 먼저,36.074,no,yes
+(a) 사실·차원 parquet,1,pureflat,합계 먼저,36.792,no,yes
+(a) 사실·차원 parquet,2,base,원래,29.774,no,yes
+(a) 사실·차원 parquet,2,prenest,원래,23.962,no,yes
+(a) 사실·차원 parquet,2,flat,원래,54.031,no,yes
+(a) 사실·차원 parquet,2,pureflat,원래,55.350,no,yes
+(a) 사실·차원 parquet,2,base,합계 먼저,22.441,no,yes
+(a) 사실·차원 parquet,2,prenest,합계 먼저,16.367,no,yes
+(a) 사실·차원 parquet,2,flat,합계 먼저,35.797,no,yes
+(a) 사실·차원 parquet,2,pureflat,합계 먼저,36.752,no,yes
+(a) 사실·차원 parquet,4,base,원래,38.492,no,yes
+(a) 사실·차원 parquet,4,prenest,원래,32.343,no,yes
+(a) 사실·차원 parquet,4,flat,원래,87.381,no,yes
+(a) 사실·차원 parquet,4,pureflat,원래,90.909,no,yes
+(a) 사실·차원 parquet,4,base,합계 먼저,22.403,no,yes
+(a) 사실·차원 parquet,4,prenest,합계 먼저,16.357,no,yes
+(a) 사실·차원 parquet,4,flat,합계 먼저,35.884,no,yes
+(a) 사실·차원 parquet,4,pureflat,합계 먼저,36.704,no,yes
+(a) 사실·차원 parquet,8,base,원래,55.144,no,yes
+(a) 사실·차원 parquet,8,prenest,원래,48.881,no,yes
+(a) 사실·차원 parquet,8,flat,원래,173.604,no,yes
+(a) 사실·차원 parquet,8,pureflat,원래,173.255,no,yes
+(a) 사실·차원 parquet,8,base,합계 먼저,22.304,no,yes
+(a) 사실·차원 parquet,8,prenest,합계 먼저,16.442,no,yes
+(a) 사실·차원 parquet,8,flat,합계 먼저,36.095,no,yes
+(a) 사실·차원 parquet,8,pureflat,합계 먼저,37.366,no,yes
+(a) 사실·차원 parquet,16,base,원래,88.536,no,yes
+(a) 사실·차원 parquet,16,prenest,원래,82.155,no,yes
+(a) 사실·차원 parquet,16,flat,원래,323.325,no,yes
+(a) 사실·차원 parquet,16,pureflat,원래,328.767,no,yes
+(a) 사실·차원 parquet,16,base,합계 먼저,22.444,no,yes
+(a) 사실·차원 parquet,16,prenest,합계 먼저,16.452,no,yes
+(a) 사실·차원 parquet,16,flat,합계 먼저,35.927,no,yes
+(a) 사실·차원 parquet,16,pureflat,합계 먼저,36.903,no,yes
+"(b) 사실 parquet, 차원 내부 테이블",1,base,원래,24.432,no,yes
+"(b) 사실 parquet, 차원 내부 테이블",1,prenest,원래,18.716,no,yes
+"(b) 사실 parquet, 차원 내부 테이블",1,flat,원래,36.641,no,yes
+"(b) 사실 parquet, 차원 내부 테이블",1,pureflat,원래,37.826,no,yes
+"(b) 사실 parquet, 차원 내부 테이블",1,base,합계 먼저,22.504,no,yes
+"(b) 사실 parquet, 차원 내부 테이블",1,prenest,합계 먼저,16.443,no,yes
+"(b) 사실 parquet, 차원 내부 테이블",1,flat,합계 먼저,36.083,no,yes
+"(b) 사실 parquet, 차원 내부 테이블",1,pureflat,합계 먼저,36.793,no,yes
+"(b) 사실 parquet, 차원 내부 테이블",2,base,원래,22.445,yes,yes
+"(b) 사실 parquet, 차원 내부 테이블",2,prenest,원래,16.372,yes,yes
+"(b) 사실 parquet, 차원 내부 테이블",2,flat,원래,54.308,no,yes
+"(b) 사실 parquet, 차원 내부 테이블",2,pureflat,원래,55.955,no,yes
+"(b) 사실 parquet, 차원 내부 테이블",2,base,합계 먼저,22.315,no,yes
+"(b) 사실 parquet, 차원 내부 테이블",2,prenest,합계 먼저,16.386,no,yes
+"(b) 사실 parquet, 차원 내부 테이블",2,flat,합계 먼저,36.321,no,yes
+"(b) 사실 parquet, 차원 내부 테이블",2,pureflat,합계 먼저,37.506,no,yes
+"(b) 사실 parquet, 차원 내부 테이블",4,base,원래,22.573,yes,yes
+"(b) 사실 parquet, 차원 내부 테이블",4,prenest,원래,16.485,yes,yes
+"(b) 사실 parquet, 차원 내부 테이블",4,flat,원래,35.905,yes,yes
+"(b) 사실 parquet, 차원 내부 테이블",4,pureflat,원래,37.285,yes,yes
+"(b) 사실 parquet, 차원 내부 테이블",4,base,합계 먼저,22.296,no,yes
+"(b) 사실 parquet, 차원 내부 테이블",4,prenest,합계 먼저,16.496,no,yes
+"(b) 사실 parquet, 차원 내부 테이블",4,flat,합계 먼저,35.998,no,yes
+"(b) 사실 parquet, 차원 내부 테이블",4,pureflat,합계 먼저,36.791,no,yes
+"(b) 사실 parquet, 차원 내부 테이블",8,base,원래,22.489,yes,yes
+"(b) 사실 parquet, 차원 내부 테이블",8,prenest,원래,16.454,yes,yes
+"(b) 사실 parquet, 차원 내부 테이블",8,flat,원래,35.998,yes,yes
+"(b) 사실 parquet, 차원 내부 테이블",8,pureflat,원래,37.106,yes,yes
+"(b) 사실 parquet, 차원 내부 테이블",8,base,합계 먼저,22.304,no,yes
+"(b) 사실 parquet, 차원 내부 테이블",8,prenest,합계 먼저,16.413,no,yes
+"(b) 사실 parquet, 차원 내부 테이블",8,flat,합계 먼저,35.759,no,yes
+"(b) 사실 parquet, 차원 내부 테이블",8,pureflat,합계 먼저,36.842,no,yes
+"(b) 사실 parquet, 차원 내부 테이블",16,base,원래,22.523,yes,yes
+"(b) 사실 parquet, 차원 내부 테이블",16,prenest,원래,16.502,yes,yes
+"(b) 사실 parquet, 차원 내부 테이블",16,flat,원래,36.015,yes,yes
+"(b) 사실 parquet, 차원 내부 테이블",16,pureflat,원래,37.132,yes,yes
+"(b) 사실 parquet, 차원 내부 테이블",16,base,합계 먼저,22.309,no,yes
+"(b) 사실 parquet, 차원 내부 테이블",16,prenest,합계 먼저,16.399,no,yes
+"(b) 사실 parquet, 차원 내부 테이블",16,flat,합계 먼저,35.970,no,yes
+"(b) 사실 parquet, 차원 내부 테이블",16,pureflat,합계 먼저,36.809,no,yes
+(c) 둘 다 내부 테이블,1,base,원래,11.604,no,yes
+(c) 둘 다 내부 테이블,1,prenest,원래,11.677,no,yes
+(c) 둘 다 내부 테이블,1,pureflat,원래,35.708,no,yes
+(c) 둘 다 내부 테이블,1,base,합계 먼저,9.792,no,yes
+(c) 둘 다 내부 테이블,1,prenest,합계 먼저,9.725,no,yes
+(c) 둘 다 내부 테이블,1,pureflat,합계 먼저,35.113,no,yes
+(c) 둘 다 내부 테이블,2,base,원래,9.926,yes,yes
+(c) 둘 다 내부 테이블,2,prenest,원래,9.769,yes,yes
+(c) 둘 다 내부 테이블,2,pureflat,원래,35.212,yes,yes
+(c) 둘 다 내부 테이블,2,base,합계 먼저,9.816,no,yes
+(c) 둘 다 내부 테이블,2,prenest,합계 먼저,9.797,no,yes
+(c) 둘 다 내부 테이블,2,pureflat,합계 먼저,34.887,no,yes
+(c) 둘 다 내부 테이블,4,base,원래,9.789,yes,yes
+(c) 둘 다 내부 테이블,4,prenest,원래,9.821,yes,yes
+(c) 둘 다 내부 테이블,4,pureflat,원래,35.144,yes,yes
+(c) 둘 다 내부 테이블,4,base,합계 먼저,9.831,no,yes
+(c) 둘 다 내부 테이블,4,prenest,합계 먼저,9.828,no,yes
+(c) 둘 다 내부 테이블,4,pureflat,합계 먼저,35.621,no,yes
+(c) 둘 다 내부 테이블,8,base,원래,9.841,yes,yes
+(c) 둘 다 내부 테이블,8,prenest,원래,9.781,yes,yes
+(c) 둘 다 내부 테이블,8,pureflat,원래,34.909,yes,yes
+(c) 둘 다 내부 테이블,8,base,합계 먼저,10.147,no,yes
+(c) 둘 다 내부 테이블,8,prenest,합계 먼저,9.746,no,yes
+(c) 둘 다 내부 테이블,8,pureflat,합계 먼저,35.021,no,yes
+(c) 둘 다 내부 테이블,16,base,원래,9.862,yes,yes
+(c) 둘 다 내부 테이블,16,prenest,원래,9.739,yes,yes
+(c) 둘 다 내부 테이블,16,pureflat,원래,34.891,yes,yes
+(c) 둘 다 내부 테이블,16,base,합계 먼저,9.851,no,yes
+(c) 둘 다 내부 테이블,16,prenest,합계 먼저,9.751,no,yes
+(c) 둘 다 내부 테이블,16,pureflat,합계 먼저,34.803,no,yes
