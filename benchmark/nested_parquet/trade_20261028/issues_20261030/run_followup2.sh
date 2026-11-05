@@ -7,7 +7,8 @@
 #   g1     branch mispredictions: g1_topdown.csv (TOPDOWN metric group + cycles) and g1_branches.csv (branch-misses)
 #          of q2_c01..c75 in base, prenestoff, prenest, flat; trade_Bsorted next to trade_B (write_trade.py
 #          --sort-legs, if missing; its time and memory in g1_sorted_write.txt), g1_sorted_verify.md,
-#          g1_sorted_time.csv (q2_c50 on B and Bsorted, RUNS), profile/g1sorted/, g1_sorted_branches.csv
+#          g1_sorted_time.csv (q2_c50 on B and Bsorted, RUNS), g1_sorted_scan.csv (skip_check.py: row groups read and
+#          elements the condition was evaluated on), profile/g1sorted/, g1_sorted_branches.csv
 #   g3     DuckDB table vs parquet: profile/g3/ (k = 4, aggregation first, (a) parquet and (c) both DuckDB tables, base
 #          and prenest; needs ../fanout/fanout.duckdb of run_issue2.sh fanout, made here if missing) and the stage
 #          queries s1, s2, s3 on both (g3_stage_parquet.csv, g3_stage_db.csv, RUNS, base / prenestoff / prenest)
@@ -121,6 +122,8 @@ for step in $STEPS; do
 		if grep -q '| NO' "$OUT/g1_sorted_verify.md"; then log "WARNING: trade_Bsorted differs from trade_B, see g1_sorted_verify.md"; fi
 		RUNS=$RUNS THREADS=1 CONFIGS="base prenestoff prenest flat" python3 "$HERE/time_queries.py" "$HERE/queries_sorted" \
 			"$DATA" "$OUT/g1_sorted_time.csv" | tee "$OUT/g1_sorted_time.log"
+		python3 "$HERE/skip_check.py" "$HERE/queries_sorted" "$DATA" "$OUT/g1_sorted_scan.csv" q2_c50.orig q2_c50.sorted \
+			| tee "$OUT/g1_sorted_scan.log"
 		for q in q2_c50.orig q2_c50.sorted; do
 			profile "$OUT/profile/g1sorted" "$HERE/queries_sorted" "$q" base prenestoff prenest flat
 		done

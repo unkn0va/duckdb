@@ -126,27 +126,41 @@ def g1():
                 print(f"| {c} | {dm / 1e6:.0f} | {dw:.2f} | {fmt(dw * 1e9 / dm if dm else None, 1)} |")
         print()
     t, prof, brs = times("g1_sorted_time.csv"), profiles("g1sorted"), stat("g1_sorted_branches.csv")
+    scan = ({(r["name"], r["config"]): r for r in csv.DictReader(open(path("g1_sorted_scan.csv")))}
+            if os.path.exists(path("g1_sorted_scan.csv")) else {})
     if t or prof:
         print("### q2_c50: trade_B vs trade_Bsorted (같은 행, leg_id 순서)\n")
         if os.path.exists(path("g1_sorted_verify.md")):
             print("검증:\n\n" + open(path("g1_sorted_verify.md")).read().strip() + "\n")
-        print("| 구성 | 시간 B / Bsorted (차) | perf 원소 다루기 B / Bsorted (차) | 그 밖 범주 차 (디코드, 조립, UNNEST) | "
-              "branch-miss B / Bsorted (백만) | 결과 |")
-        print("|---|---|---|---|---|---|")
+        print("Bsorted는 행이 가장 작은 leg_id 순이라 row group마다 leg_id 범위가 좁습니다. 스캔에서 조건을 거는 flat은 통계로 row group을 "
+              "건너뛸 수 있어서, 원소 다루기가 줄어도 분기 예측 때문이라고 할 수 없습니다. 그래서 **원소당** 값으로 비교하고, "
+              "주 결론은 row group을 건너뛰지 않는 base(UNNEST 뒤 FILTER)로 냅니다. flat은 참고값입니다.\n")
+        print("| 구성 | row group 읽음 B / Bsorted (건너뜀) | 조건 평가 원소 (백만) B / Bsorted | 원소 다루기 원소당 ns B / Bsorted | "
+              "branch-miss 원소당 B / Bsorted | 원소 다루기 초 B / Bsorted | 전체 시간 초 B / Bsorted (차) | 결과 |")
+        print("|---|---|---|---|---|---|---|---|")
         for c in CONFIGS:
             a, b = t.get(("q2_c50.orig", c)), t.get(("q2_c50.sorted", c))
-            pa, pb = prof.get(("q2_c50.orig", c)), prof.get(("q2_c50.sorted", c))
-            ba, bb = brs.get(("q2_c50.orig", c), {}), brs.get(("q2_c50.sorted", c), {})
             if not (a and b):
                 continue
+            pa, pb = prof.get(("q2_c50.orig", c)), prof.get(("q2_c50.sorted", c))
+            ba, bb = brs.get(("q2_c50.orig", c), {}), brs.get(("q2_c50.sorted", c), {})
+            sa, sb = scan.get(("q2_c50.orig", c), {}), scan.get(("q2_c50.sorted", c), {})
+            ea, eb = (float(sa["elements_evaluated"]) if sa else None), (float(sb["elements_evaluated"]) if sb else None)
+            groups = (f"{sa['row_groups_scanned']}/{sa['row_groups_total']} / {sb['row_groups_scanned']}/{sb['row_groups_total']}"
+                      if sa and sb else "·")
+            if sb and sb.get("skipped_tasks"):
+                groups += f" (flat 로그: {sa.get('skipped_tasks')} / {sb['skipped_tasks']} 작업 건너뜀)"
+            if c == "prenest" and sa:
+                groups += " (리더가 모든 원소 평가, 위쪽 FILTER는 남긴 원소)"
+            elements = f"{ea / 1e6:.1f} / {eb / 1e6:.1f}" if ea and eb else "·"
+            per_elem = (f"{pa['원소 다루기'] * 1e9 / ea:.2f} / {pb['원소 다루기'] * 1e9 / eb:.2f}" if pa and pb and ea and eb else "·")
+            per_miss = (f"{ba['branch-misses'] / ea:.3f} / {bb['branch-misses'] / eb:.3f}"
+                        if "branch-misses" in ba and "branch-misses" in bb and ea and eb else "·")
+            elem = f"{pa['원소 다루기']:.2f} / {pb['원소 다루기']:.2f}" if pa and pb else "·"
             wa, wb = float(a["wall_s"]), float(b["wall_s"])
-            elem = (f"{pa['원소 다루기']:.2f} / {pb['원소 다루기']:.2f} ({pa['원소 다루기'] - pb['원소 다루기']:.2f})"
-                    if pa and pb else "·")
-            other = (", ".join(f"{pa[k] - pb[k]:.2f}" for k in ("값 디코드", "리스트 조립", "UNNEST")) if pa and pb else "·")
-            miss = (f"{ba['branch-misses'] / 1e6:.0f} / {bb['branch-misses'] / 1e6:.0f}"
-                    if "branch-misses" in ba and "branch-misses" in bb else "·")
             same = "yes" if a["same_result"] == b["same_result"] == "yes" else "NO"
-            print(f"| {c} | {wa:.2f} / {wb:.2f} ({wa - wb:.2f}) | {elem} | {other} | {miss} | {same} |")
+            label = f"**{c}**" if c == "base" else (f"{c} (참고)" if c == "flat" else c)
+            print(f"| {label} | {groups} | {elements} | {per_elem} | {per_miss} | {elem} | {wa:.2f} / {wb:.2f} ({wa - wb:.2f}) | {same} |")
         print()
         write = path("g1_sorted_write.txt")
         if os.path.exists(write):

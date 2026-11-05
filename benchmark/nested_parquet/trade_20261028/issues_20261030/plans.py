@@ -49,6 +49,8 @@ def operators(profile):
             "timing": node.get("timing", 0.0),
             "extra": node.get("extra_info", {}),
         }
+        # what a parquet scan read (absent or 0 for scans that do not report it, such as read_parquet_flat's)
+        entry.update({k: node[k] for k in ("row_groups_scanned", "total_row_groups_to_scan", "rows_scanned") if k in node})
         result.append(entry)
         children = node.get("children", [])
         is_join = "JOIN" in node["type"] or node["type"] in ("CROSS_PRODUCT", "POSITIONAL_SCAN")
