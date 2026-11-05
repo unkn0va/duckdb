@@ -1,0 +1,4 @@
+q4_two.orig base | Maximum resident set size (kbytes): 30896208 | Elapsed (wall clock) time (h:mm:ss or m:ss): 1:49.94 | Exit status: 0 | result 1678290000,68711302345780000,4525050000
+q4_two.orig prenest | Maximum resident set size (kbytes): 30896284 | Elapsed (wall clock) time (h:mm:ss or m:ss): 1:48.78 | Exit status: 0 | result 1678290000,68711302345780000,4525050000
+q4_two.small_build base | Maximum resident set size (kbytes): 13632616 | Elapsed (wall clock) time (h:mm:ss or m:ss): 1:28.17 | Exit status: 0 | result 1678290000,68711302345780000,4525050000
+q4_two.small_build prenest | Maximum resident set size (kbytes): 13633136 | Elapsed (wall clock) time (h:mm:ss or m:ss): 1:27.29 | Exit status: 0 | result 1678290000,68711302345780000,4525050000

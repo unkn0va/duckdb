@@ -215,7 +215,7 @@
 | D 합계 먼저 곡선 | parquet만이면 자동 적용 없음. 원래가 k에 비례해 느려지고 k=2부터 25–34% 손해. 차원 표만 DuckDB 테이블이면 자동 적용(HLL로 join 예상이 정확해짐) |
 | E 그래프 데이터 | `server_20261030/figures/` fig1–6과 README |
 | G1 miss 비용 (11-05, `followup2/`) | Top-down으로 base miss당 6.4–6.8ns, c25→c50 0.84초(추정 6–8ns, 0.8–1.0초 맞음). leg_id 순서 파일(trade_Bsorted)에서 base 원소당 17.6 → 14.9ns, 줄어든 miss로 87% 설명 |
-| G2 q4_two 13.7초 | 큰 해시 테이블 만들기(build 채우기 10.6 + Finalize 2.5 + page fault 커널 6.0초). 정리는 0에 가까움. 최대 RSS는 못 잼(`/usr/bin/time`이 sudo를 잼) |
+| G2 q4_two 13.7초 | 큰 해시 테이블 만들기(build 채우기 10.6 + Finalize 2.5 + page fault 커널 6.0초). 정리는 0에 가까움. 최대 RSS 30.9GB 대 13.6GB(perf 없이 따로 잼, `followup2_rss/`; perf와 함께 재면 `/usr/bin/time`이 sudo를 잼) |
 | G3 DuckDB 테이블이 빠른 이유 | 리스트 조립 11.2 → 0.5초. 디코드는 남음 |
 | G4 단위 비용 (합성 리스트 1억 개, L=1–32) | 조립 원소당 3.3–3.5ns, UNNEST 리스트당 15.5–15.9ns, 키 생성 원소당 8.0ns. base와 flat(join 없음)은 리스트당 약 6.5원소에서 같아짐 |
 
