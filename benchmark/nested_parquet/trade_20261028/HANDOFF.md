@@ -205,7 +205,7 @@
 | q2_c의 50% 봉우리 | 분기 예측 실패(문자열 비교). branch-miss가 네 구성 모두 50%에서 최대 |
 | prenest q2_s50의 branch-miss 봉우리 | 2/3 UNNEST(prenest가 남긴 빈 리스트로 행별 길이 분기가 무작위), 1/3 리더의 `keep` 분기 |
 
-후속 실험(2026-11-01 ~ 02, `analysis.md`의 "후속 실험" 절, `server_20261030/extra1`, `extra2`, `figures/`):
+후속 실험(2026-11-01 ~ 05, `analysis.md`의 "후속 실험"·"후속 실험 G" 절, `server_20261030/extra1`, `extra2`, `followup2`, `figures/`):
 
 | 실험 | 결과 |
 |---|---|
@@ -214,6 +214,10 @@
 | C q4_two | 계획이 실제로 바뀜(build 6.67억 → 2.5억), −21% |
 | D 합계 먼저 곡선 | parquet만이면 자동 적용 없음. 원래가 k에 비례해 느려지고 k=2부터 25–34% 손해. 차원 표만 DuckDB 테이블이면 자동 적용(HLL로 join 예상이 정확해짐) |
 | E 그래프 데이터 | `server_20261030/figures/` fig1–6과 README |
+| G1 miss 비용 (11-05, `followup2/`) | Top-down으로 base miss당 6.4–6.8ns, c25→c50 0.84초(추정 6–8ns, 0.8–1.0초 맞음). leg_id 순서 파일(trade_Bsorted)에서 base 원소당 17.6 → 14.9ns, 줄어든 miss로 87% 설명 |
+| G2 q4_two 13.7초 | 큰 해시 테이블 만들기(build 채우기 10.6 + Finalize 2.5 + page fault 커널 6.0초). 정리는 0에 가까움. 최대 RSS는 못 잼(`/usr/bin/time`이 sudo를 잼) |
+| G3 DuckDB 테이블이 빠른 이유 | 리스트 조립 11.2 → 0.5초. 디코드는 남음 |
+| G4 단위 비용 (합성 리스트 1억 개, L=1–32) | 조립 원소당 3.3–3.5ns, UNNEST 리스트당 15.5–15.9ns, 키 생성 원소당 8.0ns. base와 flat(join 없음)은 리스트당 약 6.5원소에서 같아짐 |
 
 이번 주에 정한 것(사용자 확인):
 - perf 범주 표는 옛 기준과 새 기준을 함께 보입니다.
@@ -268,3 +272,5 @@
 | `8eda88fb8c8` | `issue1d/`, prenest q2_s50 branch-miss 원인 |
 | `238cb360429` | 주간 보고서 `report_20261101.md` |
 | (이 커밋) | HANDOFF.md 이번 주 마무리 |
+| `03ed80d4fde`, `db36a441352` | 후속 G1–G4 스크립트 (서버 측정에 쓴 상태) |
+| (이 커밋) | G 결과 `followup2/`, analysis·보고서의 [추정] → [실측] |
