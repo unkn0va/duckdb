@@ -1,0 +1,10 @@
+name,config,wall_s,cpu_s,runs,threads,same_result,result,plan,plan_flag,note,busy_cores
+s1_box,base,16.253,16.252,10,1,yes,"1,21c087e65a1ba610",306a2f14af0a31e8,,,0.0
+s1_box,prenestoff,15.581,15.581,10,1,yes,"1,21c087e65a1ba610",306a2f14af0a31e8,,,0.0
+s1_box,prenest,15.519,15.518,10,1,yes,"1,21c087e65a1ba610",306a2f14af0a31e8,,,0.0
+s2_unnest,base,18.944,18.944,10,1,yes,"1,6c77950a19ea68e4",1e6c83d356080d30,,,0.0
+s2_unnest,prenestoff,18.462,18.461,10,1,yes,"1,6c77950a19ea68e4",1e6c83d356080d30,,,0.0
+s2_unnest,prenest,18.447,18.447,10,1,yes,"1,6c77950a19ea68e4",1e6c83d356080d30,,,0.0
+s3_cond,base,25.900,25.899,10,1,yes,"1,013a4adba2b469d6",83a677789c5bd196,,,0.0
+s3_cond,prenestoff,20.745,20.744,10,1,yes,"1,013a4adba2b469d6",8de42287c5388ad6,,,0.0
+s3_cond,prenest,15.363,15.363,10,1,yes,"1,013a4adba2b469d6",8de42287c5388ad6,,,0.0

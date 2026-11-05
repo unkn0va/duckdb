@@ -1,0 +1,8 @@
+q2_c50.orig            base         25.904 s  cycles 87767791174.000000, branch-misses 625028204.000000
+q2_c50.orig            prenestoff   21.036 s  cycles 71190009272.000000, branch-misses 475132522.000000
+q2_c50.orig            prenest      15.437 s  cycles 52228955927.000000, branch-misses 481217106.000000
+q2_c50.orig            flat         11.325 s  cycles 38421043632.000000, branch-misses 343332282.000000
+q2_c50.sorted          base         23.887 s  cycles 80921644727.000000, branch-misses 501633267.000000
+q2_c50.sorted          prenestoff   19.452 s  cycles 65902310022.000000, branch-misses 373682038.000000
+q2_c50.sorted          prenest      13.712 s  cycles 46422184692.000000, branch-misses 281265121.000000
+q2_c50.sorted          flat          9.575 s  cycles 32526658448.000000, branch-misses 243615204.000000

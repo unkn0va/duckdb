@@ -1,0 +1,161 @@
+[06:30:18] step g2
+[06:30:18] profile g2 q4_two.orig base
+[06:34:27] profile g2 q4_two.orig prenest
+[06:38:36] profile g2 q4_two.small_build base
+[06:41:53] profile g2 q4_two.small_build prenest
+q4_two.orig            base        111.935 s  page-faults 8381333.000000, cycles 348510445731.000000, max_rss 6720
+q4_two.orig            prenest     112.602 s  page-faults 8983555.000000, cycles 350508958836.000000, max_rss 6400
+q4_two.small_build     base         87.059 s  page-faults 3983876.000000, cycles 270392383524.000000, max_rss 6720
+q4_two.small_build     prenest      86.941 s  page-faults 4028532.000000, cycles 270060791419.000000, max_rss 6720
+[06:58:20] step g1
+q2_c01                 base         22.832 s  cycles 76977914967.000000, tma_bad_speculation 13.859911
+q2_c01                 prenestoff   18.295 s  cycles 61650226154.000000, tma_bad_speculation 11.679710
+q2_c01                 prenest       6.868 s  cycles 23194185553.000000, tma_bad_speculation 10.952159
+q2_c01                 flat          9.092 s  cycles 30738377319.000000, tma_bad_speculation 11.926825
+q2_c10                 base         23.551 s  cycles 79339811202.000000, tma_bad_speculation 14.925298
+q2_c10                 prenestoff   18.494 s  cycles 62316794870.000000, tma_bad_speculation 13.516102
+q2_c10                 prenest       9.263 s  cycles 31287628862.000000, tma_bad_speculation 14.521111
+q2_c10                 flat          9.522 s  cycles 32201077432.000000, tma_bad_speculation 14.086980
+q2_c25                 base         23.599 s  cycles 79497306007.000000, tma_bad_speculation 14.426808
+q2_c25                 prenestoff   18.456 s  cycles 62227584537.000000, tma_bad_speculation 12.150741
+q2_c25                 prenest      11.976 s  cycles 40434536535.000000, tma_bad_speculation 15.449209
+q2_c25                 flat          9.438 s  cycles 31921611603.000000, tma_bad_speculation 12.260386
+q2_c50                 base         25.767 s  cycles 86868730893.000000, tma_bad_speculation 16.474231
+q2_c50                 prenestoff   21.053 s  cycles 71016671204.000000, tma_bad_speculation 17.059352
+q2_c50                 prenest      15.416 s  cycles 52002925924.000000, tma_bad_speculation 19.786761
+q2_c50                 flat         11.387 s  cycles 38505210078.000000, tma_bad_speculation 16.789952
+q2_c75                 base         25.446 s  cycles 85794464474.000000, tma_bad_speculation 14.476945
+q2_c75                 prenestoff   20.691 s  cycles 69721891752.000000, tma_bad_speculation 14.079133
+q2_c75                 prenest      18.502 s  cycles 62362697925.000000, tma_bad_speculation 15.190330
+q2_c75                 flat         10.962 s  cycles 37049340622.000000, tma_bad_speculation 13.396208
+q2_c01                 base         22.750 s  cycles 77056174899.000000, branch-misses 480467626.000000
+q2_c01                 prenestoff   17.790 s  cycles 60241185356.000000, branch-misses 332827179.000000
+q2_c01                 prenest       6.770 s  cycles 22966278101.000000, branch-misses 122712759.000000
+q2_c01                 flat          8.974 s  cycles 30486008936.000000, branch-misses 202311489.000000
+q2_c10                 base         23.219 s  cycles 78654251415.000000, branch-misses 519273338.000000
+q2_c10                 prenestoff   18.562 s  cycles 62829860022.000000, branch-misses 367577092.000000
+q2_c10                 prenest       9.077 s  cycles 30817077805.000000, branch-misses 234574075.000000
+q2_c10                 flat          9.525 s  cycles 32327029734.000000, branch-misses 236881502.000000
+q2_c25                 base         23.164 s  cycles 78494898674.000000, branch-misses 497644754.000000
+q2_c25                 prenestoff   18.492 s  cycles 62622275419.000000, branch-misses 346637688.000000
+q2_c25                 prenest      11.774 s  cycles 39983279318.000000, branch-misses 335797077.000000
+q2_c25                 flat          9.448 s  cycles 32074234759.000000, branch-misses 214112960.000000
+q2_c50                 base         26.279 s  cycles 89010573717.000000, branch-misses 620178548.000000
+q2_c50                 prenestoff   20.812 s  cycles 70519042838.000000, branch-misses 476141495.000000
+q2_c50                 prenest      15.352 s  cycles 52036102046.000000, branch-misses 480616546.000000
+q2_c50                 flat         11.322 s  cycles 38441533673.000000, branch-misses 343413144.000000
+q2_c75                 base         25.263 s  cycles 85614080928.000000, branch-misses 574103959.000000
+q2_c75                 prenestoff   20.353 s  cycles 68966998256.000000, branch-misses 422045761.000000
+q2_c75                 prenest      18.529 s  cycles 62745302179.000000, branch-misses 435088688.000000
+q2_c75                 flat         10.845 s  cycles 36842637331.000000, branch-misses 291105687.000000
+[07:20:24] writing trade_Bsorted.parquet
+| check | trade_B.parquet | trade_Bsorted.parquet | same |
+|---|---|---|---|
+| rows, elements, longest list | 100000000,349900000,5 | 100000000,349900000,5 | yes |
+| hash of every row, in any order | 920985373142874621391743670 | 920985373142874621391743670 | yes |
+| row groups (count, rows of each) | 814,122880 122880 122880 122 … 2880 122880 122880 98560 | 814,122880 122880 122880 122 … 2880 122880 122880 98560 | yes |
+| writer, compression | parquet-cpp-arrow version 26.0.0,SNAPPY | parquet-cpp-arrow version 26.0.0,SNAPPY | yes |
+| positional hash (differs when reordered) | 922380305299001090579788131 | 922289444419298589822121647 | differs (expected) |
+q2_c50.orig            base          25.846 s  result yes  
+q2_c50.orig            prenestoff    21.011 s  result yes  
+q2_c50.orig            prenest       15.362 s  result yes  
+q2_c50.orig            flat          11.303 s  result yes  
+q2_c50.sorted          base          23.966 s  result yes  
+q2_c50.sorted          prenestoff    19.336 s  result yes  
+q2_c50.sorted          prenest       13.609 s  result yes  
+q2_c50.sorted          flat           9.496 s  result yes  
+q2_c50.orig base {'row_groups_scanned': 814, 'row_groups_total': 814, 'skipped_tasks': '', 'elements_total': 349900000, 'elements_evaluated': 349900000, 'elements_evaluated_upper_filter': None, 'elements_passing': 174620000}
+q2_c50.orig prenestoff {'row_groups_scanned': 814, 'row_groups_total': 814, 'skipped_tasks': '', 'elements_total': 349900000, 'elements_evaluated': 349900000, 'elements_evaluated_upper_filter': None, 'elements_passing': 174620000}
+q2_c50.orig prenest {'row_groups_scanned': 814, 'row_groups_total': 814, 'skipped_tasks': '', 'elements_total': 349900000, 'elements_evaluated': 349900000, 'elements_evaluated_upper_filter': 174620000, 'elements_passing': 174620000}
+q2_c50.orig flat {'row_groups_scanned': 814, 'row_groups_total': 814, 'skipped_tasks': '0/814', 'elements_total': 349900000, 'elements_evaluated': 349900000, 'elements_evaluated_upper_filter': None, 'elements_passing': 174620000}
+q2_c50.sorted base {'row_groups_scanned': 814, 'row_groups_total': 814, 'skipped_tasks': '', 'elements_total': 349900000, 'elements_evaluated': 349900000, 'elements_evaluated_upper_filter': None, 'elements_passing': 174620000}
+q2_c50.sorted prenestoff {'row_groups_scanned': 814, 'row_groups_total': 814, 'skipped_tasks': '', 'elements_total': 349900000, 'elements_evaluated': 349900000, 'elements_evaluated_upper_filter': None, 'elements_passing': 174620000}
+q2_c50.sorted prenest {'row_groups_scanned': 814, 'row_groups_total': 814, 'skipped_tasks': '', 'elements_total': 349900000, 'elements_evaluated': 349900000, 'elements_evaluated_upper_filter': 174620000, 'elements_passing': 174620000}
+q2_c50.sorted flat {'row_groups_scanned': 720, 'row_groups_total': 814, 'skipped_tasks': '94/814', 'elements_total': 349900000, 'elements_evaluated': 318542323, 'elements_evaluated_upper_filter': None, 'elements_passing': 174620000}
+[08:02:37] profile g1sorted q2_c50.orig base
+[08:03:38] profile g1sorted q2_c50.orig prenestoff
+[08:04:28] profile g1sorted q2_c50.orig prenest
+[08:05:04] profile g1sorted q2_c50.orig flat
+[08:05:31] profile g1sorted q2_c50.sorted base
+[08:06:28] profile g1sorted q2_c50.sorted prenestoff
+[08:07:14] profile g1sorted q2_c50.sorted prenest
+[08:07:47] profile g1sorted q2_c50.sorted flat
+q2_c50.orig            base         25.904 s  cycles 87767791174.000000, branch-misses 625028204.000000
+q2_c50.orig            prenestoff   21.036 s  cycles 71190009272.000000, branch-misses 475132522.000000
+q2_c50.orig            prenest      15.437 s  cycles 52228955927.000000, branch-misses 481217106.000000
+q2_c50.orig            flat         11.325 s  cycles 38421043632.000000, branch-misses 343332282.000000
+q2_c50.sorted          base         23.887 s  cycles 80921644727.000000, branch-misses 501633267.000000
+q2_c50.sorted          prenestoff   19.452 s  cycles 65902310022.000000, branch-misses 373682038.000000
+q2_c50.sorted          prenest      13.712 s  cycles 46422184692.000000, branch-misses 281265121.000000
+q2_c50.sorted          flat          9.575 s  cycles 32526658448.000000, branch-misses 243615204.000000
+[08:12:51] step g3
+[08:12:51] profile g3 a_k04.preagg base
+[08:13:45] profile g3 a_k04.preagg prenest
+[08:14:24] profile g3 c_k04.preagg base
+[08:14:49] profile g3 c_k04.preagg prenest
+s1_box                 base          16.253 s  result yes  
+s1_box                 prenestoff    15.581 s  result yes  
+s1_box                 prenest       15.519 s  result yes  
+s2_unnest              base          18.944 s  result yes  
+s2_unnest              prenestoff    18.462 s  result yes  
+s2_unnest              prenest       18.447 s  result yes  
+s3_cond                base          25.900 s  result yes  
+s3_cond                prenestoff    20.745 s  result yes  
+s3_cond                prenest       15.363 s  result yes  
+s1_box                 base           3.882 s  result yes  
+s1_box                 prenestoff     3.850 s  result yes  
+s1_box                 prenest        3.863 s  result yes  
+s2_unnest              base           6.740 s  result yes  
+s2_unnest              prenestoff     6.727 s  result yes  
+s2_unnest              prenest        6.725 s  result yes  
+s3_cond                base          13.676 s  result yes  
+s3_cond                prenestoff    13.396 s  result yes  
+s3_cond                prenest       13.497 s  result yes  
+[09:01:16] step g4
+| file | rows | elements | content (rows, elements, hash) = DuckDB's | size GB |
+|---|---|---|---|---|
+| syn_L1.parquet | 100,000,000 | 100,000,000 | yes | 0.67 |
+| syn_L2.parquet | 100,000,000 | 200,000,000 | yes | 1.19 |
+| syn_L4.parquet | 100,000,000 | 400,000,000 | yes | 2.19 |
+| syn_L8.parquet | 100,000,000 | 800,000,000 | yes | 4.17 |
+| syn_L16.parquet | 100,000,000 | 1,600,000,000 | yes | 8.13 |
+| syn_L32.parquet | 100,000,000 | 3,200,000,000 | yes | 16.02 |
+syn_L01                base           4.079 s  result yes  
+syn_L01                prenestoff     4.003 s  result yes  
+syn_L01                flat           2.314 s  result yes  
+syn_L02                base           5.909 s  result yes  
+syn_L02                prenestoff     5.881 s  result yes  
+syn_L02                flat           4.549 s  result yes  
+syn_L04                base           9.485 s  result yes  
+syn_L04                prenestoff     9.814 s  result yes  
+syn_L04                flat           8.739 s  result yes  
+syn_L08                base          16.802 s  result yes  
+syn_L08                prenestoff    16.765 s  result yes  
+syn_L08                flat          17.094 s  result yes  
+syn_L16                base          33.246 s  result yes  
+syn_L16                prenestoff    32.748 s  result yes  
+syn_L16                flat          35.723 s  result yes  
+syn_L32                base          57.474 s  result yes  
+syn_L32                prenestoff    56.269 s  result yes  
+syn_L32                flat          67.429 s  result yes  
+[10:28:35] profile g4 syn_L01 base
+[10:28:46] profile g4 syn_L01 prenestoff
+[10:28:57] profile g4 syn_L01 flat
+[10:29:05] profile g4 syn_L02 base
+[10:29:20] profile g4 syn_L02 prenestoff
+[10:29:35] profile g4 syn_L02 flat
+[10:29:47] profile g4 syn_L04 base
+[10:30:10] profile g4 syn_L04 prenestoff
+[10:30:35] profile g4 syn_L04 flat
+[10:30:56] profile g4 syn_L08 base
+[10:31:36] profile g4 syn_L08 prenestoff
+[10:32:16] profile g4 syn_L08 flat
+[10:32:55] profile g4 syn_L16 base
+[10:34:11] profile g4 syn_L16 prenestoff
+[10:35:28] profile g4 syn_L16 flat
+[10:36:49] profile g4 syn_L32 base
+[10:39:03] profile g4 syn_L32 prenestoff
+[10:41:14] profile g4 syn_L32 flat
+[10:43:45] step summary
+[10:43:48] summary: /home/layun03/nested-bench/duckdb_rey/benchmark/nested_parquet/trade_20261028/issues_20261030/server_followup2/summary.md
+[10:43:48] done: /home/layun03/nested-bench/duckdb_rey/benchmark/nested_parquet/trade_20261028/issues_20261030/server_followup2

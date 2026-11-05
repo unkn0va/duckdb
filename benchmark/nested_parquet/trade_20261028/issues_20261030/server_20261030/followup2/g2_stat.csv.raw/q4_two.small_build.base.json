@@ -1,0 +1,5 @@
+{"counter-value" : "3983876.000000", "unit" : "", "event" : "page-faults", "event-runtime" : 87062090397, "pcnt-running" : 100.00, "metric-value" : "45.759011", "metric-unit" : "K/sec"}
+{"counter-value" : "3983879.000000", "unit" : "", "event" : "minor-faults", "event-runtime" : 87062108837, "pcnt-running" : 100.00, "metric-value" : "45.759046", "metric-unit" : "K/sec"}
+{"counter-value" : "0.000000", "unit" : "", "event" : "major-faults", "event-runtime" : 87062108837, "pcnt-running" : 100.00, "metric-value" : "0.000000", "metric-unit" : "/sec"}
+{"counter-value" : "87062.108837", "unit" : "msec", "event" : "task-clock", "event-runtime" : 87062108837, "pcnt-running" : 100.00, "metric-value" : "0.496550", "metric-unit" : "CPUs utilized"}
+{"counter-value" : "270392383524.000000", "unit" : "", "event" : "cycles", "event-runtime" : 87062108837, "pcnt-running" : 100.00, "metric-value" : "3.105741", "metric-unit" : "GHz"}

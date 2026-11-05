@@ -1,0 +1,9 @@
+name,config,file,row_groups_scanned,row_groups_total,skipped_tasks,elements_total,elements_evaluated,elements_evaluated_upper_filter,elements_passing
+q2_c50.orig,base,trade_B.parquet,814,814,,349900000,349900000,,174620000
+q2_c50.orig,prenestoff,trade_B.parquet,814,814,,349900000,349900000,,174620000
+q2_c50.orig,prenest,trade_B.parquet,814,814,,349900000,349900000,174620000,174620000
+q2_c50.orig,flat,trade_B.parquet,814,814,0/814,349900000,349900000,,174620000
+q2_c50.sorted,base,trade_Bsorted.parquet,814,814,,349900000,349900000,,174620000
+q2_c50.sorted,prenestoff,trade_Bsorted.parquet,814,814,,349900000,349900000,,174620000
+q2_c50.sorted,prenest,trade_Bsorted.parquet,814,814,,349900000,349900000,174620000,174620000
+q2_c50.sorted,flat,trade_Bsorted.parquet,720,814,94/814,349900000,318542323,,174620000

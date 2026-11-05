@@ -1,0 +1,49 @@
+c_k04.preagg,prenest: threads=1 wall 10270 ms, CPU 10275 ms (10275 samples, 1000 Hz)
+stack depth: median 26 frames, 3% of the samples with fewer than 3
+truncated stacks: 33.4% of the samples
+CPU ms per category (sub-categories in brackets):
+  값 디코드        3532   34.4%  [storage decode 3494, scan 38]
+  리스트 조립        579    5.6%  [storage list/struct 579]
+  UNNEST       3029   29.5%  [unnest 3029]
+  원소 다루기        236    2.3%  [PROJECTION 236]
+  join            1    0.0%  [hash join 1]
+  집계           2578   25.1%  [aggregate 2578]
+  기타            321    3.1%  [실행기/결과 274, 잘린 스택 45, kernel 1, duckdb 미분류 1]
+hottest sampled functions per category:
+  값 디코드       2228 ms  duckdb::dict_fsst::CompressedStringScanState::ScanToFlatVector
+  값 디코드        263 ms  [unknown]
+  값 디코드        206 ms  duckdb_fastpforlib::internal::__fastunpack20
+  값 디코드        171 ms  duckdb_fastpforlib::internal::__fastunpack2
+  값 디코드        150 ms  duckdb_fastpforlib::internal::__fastunpack9
+  리스트 조립       169 ms  __memcpy_evex_unaligned_erms
+  리스트 조립       134 ms  duckdb::ListColumnData::ScanCount
+  리스트 조립        13 ms  duckdb::StringUtil::BytesToHumanReadableString[abi:cxx11]
+  리스트 조립        11 ms  [unknown]
+  리스트 조립        10 ms  duckdb::BufferPool::MemoryUsage::UpdateUsedMemory
+  UNNEST      2237 ms  duckdb::PhysicalUnnest::ExecuteInternal
+  UNNEST       286 ms  duckdb::UnnestOperatorState::PrepareInput
+  UNNEST       204 ms  duckdb::SelectionVector::Slice
+  UNNEST        65 ms  [unknown]
+  UNNEST        31 ms  std::_Sp_counted_base<(__gnu_cxx::_Lock_policy)2>::_M_release
+  원소 다루기        29 ms  duckdb::ExpressionExecutor::Execute
+  원소 다루기        25 ms  std::_Sp_counted_base<(__gnu_cxx::_Lock_policy)2>::_M_release
+  원소 다루기        20 ms  _int_free
+  원소 다루기        18 ms  duckdb::VectorStructBuffer::~VectorStructBuffer
+  원소 다루기        13 ms  __GI___libc_free
+  join           1 ms  get_max_fast
+  집계           979 ms  duckdb::ClusteredAggr::TryClustered
+  집계           807 ms  duckdb::GroupedAggregateHashTable::TryAddDictionaryGroups
+  집계           434 ms  void duckdb::(anonymous namespace)::ClusteredSumOperation<duckdb::BaseSumOperation<duckdb::(anonymous namespac
+  집계           184 ms  duckdb::ClusteredAggr::ClusterIter
+  집계            48 ms  [unknown]
+  기타            96 ms  duckdb::VectorCacheEntry::ResetFromCache
+  기타            53 ms  std::_Sp_counted_base<(__gnu_cxx::_Lock_policy)2>::_M_release
+  기타            17 ms  duckdb::PipelineExecutor::Execute
+  기타            15 ms  duckdb::VectorBuffer::SetVectorSize
+  기타             9 ms  [unknown]
+  기타             8 ms  duckdb::VectorCache::ResetFromCache
+  기타             8 ms  duckdb::LogicalType::TryGetBuiltinTypeInfo
+  기타             7 ms  duckdb::DataChunk::Reset
+callers of the watched functions (category of the sample / the next three frames up):
+  SelectionVector::Slice: 225 ms
+       225 ms  UNNEST/unnest  < DictionaryBuffer::SliceInternal < VectorBuffer::Slice < Vector::Slice

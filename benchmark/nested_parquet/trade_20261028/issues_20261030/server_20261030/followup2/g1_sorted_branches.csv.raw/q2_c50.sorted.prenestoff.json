@@ -1,0 +1,4 @@
+{"counter-value" : "65902310022.000000", "unit" : "", "event" : "cycles", "event-runtime" : 19454684032, "pcnt-running" : 100.00, "metric-value" : "3.387497", "metric-unit" : "GHz"}
+{"counter-value" : "19454.574483", "unit" : "msec", "event" : "task-clock", "event-runtime" : 19454574483, "pcnt-running" : 100.00, "metric-value" : "0.497584", "metric-unit" : "CPUs utilized"}
+{"counter-value" : "26519511025.000000", "unit" : "", "event" : "branches", "event-runtime" : 19454574483, "pcnt-running" : 100.00, "metric-value" : "1.363150", "metric-unit" : "G/sec"}
+{"counter-value" : "373682038.000000", "unit" : "", "event" : "branch-misses", "event-runtime" : 19454574483, "pcnt-running" : 100.00, "metric-value" : "1.409083", "metric-unit" : "of all branches"}

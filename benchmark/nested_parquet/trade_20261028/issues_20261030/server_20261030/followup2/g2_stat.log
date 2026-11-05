@@ -1,0 +1,4 @@
+q4_two.orig            base        111.935 s  page-faults 8381333.000000, cycles 348510445731.000000, max_rss 6720
+q4_two.orig            prenest     112.602 s  page-faults 8983555.000000, cycles 350508958836.000000, max_rss 6400
+q4_two.small_build     base         87.059 s  page-faults 3983876.000000, cycles 270392383524.000000, max_rss 6720
+q4_two.small_build     prenest      86.941 s  page-faults 4028532.000000, cycles 270060791419.000000, max_rss 6720

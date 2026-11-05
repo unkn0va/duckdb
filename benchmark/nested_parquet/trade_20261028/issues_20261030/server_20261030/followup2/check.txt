@@ -1,0 +1,34 @@
+date:     2026-11-05T06:29:28+00:00
+host:     apache10, Intel(R) Xeon(R) Gold 5215 CPU @ 2.50GHz, kernel 6.8.0-147-generic
+uptime:    06:29:28 up 7 days, 13:23,  2 users,  load average: 0.00, 0.00, 0.00
+scripts:  db36a441352 nested_parquet: trade follow-up G1, the sorted comparison per evaluated element
+perf:     perf version 6.8.12
+time:     /usr/bin/time
+--- metric groups with Topdown:
+TopdownL1
+TopdownL2
+TopdownL3
+TopdownL4
+TopdownL5
+TopdownL6
+--- sudo perf stat -M TopdownL1 -e cycles,branch-misses -- /home/layun03/nested-bench/duckdb_base/build/release/duckdb -c 'SELECT sum(range) FROM range(100000000)':
+     2,220,760,639      INST_RETIRED.ANY                 #  1593.81 tma_info_core_ipmispredict
+                                                  #     60.2 %  tma_retiring             (45.26%)
+         6,501,294      CPU_CLK_UNHALTED.REF_XCLK        #     18.0 %  tma_frontend_bound     
+                                                  #     21.8 %  tma_backend_bound      
+                                                  #      0.0 %  tma_bad_speculation      (42.84%)
+       594,230,853      IDQ_UOPS_NOT_DELIVERED.CORE                                             (41.42%)
+         1,393,363      BR_MISP_RETIRED.ALL_BRANCHES                                            (40.09%)
+        10,002,854      INT_MISC.RECOVERY_CYCLES_ANY                                            (38.18%)
+         6,634,471      CPU_CLK_UNHALTED.ONE_THREAD_ACTIVE                                        (29.21%)
+       818,108,509      CPU_CLK_UNHALTED.THREAD                                                 (29.20%)
+       401,905,428      UOPS_RETIRED.MACRO_FUSED                                                (32.16%)
+     1,989,491,652      UOPS_RETIRED.RETIRE_SLOTS                                               (35.09%)
+     1,971,128,271      UOPS_ISSUED.ANY                                                         (36.88%)
+
+       0.244930792 seconds time elapsed
+
+       0.216401000 seconds user
+       0.057145000 seconds sys
+
+

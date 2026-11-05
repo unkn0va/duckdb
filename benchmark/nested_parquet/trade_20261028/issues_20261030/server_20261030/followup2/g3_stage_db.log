@@ -1,0 +1,9 @@
+s1_box                 base           3.882 s  result yes  
+s1_box                 prenestoff     3.850 s  result yes  
+s1_box                 prenest        3.863 s  result yes  
+s2_unnest              base           6.740 s  result yes  
+s2_unnest              prenestoff     6.727 s  result yes  
+s2_unnest              prenest        6.725 s  result yes  
+s3_cond                base          13.676 s  result yes  
+s3_cond                prenestoff    13.396 s  result yes  
+s3_cond                prenest       13.497 s  result yes  

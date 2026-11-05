@@ -1,0 +1,17 @@
+{"counter-value" : "69721891752.000000", "unit" : "", "event" : "cycles", "event-runtime" : 7526741912, "pcnt-running" : 36.00, "metric-value" : "3.369173", "metric-unit" : "GHz"}
+{"counter-value" : "20694.068824", "unit" : "msec", "event" : "task-clock", "event-runtime" : 20694068824, "pcnt-running" : 100.00, "metric-value" : "0.499854", "metric-unit" : "CPUs utilized"}
+{"counter-value" : "155366093760.000000", "unit" : "", "event" : "INST_RETIRED.ANY", "event-runtime" : 9408098887, "pcnt-running" : 45.00, "metric-value" : "7.507760", "metric-unit" : "G/sec"}
+{"metric-value" : "366.935736", "metric-unit" : "tma_info_core_ipmispredict"}
+{"metric-value" : "51.883685", "metric-unit" : "%  tma_retiring"}
+{"counter-value" : "514279610.000000", "unit" : "", "event" : "CPU_CLK_UNHALTED.REF_XCLK", "event-runtime" : 9408043101, "pcnt-running" : 45.00, "metric-value" : "24.851546", "metric-unit" : "M/sec"}
+{"metric-value" : "20.217841", "metric-unit" : "%  tma_frontend_bound"}
+{"metric-value" : "13.819341", "metric-unit" : "%  tma_backend_bound"}
+{"metric-value" : "14.079133", "metric-unit" : "%  tma_bad_speculation"}
+{"counter-value" : "56402260545.000000", "unit" : "", "event" : "IDQ_UOPS_NOT_DELIVERED.CORE", "event-runtime" : 9408131953, "pcnt-running" : 45.00, "metric-value" : "2.725528", "metric-unit" : "G/sec"}
+{"counter-value" : "423414998.000000", "unit" : "", "event" : "BR_MISP_RETIRED.ALL_BRANCHES", "event-runtime" : 9408142038, "pcnt-running" : 45.00, "metric-value" : "20.460693", "metric-unit" : "M/sec"}
+{"counter-value" : "2540340186.000000", "unit" : "", "event" : "INT_MISC.RECOVERY_CYCLES_ANY", "event-runtime" : 9405455739, "pcnt-running" : 45.00, "metric-value" : "122.756922", "metric-unit" : "M/sec"}
+{"counter-value" : "514380797.000000", "unit" : "", "event" : "CPU_CLK_UNHALTED.ONE_THREAD_ACTIVE", "event-runtime" : 7523986827, "pcnt-running" : 36.00, "metric-value" : "24.856436", "metric-unit" : "M/sec"}
+{"counter-value" : "69736318751.000000", "unit" : "", "event" : "CPU_CLK_UNHALTED.THREAD", "event-runtime" : 7524023432, "pcnt-running" : 36.00, "metric-value" : "3.369870", "metric-unit" : "G/sec"}
+{"counter-value" : "20826934467.000000", "unit" : "", "event" : "UOPS_RETIRED.MACRO_FUSED", "event-runtime" : 7523993852, "pcnt-running" : 36.00, "metric-value" : "1.006420", "metric-unit" : "G/sec"}
+{"counter-value" : "144741325424.000000", "unit" : "", "event" : "UOPS_RETIRED.RETIRE_SLOTS", "event-runtime" : 7523952321, "pcnt-running" : 36.00, "metric-value" : "6.994339", "metric-unit" : "G/sec"}
+{"counter-value" : "178937586156.000000", "unit" : "", "event" : "UOPS_ISSUED.ANY", "event-runtime" : 7523971830, "pcnt-running" : 36.00, "metric-value" : "8.646805", "metric-unit" : "G/sec"}

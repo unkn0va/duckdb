@@ -166,7 +166,7 @@ def g1():
         if os.path.exists(write):
             text = open(write).read()
             rss = re.search(r"Maximum resident set size \(kbytes\): (\d+)", text)
-            el = re.search(r"Elapsed \(wall clock\) time[^:]*: ([\d:.]+)", text)
+            el = re.search(r"Elapsed \(wall clock\) time \(h:mm:ss or m:ss\): ([\d:.]+)", text)
             print(f"trade_Bsorted 쓰기: {el.group(1) if el else '?'}, 최대 메모리 "
                   f"{int(rss.group(1)) / 1e6:.1f} GB.\n" if rss else "")
 
@@ -200,8 +200,13 @@ def g2():
                 print(f"| {k} | {a[k]:.2f} | {b[k]:.2f} | {a[k] - b[k]:.2f} |")
         sa, sb = st.get(("q4_two.orig", c), {}), st.get(("q4_two.small_build", c), {})
         for item, label, scale in (("page-faults", "page fault (백만, 측정 실행)", 1e6), ("max_rss", "최대 RSS (GB, 프로세스)", 1e6)):
-            if item in sa and item in sb:
-                print(f"| {label} | {sa[item] / scale:.2f} | {sb[item] / scale:.2f} | {(sa[item] - sb[item]) / scale:.2f} |")
+            if item not in sa or item not in sb:
+                continue
+            if item == "max_rss" and min(sa[item], sb[item]) < 1e5:
+                # /usr/bin/time around "sudo perf" reports sudo's few MB, not DuckDB's
+                print(f"| {label} | 측정 안 됨 | 측정 안 됨 | |")
+                continue
+            print(f"| {label} | {sa[item] / scale:.2f} | {sb[item] / scale:.2f} | {(sa[item] - sb[item]) / scale:.2f} |")
         print()
 
 

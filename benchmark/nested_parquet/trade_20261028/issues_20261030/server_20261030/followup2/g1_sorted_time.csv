@@ -1,0 +1,9 @@
+name,config,wall_s,cpu_s,runs,threads,same_result,result,plan,plan_flag,note,busy_cores
+q2_c50.orig,base,25.846,25.846,10,1,yes,"1,013a4adba2b469d6",83a677789c5bd196,,,0.0
+q2_c50.orig,prenestoff,21.011,21.011,10,1,yes,"1,013a4adba2b469d6",8de42287c5388ad6,,,0.0
+q2_c50.orig,prenest,15.362,15.362,10,1,yes,"1,013a4adba2b469d6",8de42287c5388ad6,,,0.0
+q2_c50.orig,flat,11.303,11.303,10,1,yes,"1,013a4adba2b469d6",1c988992b4d0fa31,,,0.0
+q2_c50.sorted,base,23.966,23.965,10,1,yes,"1,013a4adba2b469d6",83a677789c5bd196,,,0.0
+q2_c50.sorted,prenestoff,19.336,19.336,10,1,yes,"1,013a4adba2b469d6",8de42287c5388ad6,,,0.0
+q2_c50.sorted,prenest,13.609,13.608,10,1,yes,"1,013a4adba2b469d6",8de42287c5388ad6,,,0.0
+q2_c50.sorted,flat,9.496,9.496,10,1,yes,"1,013a4adba2b469d6",ea672b4851c99282,,,0.0

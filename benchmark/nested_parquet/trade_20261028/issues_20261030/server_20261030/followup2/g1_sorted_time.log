@@ -1,0 +1,8 @@
+q2_c50.orig            base          25.846 s  result yes  
+q2_c50.orig            prenestoff    21.011 s  result yes  
+q2_c50.orig            prenest       15.362 s  result yes  
+q2_c50.orig            flat          11.303 s  result yes  
+q2_c50.sorted          base          23.966 s  result yes  
+q2_c50.sorted          prenestoff    19.336 s  result yes  
+q2_c50.sorted          prenest       13.609 s  result yes  
+q2_c50.sorted          flat           9.496 s  result yes  
