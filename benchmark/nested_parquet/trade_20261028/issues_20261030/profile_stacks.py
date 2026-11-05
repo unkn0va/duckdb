@@ -36,6 +36,7 @@ import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from categories import CATEGORIES, classify_samples, function_name, truncated  # noqa: E402
+from time_queries import read_query  # noqa: E402
 
 DUCKDB, DATA_DIR, QUERY_FILE, OUT = sys.argv[1:5]
 THREADS = os.environ.get("THREADS", "1")
@@ -58,7 +59,8 @@ WATCH = [
 
 
 def record(tmp):
-    query = open(QUERY_FILE).read().strip().rstrip(";")
+    # leading SET / ATTACH / USE lines of the file run once, before both runs
+    file_setup, query = read_query(QUERY_FILE)
     ctl, ack, toggle = (os.path.join(tmp, name) for name in ("ctl", "ack", "toggle.sh"))
     os.mkfifo(ctl)
     os.mkfifo(ack)
@@ -66,7 +68,7 @@ def record(tmp):
         f.write(f'#!/bin/sh\necho "$1" > {ctl} && head -c 4 {ack} > /dev/null\n')
     os.chmod(toggle, 0o755)
     script = (
-        f"SET threads = {THREADS};\n{SETUP}\n.mode trash\n{query};\n.timer on\n"
+        f"SET threads = {THREADS};\n{SETUP}\n{file_setup}.mode trash\n{query};\n.timer on\n"
         f".shell {toggle} enable\n{query};\n.shell {toggle} disable\n"
     )
     data = os.path.join(tmp, "perf.data")

@@ -4,7 +4,10 @@ prepare_trade.sh: the same rows, elements and longest list; the same content - s
 column)) and sum(hash(file_row_number, the kept fields of every element)); the same row groups (rows of each) and
 writer (created_by, compression). Prints a markdown table; the last column says whether B and the copy agree.
 
-Usage: verify_narrow.py <data dir> <trade_Bn.parquet> <field,field>
+With --reordered instead of the fields (trade_Bsorted: rows and legs in another order) the content hash does not
+depend on the order: sum(hash(every other column, list_sort(legs))); a positional hash shows that the order did change.
+
+Usage: verify_narrow.py <data dir> <trade_Bn.parquet> <field,field | --reordered>
 Environment: BASE (binary, default ~/nested-bench/duckdb_base/build/release/duckdb)
 """
 import os
@@ -22,7 +25,22 @@ def query(data_dir, sql):
 
 
 def main():
-    data_dir, narrow, fields = os.path.abspath(sys.argv[1]), sys.argv[2], sys.argv[3].split(",")
+    data_dir, narrow = os.path.abspath(sys.argv[1]), sys.argv[2]
+    if sys.argv[3] == "--reordered":
+        checks = {
+            "rows, elements, longest list": "SELECT count(*), sum(len(legs)), max(len(legs)) FROM read_parquet('{f}')",
+            "hash of every row, in any order": f"SELECT sum(hash({', '.join(SCALARS)}, list_sort(legs)))::HUGEINT "
+            "FROM read_parquet('{f}')",
+            "row groups (count, rows of each)": "SELECT count(*), string_agg(row_group_num_rows::VARCHAR, ' ' ORDER BY "
+            "row_group_id) FROM (SELECT DISTINCT row_group_id, row_group_num_rows FROM parquet_metadata('{f}'))",
+            "writer, compression": "SELECT (SELECT created_by FROM parquet_file_metadata('{f}')), "
+            "string_agg(DISTINCT compression, ' ') FROM parquet_metadata('{f}')",
+            "positional hash (differs when reordered)": "SELECT sum(hash(file_row_number, legs))::HUGEINT "
+            "FROM read_parquet('{f}', file_row_number = true)",
+        }
+        report(data_dir, narrow, checks)
+        return
+    fields = sys.argv[3].split(",")
     kept = "struct_pack(" + ", ".join(f"{f} := x.{f}" for f in fields) + ")"
     checks = {
         "rows, elements, longest list": "SELECT count(*), sum(len(legs)), max(len(legs)) FROM read_parquet('{f}')",
@@ -35,11 +53,19 @@ def main():
         "writer, compression": "SELECT (SELECT created_by FROM parquet_file_metadata('{f}')), "
         "string_agg(DISTINCT compression, ' ') FROM parquet_metadata('{f}')",
     }
+    report(data_dir, narrow, checks)
+
+
+def report(data_dir, narrow, checks):
     print(f"| check | trade_B.parquet | {os.path.basename(narrow)} | same |\n|---|---|---|---|")
     for name, sql in checks.items():
         a, b = query(data_dir, sql.format(f="trade_B.parquet")), query(data_dir, sql.format(f=narrow))
         short = lambda v: v if len(v) < 60 else v[:28] + " … " + v[-24:]  # noqa: E731
-        print(f"| {name} | {short(a)} | {short(b)} | {'yes' if a == b else 'NO'} |")
+        if "differs" in name:
+            verdict = "differs (expected)" if a != b else "NO: same order"
+        else:
+            verdict = "yes" if a == b else "NO"
+        print(f"| {name} | {short(a)} | {short(b)} | {verdict} |")
 
 
 if __name__ == "__main__":

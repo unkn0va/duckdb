@@ -52,6 +52,15 @@ RULES = [
         r"|TemplatedFilterOperation|ParquetReader::ApplyFilter|ColumnReader::DirectSelect|PlainSelect",
     ),
     ("리스트 조립", "list/struct reader", "strong", r"(List|Struct|Array)ColumnReader|TemplatedListReader|ListReader"),
+    # the same work when the list comes from DuckDB's own storage (a table, follow-up G3)
+    ("리스트 조립", "storage list/struct", "strong", r"(List|Struct|Array)ColumnData"),
+    (
+        "값 디코드",
+        "storage decode",
+        "strong",
+        r"ColumnData::ScanVector|StandardColumnData|ColumnSegment|BitpackingScan|[Ff]sst|CompressedString|RLEScan"
+        r"|DictionaryCompression|UncompressedString|FixedSizeScan|ValidityScan",
+    ),
     ("키 생성", "node keys", "strong", r"ParquetNodeKeyGenerator|CountPageLevelRows|ParquetNodeRowGroupRows|KeyRange"),
     (
         "값 디코드",
@@ -189,6 +198,31 @@ def classify_samples(stacks):
         total = sum(known.values()) if known else 0
         result.append({k: v / total for k, v in known.items()} if total else {("기타", "잘린 스택"): 1.0})
     return result
+
+
+# The phases of hash-table work (follow-up G2), by the first matching frame from the leaf up; a sample whose leaf runs
+# in the kernel (page faults, zeroing new pages, unmapping) is "커널" with the phase of the user frames below it
+JOIN_PHASES = [
+    ("해제·소멸", r"(^|::)~|Destroy|(^|::)(free|cfree|munmap|madvise)$|FreeBlock|BufferPool::Purge"),
+    ("메모리 할당", r"(^|::)(malloc|calloc|realloc|mmap|posix_memalign)$|Allocator::Allocate|AllocateData|"
+                 r"AllocateBlock|AllocateMemory|BufferManager::Allocate|RegisterMemory|BuildBufferHandle"),
+    ("Finalize", r"Finalize|InitializePointerTable|PrepareFinalize|Repartition|Unpartition|PartitionedTupleData"),
+    ("probe", r"Probe|ScanStructure|GetRowPointers|RowMatcher|Gather|ProbeAndSpill"),
+    ("build (채우기)", r"Sink|Build|TupleDataCollection::Append|AppendUnified|Scatter|Combine|InsertHashes"),
+]
+COMPILED_PHASES = [(name, re.compile(p)) for name, p in JOIN_PHASES]
+
+
+def join_phase(stack):
+    """The phase of a hash-join sample: (phase, kernel or not)."""
+    kernel = bool(stack) and leaf_kind(*stack[0]) == "kernel"
+    for frame, dso in stack:
+        if leaf_kind(frame, dso) == "kernel":
+            continue
+        for name, pattern in COMPILED_PHASES:
+            if pattern.search(frame):
+                return name, kernel
+    return "join 기타", kernel
 
 
 def _old_rules():

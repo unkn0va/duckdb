@@ -21,6 +21,11 @@
 | `make_fanout.py` | 후속 D: `dims_k/dim_k<k>.parquet`(k = 1, 2, 4, 8, 16)와 `fanout/fanout.duckdb`(차원 표, 사실 표의 내부 테이블) |
 | `summarize_extra.py` | 후속 A, B, D의 표 |
 | `make_figures.py` | 후속 E: 발표용 그래프 데이터 `server_20261030/figures/*.csv`와 그 README |
+| `run_followup2.sh` | 후속 G1–G4(보고서의 추정을 실측으로). 단계 `check g2 g1 g3 g4 summary` |
+| `perf_stat.py` | perf stat의 이벤트·메트릭 그룹(-M)을 측정하는 두 번째 실행에서만, JSON으로 읽어 CSV로. `MAXRSS=1`이면 `/usr/bin/time -v`의 최대 메모리도 |
+| `write_trade.py --sort-legs`(상위 폴더) | G1: trade_Bsorted(legs를 leg_id 순으로, 행을 가장 작은 leg_id 순으로). 메모리를 줄이려고 출력 위치 구간별 임시 파일로 나눠 씀 |
+| `write_trade.py --restream`, `make_syn.py` | G4: 길이 L(1–32)인 BIGINT 리스트 합성 파일. DuckDB가 만든 값을 B와 같은 쓰기 설정으로 다시 쓰고 비교 |
+| `summarize_g.py` | G1–G4의 표. G2의 해시 테이블 단계는 `categories.join_phase` |
 | `local_2m/` | 이 PC의 시험 결과. trade는 2백만 행 샘플, TPC-H는 `synthetic_tpch.sql`로 만든 작은 합성 데이터(구조만 같고 값은 실제와 다름) |
 
 ## 정의

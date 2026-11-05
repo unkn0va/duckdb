@@ -20,6 +20,11 @@ Usage: write_trade.py <distinct.parquet> <order.parquet | -> <out dir> <A|B|C|fl
        write_trade.py --narrow <trade_B.parquet> <out.parquet> <field,field>
                       B with only the given fields of the legs elements, the rest of B as it is: same rows in the
                       same order, same writer settings and row groups (trade_Bn1 = value, trade_Bn2 = leg_id,value)
+       write_trade.py --sort-legs <trade_B.parquet> <out.parquet>
+                      B with the legs of every row sorted by leg_id and the rows ordered by their smallest leg_id
+                      (stable: ties keep B's order); same content, writer settings and row groups (trade_Bsorted)
+       write_trade.py --restream <in.parquet> <out.parquet>
+                      any file rewritten batch by batch with these writer settings and row groups
 """
 import os
 import sys
@@ -134,7 +139,74 @@ def narrow(chunk, fields):
     return chunk.set_column(chunk.column_names.index("legs"), "legs", pa.ListArray.from_arrays(array.offsets, struct))
 
 
+def sorted_legs(table):
+    """The table with the legs of every row sorted by leg_id."""
+    array, _ = plain_list(table["legs"])
+    keys = pa.table({"parent": pc.list_parent_indices(array), "leg_id": array.values.field("leg_id")})
+    order = pc.sort_indices(keys, sort_keys=[("parent", "ascending"), ("leg_id", "ascending")])
+    legs = pa.ListArray.from_arrays(array.offsets, array.values.take(order))
+    return table.set_column(table.column_names.index("legs"), "legs", legs)
+
+
+def sort_legs(source, target):
+    """B in the order of the rows' smallest leg_id, every row's legs sorted - in three passes so that no more than a
+    BUCKETS-th of B is in memory: the output position of every row (from the legs alone), the rows split by output
+    position into BUCKETS temporary files next to target, then every bucket sorted and written in turn."""
+    buckets = int(os.environ.get("BUCKETS", "32"))
+    smallest = []
+    for batch in pq.ParquetFile(source).iter_batches(batch_size=CHUNK_ROWS, columns=["legs"]):
+        array, lengths = plain_list(batch.column(0))
+        if pc.min(lengths).as_py() == 0:
+            raise SystemExit("sort-legs: a row without legs has no smallest leg_id")
+        keys = pa.table({"row": pc.list_parent_indices(array), "leg_id": array.values.field("leg_id")})
+        first = keys.group_by("row").aggregate([("leg_id", "min")]).sort_by("row")
+        smallest.append(first["leg_id_min"].combine_chunks())
+    smallest = pa.chunked_array(smallest).combine_chunks()
+    rows = pc.sort_indices(pa.table({"smallest": smallest}), sort_keys=[("smallest", "ascending")])  # stable
+    position = pc.sort_indices(rows)  # the inverse permutation: output position of every row of B
+    size = -(-len(position) // buckets)
+    parts = [os.path.join(os.path.dirname(os.path.abspath(target)), f".{os.path.basename(target)}.bucket{b}")
+             for b in range(buckets)]
+    writers = [None] * buckets
+    offset = 0
+    for batch in pq.ParquetFile(source).iter_batches(batch_size=CHUNK_ROWS):
+        table = pa.Table.from_batches([batch])
+        pos = position.slice(offset, table.num_rows)
+        offset += table.num_rows
+        bucket = pc.divide(pos, pa.scalar(size, pa.uint64()))
+        table = table.append_column("_pos", pos)
+        for b in range(buckets):
+            part = table.filter(pc.equal(bucket, pa.scalar(b, pa.uint64())))
+            if part.num_rows:
+                writers[b] = writers[b] or pq.ParquetWriter(parts[b], part.schema)
+                writers[b].write_table(part)
+    writer = None
+    for b in range(buckets):
+        if writers[b] is None:
+            continue
+        writers[b].close()
+        part = pq.read_table(parts[b])
+        part = sorted_legs(part.take(pc.sort_indices(part["_pos"])).drop_columns(["_pos"]))
+        writer = writer or RowGroupWriter(target, part.schema)
+        writer.write(part)
+        os.remove(parts[b])
+    writer.close()
+    print(f"{target}: {writer.rows} rows, legs sorted by leg_id, rows by their smallest leg_id ({buckets} buckets)")
+
+
 def main():
+    if sys.argv[1] == "--sort-legs":
+        sort_legs(sys.argv[2], sys.argv[3])
+        return
+    if sys.argv[1] == "--restream":
+        writer = None
+        for batch in pq.ParquetFile(sys.argv[2]).iter_batches(batch_size=CHUNK_ROWS):
+            table = pa.Table.from_batches([batch])
+            writer = writer or RowGroupWriter(sys.argv[3], table.schema)
+            writer.write(table)
+        writer.close()
+        print(f"{sys.argv[3]}: {writer.rows} rows")
+        return
     if sys.argv[1] == "--narrow":
         source, target, fields = sys.argv[2], sys.argv[3], sys.argv[4].split(",")
         writer = None

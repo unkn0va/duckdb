@@ -28,6 +28,13 @@ queries_fanout/<storage>_k<k>.<orig|preagg>.<variant>.sql - q7_plots' shape on a
   table, c = both DuckDB tables (fanout/fanout.duckdb, attached read-only; no flat query - read_parquet_flat reads
   parquet only)
 
+queries_sorted/q2_c50.{orig,sorted} - q2_c50 on trade_B and on trade_Bsorted (the same rows, legs sorted by leg_id
+  and rows by their smallest leg_id), builtin and flat (follow-up G1)
+queries_stage_db/<stage>.builtin.sql - s1_box, s2_unnest, s3_cond on the DuckDB table fw.trade_b of
+  fanout/fanout.duckdb (follow-up G3; compare with queries_stage/ on parquet)
+queries_syn/syn_L<L> - q3's shape on synthetic files ../syn/syn_L<L>.parquet with one BIGINT list of length L per
+  row (L = 1, 2, 4, 8, 16, 32; make_syn.py), condition v < 500000 (about half), builtin and flat (follow-up G4)
+
 Usage: make_issue_queries.py
 """
 import os
@@ -125,6 +132,23 @@ for k in FANOUT_K:
         FANOUT[f"c_k{k:02d}.{form}"] = (c[0], None, c[1])
 
 
+SORTED = {
+    "q2_c50.orig": QUERIES["q2_c50"][:2],
+    "q2_c50.sorted": tuple(t.replace(B, "'trade_Bsorted.parquet'") for t in QUERIES["q2_c50"][:2]),
+}
+STAGE_DB = {name: (ATTACH + texts[0].replace(B, "fw.trade_b"),) for name, texts in STAGES.items()
+            if name in ("s1_box", "s2_unnest", "s3_cond")}
+assert all("fw.trade_b" in t[0] for t in STAGE_DB.values())
+SYN_L = (1, 2, 4, 8, 16, 32)
+SYN = {
+    f"syn_L{n:02d}": (
+        f"SELECT sum(v) FROM (SELECT unnest(c) AS v FROM '../syn/syn_L{n}.parquet') WHERE v < 500000;",
+        f"SELECT sum(c) FROM read_parquet_flat('../syn/syn_L{n}.parquet') WHERE c < 500000;",
+    )
+    for n in SYN_L
+}
+
+
 def write(folder, queries):
     os.makedirs(folder, exist_ok=True)
     for name in os.listdir(folder):
@@ -144,4 +168,7 @@ if __name__ == "__main__":
     write(os.path.join(HERE, "queries_build"), BUILD)
     write(os.path.join(HERE, "queries_bn"), BN)
     write(os.path.join(HERE, "queries_fanout"), FANOUT)
+    write(os.path.join(HERE, "queries_sorted"), SORTED)
+    write(os.path.join(HERE, "queries_stage_db"), STAGE_DB)
+    write(os.path.join(HERE, "queries_syn"), SYN)
     print(f"{len(STAGES)} stages, {len(PLANS)} plan variants x 3 -> {HERE}/queries_stage, queries_plans")
