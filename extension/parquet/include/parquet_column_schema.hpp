@@ -90,6 +90,10 @@ public:
 	duckdb_parquet::FieldRepetitionType::type repetition_type = duckdb_parquet::FieldRepetitionType::OPTIONAL;
 	//! Whether the column can be recognized as a GEOMETRY type
 	bool allow_geometry = false;
+	//! Set on a STRUCT node of a narrowed schema (a sub-field selection read through a narrowed reader):
+	//! the position of each remaining child in the original struct, and the original type
+	vector<idx_t> narrowed_from;
+	LogicalType full_type;
 };
 
 } // namespace duckdb

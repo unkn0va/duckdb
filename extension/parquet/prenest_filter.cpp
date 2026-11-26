@@ -245,6 +245,67 @@ bool PrenestFilter::Bind(ClientContext &context, const LogicalType &element_type
 	return true;
 }
 
+static bool RemapReferences(Expression &expr, const vector<idx_t> &full_to_narrowed,
+                            const child_list_t<LogicalType> &children) {
+	if (expr.GetExpressionClass() == ExpressionClass::BOUND_REF) {
+		auto &ref = expr.Cast<BoundReferenceExpression>();
+		if (ref.index >= full_to_narrowed.size() || full_to_narrowed[ref.index] == DConstants::INVALID_INDEX) {
+			return false;
+		}
+		auto new_index = full_to_narrowed[ref.index];
+		if (children[new_index].second != ref.return_type) {
+			return false;
+		}
+		ref.index = new_index;
+		return true;
+	}
+	bool ok = true;
+	ExpressionIterator::EnumerateChildren(expr, [&](Expression &child) {
+		if (!RemapReferences(child, full_to_narrowed, children)) {
+			ok = false;
+		}
+	});
+	return ok;
+}
+
+bool PrenestFilter::RemapToNarrowed(ClientContext &context, const vector<idx_t> &narrowed_from,
+                                    const LogicalType &narrowed_type) {
+	if (!predicate || narrowed_type.id() != LogicalTypeId::STRUCT) {
+		return false;
+	}
+	auto &children = StructType::GetChildTypes(narrowed_type);
+	if (children.size() != narrowed_from.size()) {
+		return false;
+	}
+	idx_t full_count = 0;
+	for (auto index : narrowed_from) {
+		full_count = MaxValue<idx_t>(full_count, index + 1);
+	}
+	for (auto index : field_child_indexes) {
+		full_count = MaxValue<idx_t>(full_count, index + 1);
+	}
+	vector<idx_t> full_to_narrowed(full_count, DConstants::INVALID_INDEX);
+	for (idx_t i = 0; i < narrowed_from.size(); i++) {
+		full_to_narrowed[narrowed_from[i]] = i;
+	}
+	if (!RemapReferences(*predicate, full_to_narrowed, children)) {
+		return false;
+	}
+	vector<idx_t> remapped;
+	for (auto index : field_child_indexes) {
+		remapped.push_back(full_to_narrowed[index]);
+	}
+	field_child_indexes = std::move(remapped);
+	vector<LogicalType> chunk_types;
+	for (auto &child : children) {
+		chunk_types.push_back(child.second);
+	}
+	element_chunk.Destroy();
+	element_chunk.InitializeEmpty(chunk_types);
+	executor = make_uniq<ExpressionExecutor>(context, predicate.get());
+	return true;
+}
+
 idx_t PrenestFilter::Apply(Vector &element_vector, idx_t count, SelectionVector &sel, bool *keep) {
 	PrenestStats::Get().predicate_elements += count;
 	ListStats().predicate_elements += count;

@@ -15,6 +15,8 @@
 #include "reader/row_number_column_reader.hpp"
 #include "reader/variant_column_reader.hpp"
 #include "reader/struct_column_reader.hpp"
+#include "duckdb/common/types/vector_cache.hpp"
+#include <algorithm>
 #include "thrift_tools.hpp"
 #include "duckdb/main/config.hpp"
 #include "duckdb/common/encryption_state.hpp"
@@ -579,9 +581,21 @@ static unique_ptr<PrenestFilter> TryBuildPrenestFilter(ClientContext &context, c
 	if (element_type.id() != LogicalTypeId::STRUCT || child_reader.Type().id() != LogicalTypeId::STRUCT) {
 		return nullptr;
 	}
-	if (!filter->Bind(context, element_type)) {
+	// a narrowed element struct is bound as the full one (the predicate's indexes are full positions,
+	// and an unprojected field must be reported the same way), then re-pointed at the narrowed layout
+	auto &element_schema = schema.children[0];
+	bool narrowed = !element_schema.narrowed_from.empty();
+	if (!filter->Bind(context, narrowed ? element_schema.full_type : element_type)) {
 		// the referenced fields are not in this list's element struct
 		return nullptr;
+	}
+	if (narrowed && !filter->RemapToNarrowed(context, element_schema.narrowed_from, element_type)) {
+		if (plan.from_injection) {
+			return nullptr;
+		}
+		throw InvalidInputException(
+		    "parquet_prenest_filter references a field that this query does not project - the pre-nest "
+		    "filter would see a constant NULL vector. Project the predicate columns or clear the setting.");
 	}
 	auto &struct_reader = child_reader.Cast<StructColumnReader>();
 	for (auto child_idx : filter->FieldChildIndexes()) {
@@ -598,6 +612,220 @@ static unique_ptr<PrenestFilter> TryBuildPrenestFilter(ClientContext &context, c
 	}
 	return filter;
 }
+
+namespace {
+
+//! Copy `schema`, keeping only the struct fields that `indexes` selects (recursively, through LIST elements).
+//! Returns nullptr when the subtree contains a shape this does not handle; the caller then keeps the full reader.
+unique_ptr<ParquetColumnSchema> NarrowSchema(const ParquetColumnSchema &schema, const vector<ColumnIndex> &indexes) {
+	auto out = make_uniq<ParquetColumnSchema>(schema);
+	if (indexes.empty() || schema.children.empty()) {
+		return out;
+	}
+	if (schema.schema_type != ParquetColumnSchemaType::COLUMN) {
+		return nullptr;
+	}
+	switch (schema.type.id()) {
+	case LogicalTypeId::STRUCT: {
+		vector<reference<const ColumnIndex>> selected;
+		for (auto &index : indexes) {
+			if (index.IsPushdownExtract() || index.GetPrimaryIndex() >= schema.children.size()) {
+				return nullptr;
+			}
+			selected.push_back(index);
+		}
+		std::sort(selected.begin(), selected.end(),
+		          [](const ColumnIndex &a, const ColumnIndex &b) { return a.GetPrimaryIndex() < b.GetPrimaryIndex(); });
+		vector<ParquetColumnSchema> children;
+		child_list_t<LogicalType> child_types;
+		vector<idx_t> narrowed_from;
+		optional_idx previous;
+		for (auto &entry : selected) {
+			auto child_idx = entry.get().GetPrimaryIndex();
+			if (previous.IsValid() && previous.GetIndex() == child_idx) {
+				return nullptr;
+			}
+			previous = child_idx;
+			auto child = NarrowSchema(schema.children[child_idx], entry.get().GetChildIndexes());
+			if (!child) {
+				return nullptr;
+			}
+			child_types.emplace_back(StructType::GetChildName(schema.type, child_idx), child->type);
+			children.push_back(std::move(*child));
+			narrowed_from.push_back(child_idx);
+		}
+		out->children = std::move(children);
+		out->type = LogicalType::STRUCT(std::move(child_types));
+		out->narrowed_from = std::move(narrowed_from);
+		out->full_type = schema.type;
+		return out;
+	}
+	case LogicalTypeId::LIST: {
+		if (indexes.size() != 1 || indexes[0].GetPrimaryIndex() != 0 || indexes[0].IsPushdownExtract() ||
+		    schema.children.size() != 1) {
+			return nullptr;
+		}
+		auto child = NarrowSchema(schema.children[0], indexes[0].GetChildIndexes());
+		if (!child) {
+			return nullptr;
+		}
+		out->type = LogicalType::LIST(child->type);
+		vector<ParquetColumnSchema> children;
+		children.push_back(std::move(*child));
+		out->children = std::move(children);
+		return out;
+	}
+	default:
+		return nullptr;
+	}
+}
+
+void SetAllNullRecursive(Vector &vec, idx_t count) {
+	FlatVector::Validity(vec).SetAllInvalid(count);
+	if (vec.GetType().InternalType() == PhysicalType::STRUCT) {
+		for (auto &child : StructVector::GetEntries(vec)) {
+			SetAllNullRecursive(*child, count);
+		}
+	}
+}
+
+//! A FLAT vector of `count` NULLs - the same shape list assembly used to produce for an unread field, built once
+//! instead of copied element by element. Leaf data is left uninitialized (every row is NULL); nested types are
+//! zeroed so that list entries are empty.
+void MakeNullVector(Vector &dst, idx_t count) {
+	auto &type = dst.GetType();
+	auto internal_type = type.InternalType();
+	bool nested = internal_type == PhysicalType::STRUCT || internal_type == PhysicalType::LIST ||
+	              internal_type == PhysicalType::ARRAY;
+	Vector nulls(type, true, nested, MaxValue<idx_t>(count, 1));
+	SetAllNullRecursive(nulls, count);
+	dst.Reference(nulls);
+}
+
+//! Make `dst` (of the full type) reference `src` (of the narrowed type). Fields that were not read become
+//! all-NULL children (MakeNullVector); list entries, validity and every read child are shared, not copied.
+void WidenInto(Vector &src, Vector &dst, idx_t count) {
+	auto &full_type = dst.GetType();
+	if (src.GetType() == full_type) {
+		dst.Reference(src);
+		return;
+	}
+	switch (full_type.InternalType()) {
+	case PhysicalType::STRUCT: {
+		if (src.GetVectorType() != VectorType::FLAT_VECTOR) {
+			src.Flatten(count);
+		}
+		Vector result(full_type, idx_t(0));
+		auto &src_entries = StructVector::GetEntries(src);
+		auto &dst_entries = StructVector::GetEntries(result);
+		auto &src_children = StructType::GetChildTypes(src.GetType());
+		auto &dst_children = StructType::GetChildTypes(full_type);
+		idx_t src_idx = 0;
+		for (idx_t dst_idx = 0; dst_idx < dst_children.size(); dst_idx++) {
+			if (src_idx < src_children.size() && src_children[src_idx].first == dst_children[dst_idx].first) {
+				WidenInto(*src_entries[src_idx], *dst_entries[dst_idx], count);
+				src_idx++;
+			} else {
+				MakeNullVector(*dst_entries[dst_idx], count);
+			}
+		}
+		if (src_idx != src_children.size()) {
+			throw InternalException("WidenInto: narrowed struct fields do not match the full struct");
+		}
+		FlatVector::Validity(result).Initialize(FlatVector::Validity(src));
+		dst.Reference(result);
+		return;
+	}
+	case PhysicalType::LIST: {
+		if (src.GetVectorType() != VectorType::FLAT_VECTOR) {
+			src.Flatten(count);
+		}
+		auto list_size = ListVector::GetListSize(src);
+		auto child = make_uniq<Vector>(ListType::GetChildType(full_type), idx_t(0));
+		WidenInto(ListVector::GetEntry(src), *child, list_size);
+		// list entries stay owned by `src`, which the reader keeps alive until its next Read
+		Vector result(full_type, FlatVector::GetData(src));
+		auto list_buffer = make_buffer<VectorListBuffer>(std::move(child), list_size);
+		list_buffer->SetSize(list_size);
+		result.SetAuxiliary(std::move(list_buffer));
+		FlatVector::Validity(result).Initialize(FlatVector::Validity(src));
+		dst.Reference(result);
+		return;
+	}
+	default:
+		throw InternalException("WidenInto: unsupported type %s", full_type.ToString());
+	}
+}
+
+//! Reads a nested column through a reader built for a narrowed schema (only the selected fields), and hands
+//! the result up in the column's full type. List assembly therefore never touches the unread fields.
+class WideningColumnReader : public ColumnReader {
+public:
+	static constexpr const PhysicalType TYPE = PhysicalType::INVALID;
+
+	WideningColumnReader(ParquetReader &reader, const ParquetColumnSchema &full_schema,
+	                     unique_ptr<ParquetColumnSchema> narrowed_schema_p, unique_ptr<ColumnReader> child_reader_p)
+	    : ColumnReader(reader, full_schema), narrowed_schema(std::move(narrowed_schema_p)),
+	      child_reader(std::move(child_reader_p)), read_cache(reader.allocator, child_reader->Type()),
+	      read_vector(read_cache) {
+	}
+
+	void InitializeRead(idx_t row_group_idx_p, const vector<ColumnChunk> &columns, TProtocol &protocol_p) override {
+		child_reader->InitializeRead(row_group_idx_p, columns, protocol_p);
+	}
+
+	idx_t Read(uint64_t num_values, data_ptr_t define_out, data_ptr_t repeat_out, Vector &result) override {
+		read_vector.ResetFromCache(read_cache);
+		auto amount = child_reader->Read(num_values, define_out, repeat_out, read_vector);
+		WidenInto(read_vector, result, amount);
+		return amount;
+	}
+
+	void Skip(idx_t num_values) override {
+		child_reader->Skip(num_values);
+	}
+	idx_t GroupRowsAvailable() override {
+		return child_reader->GroupRowsAvailable();
+	}
+	uint64_t TotalCompressedSize() override {
+		return child_reader->TotalCompressedSize();
+	}
+	idx_t FileOffset() const override {
+		return child_reader->FileOffset();
+	}
+	void RegisterPrefetch(ThriftFileTransport &transport, bool allow_merge) override {
+		child_reader->RegisterPrefetch(transport, allow_merge);
+	}
+
+private:
+	//! must outlive child_reader, which refers into it
+	unique_ptr<ParquetColumnSchema> narrowed_schema;
+	unique_ptr<ColumnReader> child_reader;
+	VectorCache read_cache;
+	Vector read_vector;
+};
+
+bool NarrowedReadEnabled(ClientContext &context) {
+	Value setting;
+	if (context.TryGetCurrentSetting("parquet_narrowed_nested_read", setting) && !setting.IsNull()) {
+		return BooleanValue::Get(setting);
+	}
+	return true;
+}
+
+//! The narrowed schema for a top-level column with a sub-field selection, or nullptr to read it as usual
+unique_ptr<ParquetColumnSchema> TryNarrowColumn(const ParquetColumnSchema &column, const ColumnIndex &index) {
+	if (!index.HasChildren() || index.IsPushdownExtract()) {
+		return nullptr;
+	}
+	auto narrowed = NarrowSchema(column, index.GetChildIndexes());
+	if (!narrowed || narrowed->type == column.type) {
+		return nullptr;
+	}
+	return narrowed;
+}
+
+} // namespace
 
 unique_ptr<ColumnReader> ParquetReader::CreateReaderRecursive(ClientContext &context,
                                                               const vector<ColumnIndex> &indexes,
@@ -623,11 +851,24 @@ unique_ptr<ColumnReader> ParquetReader::CreateReaderRecursive(ClientContext &con
 				    CreateReaderRecursive(context, indexes, child, PrenestChildPath(schema, child, path), prenest);
 			}
 		} else {
+			// top-level columns with a sub-field selection are read through a narrowed reader
+			bool narrow_columns = &schema == root_schema.get() && NarrowedReadEnabled(context);
 			for (idx_t i = 0; i < indexes.size(); i++) {
 				auto child_index = indexes[i].GetPrimaryIndex();
 				auto &child = schema.children[child_index];
-				children[child_index] = CreateReaderRecursive(context, indexes[i].GetChildIndexes(), child,
-				                                              PrenestChildPath(schema, child, path), prenest);
+				auto child_path = PrenestChildPath(schema, child, path);
+				if (narrow_columns) {
+					auto narrowed = TryNarrowColumn(child, indexes[i]);
+					if (narrowed) {
+						auto narrowed_reader =
+						    CreateReaderRecursive(context, vector<ColumnIndex>(), *narrowed, child_path, prenest);
+						children[child_index] = make_uniq<WideningColumnReader>(*this, child, std::move(narrowed),
+						                                                        std::move(narrowed_reader));
+						continue;
+					}
+				}
+				children[child_index] =
+				    CreateReaderRecursive(context, indexes[i].GetChildIndexes(), child, child_path, prenest);
 			}
 		}
 		switch (schema.type.id()) {

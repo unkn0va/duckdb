@@ -115,6 +115,11 @@ public:
 	//! the caller then keeps the stock path. Never throws.
 	bool Bind(ClientContext &context, const LogicalType &element_type);
 
+	//! After Bind() against the full element struct, re-point the predicate at a narrowed one whose child i
+	//! is child narrowed_from[i] of the full struct. Returns false if a referenced field is absent or its
+	//! type differs; the filter must then not be used.
+	bool RemapToNarrowed(ClientContext &context, const vector<idx_t> &narrowed_from, const LogicalType &narrowed_type);
+
 	//! Element-struct positions the predicate reads, for the "are those columns projected"
 	//! test - an unprojected child is a constant NULL vector.
 	const vector<idx_t> &FieldChildIndexes() const {
